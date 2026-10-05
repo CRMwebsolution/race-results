@@ -43,6 +43,17 @@ export async function registerTrackAction(
   });
 
   if (error) {
+    if (
+      error.message.includes("tracks_slug_key") ||
+      error.message.includes("duplicate key") ||
+      error.message.includes("Another track already has this URL") ||
+      error.code === "23505"
+    ) {
+      return {
+        error:
+          "Another track already has this URL, either change your shorthand name or remove it to use the full name.",
+      };
+    }
     return { error: error.message };
   }
 

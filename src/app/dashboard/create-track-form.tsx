@@ -1,29 +1,37 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { PlusCircle, Loader2, CheckCircle2 } from "lucide-react";
-import { createOrganizationAndTrack, type ActionState } from "./actions";
+import { PlusCircle, Loader2, CheckCircle2, Globe } from "lucide-react";
+import { registerTrackAction, type ActionState } from "./actions";
+import { generateTrackSlug } from "@/lib/slug";
 
 export function CreateTrackForm() {
   const [isOpen, setIsOpen] = useState(false);
+  const [trackName, setTrackName] = useState("");
+  const [shorthand, setShorthand] = useState("");
+
   const [state, formAction, isPending] = useActionState<ActionState, FormData>(
     async (prev, formData) => {
-      const res = await createOrganizationAndTrack(prev, formData);
+      const res = await registerTrackAction(prev, formData);
       if (res.success) {
         setIsOpen(false);
+        setTrackName("");
+        setShorthand("");
       }
       return res;
     },
     {}
   );
 
+  const previewSlug = generateTrackSlug(trackName, shorthand);
+
   return (
     <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-lg font-bold text-white">Register New Track & Organization</h3>
+          <h3 className="text-lg font-bold text-white">Register New Track</h3>
           <p className="text-sm text-slate-400">
-            Creates an organization, track profile, owner memberships, and an initial audit event in one transaction.
+            Configure your race venue, public link, and timezone.
           </p>
         </div>
         <button
@@ -38,7 +46,7 @@ export function CreateTrackForm() {
       {state.success && (
         <div className="mb-4 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm flex items-center space-x-2">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
-          <span>Track and organization created successfully!</span>
+          <span>Track registered successfully!</span>
         </div>
       )}
 
@@ -53,42 +61,30 @@ export function CreateTrackForm() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                Organization Name
-              </label>
-              <input
-                name="orgName"
-                type="text"
-                required
-                placeholder="e.g. Carolina Motorsports Group"
-                className="w-full px-4 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                Track Name
+                Track Name <span className="text-amber-400">*</span>
               </label>
               <input
                 name="trackName"
                 type="text"
                 required
+                value={trackName}
+                onChange={(e) => setTrackName(e.target.value)}
                 placeholder="e.g. Coastal Plains Raceway"
-                className="w-full px-4 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                className="w-full px-4 py-2.5 bg-slate-950/80 border border-slate-800 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50"
               />
             </div>
 
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                Track URL Slug
+                Shorthand Name <span className="text-slate-500 font-normal normal-case">(optional)</span>
               </label>
               <input
-                name="trackSlug"
+                name="shorthand"
                 type="text"
-                required
-                placeholder="e.g. coastal-plains"
-                pattern="^[a-z0-9-]+$"
-                title="Lowercase letters, numbers, and hyphens only"
-                className="w-full px-4 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                value={shorthand}
+                onChange={(e) => setShorthand(e.target.value)}
+                placeholder="e.g. CPR"
+                className="w-full px-4 py-2.5 bg-slate-950/80 border border-slate-800 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50"
               />
             </div>
 
@@ -99,7 +95,7 @@ export function CreateTrackForm() {
               <select
                 name="timezone"
                 defaultValue="America/New_York"
-                className="w-full px-4 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                className="w-full px-4 py-2.5 bg-slate-950/80 border border-slate-800 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50"
               >
                 <option value="America/New_York">Eastern Time (ET)</option>
                 <option value="America/Chicago">Central Time (CT)</option>
@@ -107,16 +103,33 @@ export function CreateTrackForm() {
                 <option value="America/Los_Angeles">Pacific Time (PT)</option>
               </select>
             </div>
+
+            {/* Live Auto-populated Slug Preview */}
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
+                Public Spectator URL
+              </label>
+              <div className="px-4 py-2.5 bg-slate-950/50 border border-slate-800 rounded-xl text-slate-400 text-sm flex items-center space-x-1.5 font-mono">
+                <Globe className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <span className="text-slate-500">/r/</span>
+                <span className="text-amber-400 font-semibold">{previewSlug || "your-track-slug"}</span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">
+                {shorthand.trim()
+                  ? "Auto-generated from shorthand name."
+                  : "Auto-generated from track name with hyphens."}
+              </p>
+            </div>
           </div>
 
           <div className="flex justify-end pt-2">
             <button
               type="submit"
-              disabled={isPending}
-              className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-sm transition flex items-center space-x-2 disabled:opacity-50"
+              disabled={isPending || !trackName.trim()}
+              className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-sm transition flex items-center space-x-2 disabled:opacity-50 shadow-md shadow-amber-500/20"
             >
               {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-              <span>{isPending ? "Creating Transaction..." : "Save Track & Organization"}</span>
+              <span>{isPending ? "Registering..." : "Register Track"}</span>
             </button>
           </div>
         </form>

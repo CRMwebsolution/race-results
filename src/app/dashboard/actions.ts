@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { generateTrackSlug } from "@/lib/slug";
 
 export type ActionState = {
   success?: boolean;
@@ -9,7 +10,7 @@ export type ActionState = {
   data?: unknown;
 };
 
-export async function createOrganizationAndTrack(
+export async function registerTrackAction(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
@@ -23,21 +24,22 @@ export async function createOrganizationAndTrack(
     return { error: "Authentication required" };
   }
 
-  const orgName = (formData.get("orgName") as string)?.trim();
   const trackName = (formData.get("trackName") as string)?.trim();
-  const trackSlug = (formData.get("trackSlug") as string)?.trim().toLowerCase();
+  const shorthand = (formData.get("shorthand") as string)?.trim() || null;
   const timezone = (formData.get("timezone") as string) || "America/New_York";
 
-  if (!orgName || !trackName || !trackSlug) {
-    return { error: "All fields are required" };
+  if (!trackName) {
+    return { error: "Track name is required" };
   }
 
-  const { data, error } = await supabase.rpc("create_organization_with_track", {
-    p_org_name: orgName,
-    p_billing_email: user.email ?? `${trackSlug}@example.com`,
+  // Auto-populate slug from shorthand if exists, otherwise from track name
+  const slug = generateTrackSlug(trackName, shorthand);
+
+  const { data, error } = await supabase.rpc("register_track", {
     p_track_name: trackName,
-    p_track_slug: trackSlug,
+    p_shorthand: shorthand,
     p_timezone: timezone,
+    p_slug: slug,
   });
 
   if (error) {
@@ -46,30 +48,4 @@ export async function createOrganizationAndTrack(
 
   revalidatePath("/dashboard");
   return { success: true, data };
-}
-
-export async function testTenantIsolation(targetOrgId: string) {
-  const supabase = await createClient();
-
-  // 1. Direct query against organizations table with RLS
-  const { data: orgData, error: orgError } = await supabase
-    .from("organizations")
-    .select("id, name, billing_email, created_at")
-    .eq("id", targetOrgId);
-
-  // 2. Direct query against tracks table with RLS
-  const { data: trackData, error: trackError } = await supabase
-    .from("tracks")
-    .select("id, organization_id, slug, name")
-    .eq("organization_id", targetOrgId);
-
-  return {
-    queriedId: targetOrgId,
-    orgsFound: orgData?.length ?? 0,
-    orgsData: orgData ?? [],
-    tracksFound: trackData?.length ?? 0,
-    tracksData: trackData ?? [],
-    rlsEnforced: true,
-    error: orgError?.message || trackError?.message || null,
-  };
 }

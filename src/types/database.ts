@@ -39,6 +39,7 @@ export type Database = {
           organization_id: string;
           slug: string;
           name: string;
+          shorthand: string | null;
           timezone: string;
           created_at: string;
           updated_at: string;
@@ -48,6 +49,7 @@ export type Database = {
           organization_id: string;
           slug: string;
           name: string;
+          shorthand?: string | null;
           timezone?: string;
           created_at?: string;
           updated_at?: string;
@@ -57,6 +59,7 @@ export type Database = {
           organization_id?: string;
           slug?: string;
           name?: string;
+          shorthand?: string | null;
           timezone?: string;
           created_at?: string;
           updated_at?: string;
@@ -219,6 +222,15 @@ export type Database = {
       is_org_member: {
         Args: { p_org_id: string };
         Returns: boolean;
+      };
+      register_track: {
+        Args: {
+          p_track_name: string;
+          p_shorthand?: string | null;
+          p_timezone?: string;
+          p_slug?: string | null;
+        };
+        Returns: Json;
       };
       create_organization_with_track: {
         Args: {

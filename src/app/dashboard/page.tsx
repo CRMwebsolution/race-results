@@ -1,9 +1,18 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Flag, Building2, MapPin, Shield, User, History } from "lucide-react";
+import { Flag, MapPin, Shield, User, ExternalLink, Calendar } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { CreateTrackForm } from "./create-track-form";
-import { TenantIsolationVerifier } from "./tenant-isolation-verifier";
+
+type TrackInfo = {
+  id: string;
+  organization_id: string;
+  name: string;
+  shorthand: string | null;
+  slug: string;
+  timezone: string;
+  created_at: string;
+};
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -16,24 +25,7 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  // 1. Fetch organization memberships with tenant-scoped RLS
-  const { data: orgMemberships } = await supabase
-    .from("organization_memberships")
-    .select(`
-      id,
-      role,
-      active,
-      created_at,
-      organizations (
-        id,
-        name,
-        billing_email,
-        created_at
-      )
-    `)
-    .order("created_at", { ascending: false });
-
-  // 2. Fetch track memberships with tenant-scoped RLS
+  // Fetch track memberships with tenant-scoped RLS
   const { data: trackMemberships } = await supabase
     .from("track_memberships")
     .select(`
@@ -45,6 +37,7 @@ export default async function DashboardPage() {
         id,
         organization_id,
         name,
+        shorthand,
         slug,
         timezone,
         created_at
@@ -52,16 +45,9 @@ export default async function DashboardPage() {
     `)
     .order("created_at", { ascending: false });
 
-  // 3. Fetch recent audit events accessible to the caller
-  const { data: auditLogs } = await supabase
-    .from("audit_events")
-    .select("id, action, target_type, target_id, created_at, after_data")
-    .order("created_at", { ascending: false })
-    .limit(5);
-
-  const accessibleOrgIds = (orgMemberships ?? [])
-    .map((m) => (m.organizations as { id: string } | null)?.id)
-    .filter((id): id is string => Boolean(id));
+  const validMemberships = (trackMemberships ?? []).filter(
+    (m): m is typeof m & { tracks: TrackInfo } => Boolean(m.tracks)
+  );
 
   return (
     <div className="flex-1 flex flex-col">
@@ -126,142 +112,76 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Create Track & Organization Form */}
+        {/* Register New Track Form */}
         <CreateTrackForm />
 
-        {/* Tenant Entities: Organizations & Tracks Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Organizations Column */}
-          <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
-            <div className="flex items-center space-x-2.5 mb-4">
-              <Building2 className="w-5 h-5 text-amber-500" />
-              <h2 className="text-base font-bold text-white">Your Organizations</h2>
-            </div>
-
-            {!orgMemberships || orgMemberships.length === 0 ? (
-              <p className="text-sm text-slate-500 py-4">
-                No organizations yet. Register your first track and organization above.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {orgMemberships.map((m) => {
-                  const org = m.organizations as {
-                    id: string;
-                    name: string;
-                    billing_email: string;
-                    created_at: string;
-                  } | null;
-                  if (!org) return null;
-                  return (
-                    <div
-                      key={m.id}
-                      className="p-4 rounded-xl bg-slate-950/60 border border-slate-800/80 flex items-center justify-between"
-                    >
-                      <div>
-                        <h4 className="font-semibold text-white text-sm">{org.name}</h4>
-                        <p className="text-xs text-slate-400 font-mono mt-0.5">
-                          {org.billing_email}
-                        </p>
-                        <p className="text-[11px] text-slate-500 font-mono mt-1">
-                          ID: {org.id}
-                        </p>
-                      </div>
-                      <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 capitalize">
-                        {m.role}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Tracks Column */}
-          <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
-            <div className="flex items-center space-x-2.5 mb-4">
-              <MapPin className="w-5 h-5 text-amber-500" />
-              <h2 className="text-base font-bold text-white">Your Tracks & Venues</h2>
-            </div>
-
-            {!trackMemberships || trackMemberships.length === 0 ? (
-              <p className="text-sm text-slate-500 py-4">
-                No tracks configured yet. Add your first track using the form above.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {trackMemberships.map((m) => {
-                  const track = m.tracks as {
-                    id: string;
-                    name: string;
-                    slug: string;
-                    timezone: string;
-                  } | null;
-                  if (!track) return null;
-                  return (
-                    <div
-                      key={m.id}
-                      className="p-4 rounded-xl bg-slate-950/60 border border-slate-800/80 flex items-center justify-between"
-                    >
-                      <div>
-                        <h4 className="font-semibold text-white text-sm">{track.name}</h4>
-                        <p className="text-xs text-amber-400 font-mono mt-0.5">
-                          /{track.slug} • {track.timezone}
-                        </p>
-                        <p className="text-[11px] text-slate-500 font-mono mt-1">
-                          ID: {track.id}
-                        </p>
-                      </div>
-                      <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 capitalize">
-                        {m.role}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Tenant Isolation Verification Component */}
-        <TenantIsolationVerifier userOrgs={accessibleOrgIds} />
-
-        {/* Audit Log Trail */}
+        {/* Tracks & Venues Section */}
         <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
-          <div className="flex items-center space-x-2.5 mb-4">
-            <History className="w-5 h-5 text-slate-400" />
-            <h2 className="text-base font-bold text-white">Recent Audit Events</h2>
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-2.5">
+              <MapPin className="w-5 h-5 text-amber-500" />
+              <h2 className="text-lg font-bold text-white">Your Tracks & Venues</h2>
+            </div>
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+              {validMemberships.length} {validMemberships.length === 1 ? "Track" : "Tracks"}
+            </span>
           </div>
 
-          {!auditLogs || auditLogs.length === 0 ? (
-            <p className="text-xs text-slate-500 py-2">
-              No audit events recorded for your organization yet.
-            </p>
+          {validMemberships.length === 0 ? (
+            <div className="text-center py-12 px-4 rounded-xl bg-slate-950/40 border border-dashed border-slate-800">
+              <MapPin className="w-10 h-10 text-slate-600 mx-auto mb-3" />
+              <h3 className="text-sm font-semibold text-slate-300">No race tracks configured yet</h3>
+              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                Register your first racing venue using the form above to start scoring events and publishing live spectator times.
+              </p>
+            </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-slate-800 text-slate-400">
-                    <th className="py-2.5 px-3">Action</th>
-                    <th className="py-2.5 px-3">Target</th>
-                    <th className="py-2.5 px-3">Timestamp</th>
-                    <th className="py-2.5 px-3">Details</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60 font-mono">
-                  {auditLogs.map((log) => (
-                    <tr key={log.id} className="text-slate-300 hover:bg-slate-950/40">
-                      <td className="py-2.5 px-3 text-amber-400 font-semibold">{log.action}</td>
-                      <td className="py-2.5 px-3">{log.target_type}</td>
-                      <td className="py-2.5 px-3 text-slate-500">
-                        {new Date(log.created_at).toLocaleString()}
-                      </td>
-                      <td className="py-2.5 px-3 text-slate-400 max-w-xs truncate">
-                        {JSON.stringify(log.after_data)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {validMemberships.map((membership) => {
+                const track = membership.tracks;
+                return (
+                  <div
+                    key={membership.id}
+                    className="p-5 rounded-xl bg-slate-950/70 border border-slate-800/90 hover:border-slate-700/80 transition flex flex-col justify-between space-y-4"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+                          <h4 className="font-bold text-white text-base">{track.name}</h4>
+                          {track.shorthand && (
+                            <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-400">
+                              {track.shorthand}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 capitalize shrink-0">
+                          {membership.role}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center space-x-2 text-xs text-slate-400 font-mono">
+                        <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                        <span>{track.timezone}</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between">
+                      <div className="text-xs font-mono text-slate-400 flex items-center space-x-1.5">
+                        <span className="text-slate-500">Live URL:</span>
+                        <span className="text-amber-400">/r/{track.slug}</span>
+                      </div>
+
+                      <Link
+                        href={`/r/${track.slug}`}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition flex items-center space-x-1.5 border border-slate-700"
+                      >
+                        <span>Spectator View</span>
+                        <ExternalLink className="w-3 h-3 text-slate-400" />
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

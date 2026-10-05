@@ -69,7 +69,7 @@ export default async function DashboardPage() {
       <header className="border-b border-slate-800 bg-slate-900/60 backdrop-blur sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <Link href="/" className="flex items-center space-x-2.5">
+            <Link href="/dashboard" className="flex items-center space-x-2.5">
               <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500">
                 <Flag className="w-4 h-4" />
               </div>
@@ -78,11 +78,17 @@ export default async function DashboardPage() {
               </span>
             </Link>
             <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
-              Phase One Scaffolding
+              Official Dashboard
             </span>
           </div>
 
           <div className="flex items-center space-x-4">
+            <Link
+              href="/"
+              className="text-xs font-medium text-slate-400 hover:text-white transition hidden sm:inline"
+            >
+              Public Site
+            </Link>
             <div className="hidden sm:flex items-center space-x-2 text-xs text-slate-400">
               <User className="w-3.5 h-3.5 text-slate-500" />
               <span className="font-mono">{user.email}</span>
@@ -110,12 +116,12 @@ export default async function DashboardPage() {
                 Race Official Dashboard
               </h1>
               <p className="text-sm text-slate-400 mt-1">
-                Authenticated as <span className="text-amber-400 font-mono">{user.email}</span> • Tenant isolation active
+                Signed in as <span className="text-amber-400 font-mono">{user.email}</span>
               </p>
             </div>
             <div className="flex items-center space-x-2 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-xl w-fit">
               <Shield className="w-3.5 h-3.5" />
-              <span>Row Level Security Enforced</span>
+              <span>Verified Official Access</span>
             </div>
           </div>
         </div>

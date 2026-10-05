@@ -35,17 +35,16 @@ export function TenantIsolationVerifier({ userOrgs }: { userOrgs: string[] }) {
         </div>
         <div>
           <h3 className="text-base font-bold text-white">
-            Tenant Isolation Verification Tool
+            Track Data Privacy & Isolation Test
           </h3>
           <p className="text-xs text-slate-400">
-            Tests direct SELECT queries against PostgreSQL with active user RLS session.
+            Verify that your track's data remains private and protected against other tracks and outside accounts.
           </p>
         </div>
       </div>
 
       <p className="text-xs text-slate-400 mb-4 leading-relaxed">
-        PostgreSQL Row-Level Security evaluates verified membership for <code className="text-amber-400">auth.uid()</code>.
-        Any attempt to query an organization or track the user is not a member of returns exactly 0 rows.
+        TrackScore enforces strict data boundaries for your official account. Any request to access another venue's private records or unassigned IDs returns zero rows.
       </p>
 
       <div className="flex flex-col sm:flex-row gap-2 mb-4">

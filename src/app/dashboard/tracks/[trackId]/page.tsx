@@ -1,3 +1,4 @@
+import { readAll } from "@/lib/read-all";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
@@ -20,11 +21,11 @@ export default async function TrackDashboardPage({ params }: { params: Promise<{
   if (!track) redirect("/dashboard");
 
   // Fetch events
-  const { data: events } = await supabase
+  const { data: events } = await readAll(supabase
     .from("events")
     .select("id, name, slug, local_date, status, published_revision")
     .eq("track_id", trackId)
-    .order("local_date", { ascending: false });
+    .order("local_date", { ascending: false }));
 
   return (
     <div className="flex-1 flex flex-col">

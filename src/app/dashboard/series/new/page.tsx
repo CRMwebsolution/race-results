@@ -1,3 +1,4 @@
+import { readAll } from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -13,10 +14,10 @@ export default async function NewSeriesPage({
   const supabase = await createClient();
 
   // Fetch user's organizations
-  const { data: myOrgs } = await supabase
+  const { data: myOrgs } = await readAll(supabase
     .from("organization_memberships")
     .select("organization_id, organizations(name)")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false }));
 
   const orgList = myOrgs?.map(o => ({
     id: o.organization_id,

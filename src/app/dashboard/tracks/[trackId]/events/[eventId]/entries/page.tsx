@@ -1,3 +1,4 @@
+import { readAll } from "@/lib/read-all";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
@@ -10,11 +11,11 @@ export default async function ManageEntriesPage({ params, searchParams }: { para
   const { error } = await searchParams;
   const supabase = await createClient();
 
-  const { data: classes } = await supabase
+  const { data: classes } = await readAll(supabase
     .from("event_classes")
     .select("id, name, order_num")
     .eq("event_id", eventId)
-    .order("order_num", { ascending: true });
+    .order("order_num", { ascending: true }));
 
   if (!classes || classes.length === 0) {
     return (
@@ -91,11 +92,11 @@ export default async function ManageEntriesPage({ params, searchParams }: { para
     redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries`);
   }
 
-  const { data: entries } = await supabase
+  const { data: entries } = await readAll(supabase
     .from("entries")
     .select("id, event_class_id, display_name, order_num, event_classes(name)")
     .in("event_class_id", classes.map(c => c.id))
-    .order("order_num", { ascending: true });
+    .order("order_num", { ascending: true }));
 
   // Group by class
   const groupedEntries = classes.map(c => ({

@@ -1,3 +1,4 @@
+import { readAll } from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -14,11 +15,11 @@ export default async function PublicSeasonStandings({
   const { data: track } = await supabase.from("tracks").select("id, name").eq("slug", slug).single();
   if (!track) notFound();
 
-  const { data: seasons } = await supabase
+  const { data: seasons } = await readAll(supabase
     .from("seasons")
     .select("*, season_events(count)")
     .eq("track_id", track.id)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false }));
 
   return (
     <div className="max-w-4xl mx-auto py-12 px-4 space-y-8">

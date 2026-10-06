@@ -1,3 +1,4 @@
+import { readAll } from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -18,24 +19,24 @@ export default async function PublicSeriesPage({ params }: { params: Promise<{ s
   const { data: promoterName } = await supabase.rpc("public_series_organization_name", { p_series_id: seriesId });
 
   // Fetch Events
-  const { data: events } = await supabase
+  const { data: events } = await readAll(supabase
     .from("events")
     .select("*, tracks(name, slug)")
     .eq("series_id", seriesId)
-    .order("local_date", { ascending: true });
+    .order("local_date", { ascending: true }));
 
   // Fetch Classes
-  const { data: classes } = await supabase
+  const { data: classes } = await readAll(supabase
     .from("series_classes")
     .select("*")
     .eq("series_id", seriesId)
-    .order("order_num", { ascending: true });
+    .order("order_num", { ascending: true }));
 
   // Fetch Rosters
-  const { data: roster } = await supabase
+  const { data: roster } = await readAll(supabase
     .from("series_rosters")
     .select("*")
-    .eq("series_id", seriesId);
+    .eq("series_id", seriesId));
 
   // Note: Full calculated standings across all events would require pulling all entries from all completed events 
   // and applying the series_points_rules and series_bonuses. For the initial phase, we display the master list

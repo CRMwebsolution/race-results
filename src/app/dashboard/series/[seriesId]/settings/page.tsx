@@ -1,11 +1,13 @@
+import { readAll } from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import { ArrowLeft, Save, Trash2 } from "lucide-react";
 import { redirect } from "next/navigation";
 
-export default async function SeriesSettingsPage({ params }: { params: Promise<{ seriesId: string }> }) {
+export default async function SeriesSettingsPage({ params, searchParams }: { params: Promise<{ seriesId: string }>; searchParams: Promise<{error?: string}> }) {
   const { seriesId } = await params;
+  const actionParams = await searchParams;
   const supabase = await createClient();
 
   const { data: series } = await supabase.from("series").select("*").eq("id", seriesId).single();
@@ -13,9 +15,9 @@ export default async function SeriesSettingsPage({ params }: { params: Promise<{
   if (!series) redirect("/dashboard");
 
   // Fetch organizations user is a member of to allow ownership transfer
-  const { data: memberships } = await supabase
+  const { data: memberships } = await readAll(supabase
     .from("organization_memberships")
-    .select("organizations(id, name)");
+    .select("organizations(id, name)"));
 
   async function updateSeries(formData: FormData) {
     "use server";
@@ -25,11 +27,12 @@ export default async function SeriesSettingsPage({ params }: { params: Promise<{
     
     const supabase = await createClient();
     
-    await supabase.from("series").update({
+    const { error: mutationError } = await supabase.from("series").update({
       name,
       description,
       organization_id: organizationId
     }).eq("id", seriesId);
+    if (mutationError) redirect(`/dashboard/series/${seriesId}/settings?error=${encodeURIComponent(mutationError.message)}`);
     
     revalidatePath(`/dashboard/series/${seriesId}`);
     revalidatePath(`/dashboard/series/${seriesId}/settings`);
@@ -40,7 +43,8 @@ export default async function SeriesSettingsPage({ params }: { params: Promise<{
     "use server";
     const supabase = await createClient();
     
-    await supabase.from("series").delete().eq("id", seriesId);
+    const { error: mutationError } = await supabase.from("series").delete().eq("id", seriesId);
+    if (mutationError) redirect(`/dashboard/series/${seriesId}/settings?error=${encodeURIComponent(mutationError.message)}`);
     
     revalidatePath("/dashboard");
     redirect("/dashboard");

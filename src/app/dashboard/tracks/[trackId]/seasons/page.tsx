@@ -1,3 +1,4 @@
+import { readAll } from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { Calendar, Plus } from "lucide-react";
@@ -6,11 +7,11 @@ export default async function SeasonsPage({ params }: { params: Promise<{ trackI
   const { trackId } = await params;
   const supabase = await createClient();
 
-  const { data: seasons } = await supabase
+  const { data: seasons } = await readAll(supabase
     .from("seasons")
     .select("*, season_events(count)")
     .eq("track_id", trackId)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false }));
 
   return (
     <div className="space-y-6">

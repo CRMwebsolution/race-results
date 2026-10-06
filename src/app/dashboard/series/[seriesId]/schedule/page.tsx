@@ -1,3 +1,4 @@
+import { readAll } from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
@@ -18,19 +19,19 @@ export default async function SeriesSchedulePage(props: {
   const { data: series } = await supabase.from("series").select("*").eq("id", seriesId).single();
   
   // Fetch events for this series
-  const { data: events } = await supabase
+  const { data: events } = await readAll(supabase
     .from("events")
     .select("*, tracks(id, name)")
     .eq("series_id", seriesId)
-    .order("local_date", { ascending: true });
+    .order("local_date", { ascending: true }));
 
   const eventToEdit = events?.find(e => e.id === editEventId);
 
   // Fetch tracks the user's organization owns
-  const { data: orgTracks } = await supabase
+  const { data: orgTracks } = await readAll(supabase
     .from("tracks")
     .select("id, name, slug")
-    .eq("organization_id", series?.organization_id || "");
+    .eq("organization_id", series?.organization_id || ""));
 
   async function addEventToSchedule(formData: FormData) {
     "use server";

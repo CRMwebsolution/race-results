@@ -96,3 +96,10 @@ To resume: work on main, inspect its latest remote head, read this file and `doc
 run `npm ci`, `npm run test:db`, `npm test`, `npm run typecheck` and `npm run build`. SQL test fixtures
 are wrapped in transactions and rolled back. The Postgres harness stubs Supabase Auth role functions
 and publication setup; it does not run a full Supabase stack.
+
+## Audit fixes 1–10: group 1 checkpoint
+
+- Live PostgREST reproduced PGRST201 for both series list embeds. Explicit composite FK hints return the saved roster/bonuses successfully.
+- Series mutations redirect with provider errors; dashboard has a retry boundary for failed reads/actions.
+- Shared paginated reads cover series, event scoring/finalization and public result inputs; failures reject partial data.
+- Validation: 37 unit tests, 20 migration replay, existing SQL suites, TypeScript/build, live anonymous API before/after query comparison. Authenticated browser workflows are reserved for group 10.

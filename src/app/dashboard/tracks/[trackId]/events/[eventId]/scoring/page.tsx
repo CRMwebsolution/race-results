@@ -1,3 +1,4 @@
+import { readAll } from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { ScoringWorkspace } from "./scoring-workspace";
@@ -30,11 +31,11 @@ export default async function EventScoringPage({
   const eventSlug = event.slug;
 
   // Fetch all classes
-  const { data: classes } = await supabase
+  const { data: classes } = await readAll(supabase
     .from("event_classes")
     .select("id, name, scoring_type, scoring_version, scoring_config, order_num")
     .eq("event_id", eventId)
-    .order("order_num", { ascending: true });
+    .order("order_num", { ascending: true }));
 
   if (!classes || classes.length === 0) {
     return (
@@ -46,18 +47,18 @@ export default async function EventScoringPage({
   }
 
   // Fetch all entries for these classes
-  const { data: entries } = await supabase
+  const { data: entries } = await readAll(supabase
     .from("entries")
     .select("id, event_class_id, display_name, seed, status, order_num")
     .in("event_class_id", classes.map(c => c.id))
-    .order("order_num", { ascending: true });
+    .order("order_num", { ascending: true }));
 
   // Fetch all attempts for these entries
-  const { data: attempts } = await supabase
+  const { data: attempts } = await readAll(supabase
     .from("attempts")
     .select("id, event_class_id, entry_id, ordinal, status, elapsed_ms, distance_mm, penalty_ms, raw_input, save_version")
     .in("event_class_id", classes.map(c => c.id))
-    .order("ordinal", { ascending: true });
+    .order("ordinal", { ascending: true }));
 
   return (
     <ScoringWorkspace

@@ -1,3 +1,4 @@
+import { readAll } from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
@@ -16,23 +17,23 @@ export default async function SeriesHubPage({ params }: { params: Promise<{ seri
 
   if (!series) notFound();
 
-  const { data: classes } = await supabase
+  const { data: classes } = await readAll(supabase
     .from("series_classes")
     .select("*")
     .eq("series_id", seriesId)
-    .order("order_num", { ascending: true });
+    .order("order_num", { ascending: true }));
 
-  const { data: events } = await supabase
+  const { data: events } = await readAll(supabase
     .from("events")
     .select("*, tracks(name)")
     .eq("series_id", seriesId)
-    .order("local_date", { ascending: true });
+    .order("local_date", { ascending: true }));
 
-  const { data: pointsRules } = await supabase
+  const { data: pointsRules } = await readAll(supabase
     .from("series_points_rules")
     .select("*")
     .eq("series_id", seriesId)
-    .order("rank_start", { ascending: true });
+    .order("rank_start", { ascending: true }));
 
   return (
     <div className="flex-1 max-w-6xl mx-auto w-full px-4 py-8 space-y-8">

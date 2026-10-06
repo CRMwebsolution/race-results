@@ -1,3 +1,4 @@
+import { readAll } from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -20,12 +21,12 @@ export default async function PublicTrackPage({
   if (!track) notFound();
 
   // Fetch published events
-  const { data: events } = await supabase
+  const { data: events } = await readAll(supabase
     .from("events")
     .select("id, name, slug, local_date, status")
     .eq("track_id", track.id)
     .in("status", ["scheduled", "live", "completed"])
-    .order("local_date", { ascending: false });
+    .order("local_date", { ascending: false }));
 
   if (!events || events.length === 0) {
     return (

@@ -1,31 +1,34 @@
+import { redirect } from "next/navigation";
+import { readAll } from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 
-export default async function SeriesPointsPage({ params }: { params: Promise<{ seriesId: string }> }) {
+export default async function SeriesPointsPage({ params, searchParams }: { params: Promise<{ seriesId: string }>; searchParams: Promise<{error?: string}> }) {
   const { seriesId } = await params;
+  const actionParams = await searchParams;
   const supabase = await createClient();
 
   const { data: series } = await supabase.from("series").select("*").eq("id", seriesId).single();
   
-  const { data: classes } = await supabase
+  const { data: classes } = await readAll(supabase
     .from("series_classes")
     .select("id, name")
     .eq("series_id", seriesId)
-    .order("order_num", { ascending: true });
+    .order("order_num", { ascending: true }));
 
-  const { data: pointsRules } = await supabase
+  const { data: pointsRules } = await readAll(supabase
     .from("series_points_rules")
     .select("*")
     .eq("series_id", seriesId)
-    .order("rank_start", { ascending: true });
+    .order("rank_start", { ascending: true }));
 
-  const { data: bonuses } = await supabase
+  const { data: bonuses } = await readAll(supabase
     .from("series_bonuses")
-    .select("*, series_classes(name)")
+    .select("*, series_classes!series_bonuses_class_scope_fkey(name)")
     .eq("series_id", seriesId)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true }));
 
   async function addPointsRule(formData: FormData) {
     "use server";
@@ -35,12 +38,13 @@ export default async function SeriesPointsPage({ params }: { params: Promise<{ s
     
     const supabase = await createClient();
     
-    await supabase.from("series_points_rules").insert({
+    const { error: mutationError } = await supabase.from("series_points_rules").insert({
       series_id: seriesId,
       rank_start: rankStart,
       rank_end: rankEnd,
       points: points
     });
+    if (mutationError) redirect(`/dashboard/series/${seriesId}/points?error=${encodeURIComponent(mutationError.message)}`);
     
     revalidatePath(`/dashboard/series/${seriesId}/points`);
     revalidatePath(`/dashboard/series/${seriesId}`);
@@ -50,7 +54,8 @@ export default async function SeriesPointsPage({ params }: { params: Promise<{ s
     "use server";
     const ruleId = formData.get("rule_id") as string;
     const supabase = await createClient();
-    await supabase.from("series_points_rules").delete().eq("id", ruleId).eq("series_id", seriesId);
+    const { error: mutationError } = await supabase.from("series_points_rules").delete().eq("id", ruleId).eq("series_id", seriesId);
+    if (mutationError) redirect(`/dashboard/series/${seriesId}/points?error=${encodeURIComponent(mutationError.message)}`);
     revalidatePath(`/dashboard/series/${seriesId}/points`);
     revalidatePath(`/dashboard/series/${seriesId}`);
   }
@@ -64,13 +69,14 @@ export default async function SeriesPointsPage({ params }: { params: Promise<{ s
     
     const supabase = await createClient();
     
-    await supabase.from("series_bonuses").insert({
+    const { error: mutationError } = await supabase.from("series_bonuses").insert({
       series_id: seriesId,
       bonus_type: bonusType,
       points: points,
       series_class_id: seriesClassId === "all" ? null : seriesClassId,
       frequency: frequency
     });
+    if (mutationError) redirect(`/dashboard/series/${seriesId}/points?error=${encodeURIComponent(mutationError.message)}`);
     
     revalidatePath(`/dashboard/series/${seriesId}/points`);
     revalidatePath(`/dashboard/series/${seriesId}`);
@@ -80,13 +86,15 @@ export default async function SeriesPointsPage({ params }: { params: Promise<{ s
     "use server";
     const bonusId = formData.get("bonus_id") as string;
     const supabase = await createClient();
-    await supabase.from("series_bonuses").delete().eq("id", bonusId).eq("series_id", seriesId);
+    const { error: mutationError } = await supabase.from("series_bonuses").delete().eq("id", bonusId).eq("series_id", seriesId);
+    if (mutationError) redirect(`/dashboard/series/${seriesId}/points?error=${encodeURIComponent(mutationError.message)}`);
     revalidatePath(`/dashboard/series/${seriesId}/points`);
     revalidatePath(`/dashboard/series/${seriesId}`);
   }
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 p-8">
+      {actionParams.error && <p role="alert" className="p-4 text-red-300 bg-red-950 rounded">{actionParams.error}</p>}
       <div className="flex items-center space-x-3">
         <Link 
           href={`/dashboard/series/${seriesId}`}

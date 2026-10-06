@@ -1,3 +1,4 @@
+import { readAll } from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
@@ -6,27 +7,28 @@ import { redirect } from "next/navigation";
 
 export default async function SeriesRosterPage(props: { 
   params: Promise<{ seriesId: string }>;
-  searchParams: Promise<{ edit_roster_id?: string }>;
+  searchParams: Promise<{ edit_roster_id?: string; error?: string }>;
 }) {
   const { seriesId } = await props.params;
   const searchParams = await props.searchParams;
+  const actionParams = searchParams;
   const editRosterId = searchParams?.edit_roster_id;
 
   const supabase = await createClient();
 
   const { data: series } = await supabase.from("series").select("*").eq("id", seriesId).single();
   
-  const { data: classes } = await supabase
+  const { data: classes } = await readAll(supabase
     .from("series_classes")
     .select("*")
     .eq("series_id", seriesId)
-    .order("order_num", { ascending: true });
+    .order("order_num", { ascending: true }));
 
-  const { data: roster } = await supabase
+  const { data: roster } = await readAll(supabase
     .from("series_rosters")
-    .select("*, series_classes(name)")
+    .select("*, series_classes!series_rosters_class_scope_fkey(name)")
     .eq("series_id", seriesId)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true }));
 
   const racerToEdit = roster?.find(r => r.id === editRosterId);
 
@@ -37,11 +39,12 @@ export default async function SeriesRosterPage(props: {
     
     const supabase = await createClient();
     
-    await supabase.from("series_rosters").insert({
+    const { error: mutationError } = await supabase.from("series_rosters").insert({
       series_id: seriesId,
       series_class_id: seriesClassId,
       display_name: displayName
     });
+    if (mutationError) redirect(`/dashboard/series/${seriesId}/roster?error=${encodeURIComponent(mutationError.message)}`);
     
     revalidatePath(`/dashboard/series/${seriesId}/roster`);
   }
@@ -54,10 +57,11 @@ export default async function SeriesRosterPage(props: {
     
     const supabase = await createClient();
     
-    await supabase.from("series_rosters").update({
+    const { error: mutationError } = await supabase.from("series_rosters").update({
       display_name: displayName,
       series_class_id: seriesClassId
     }).eq("id", rosterId).eq("series_id", seriesId);
+    if (mutationError) redirect(`/dashboard/series/${seriesId}/roster?error=${encodeURIComponent(mutationError.message)}`);
     
     revalidatePath(`/dashboard/series/${seriesId}/roster`);
     redirect(`/dashboard/series/${seriesId}/roster`);
@@ -69,7 +73,8 @@ export default async function SeriesRosterPage(props: {
     
     const supabase = await createClient();
     
-    await supabase.from("series_rosters").delete().eq("id", rosterId).eq("series_id", seriesId);
+    const { error: mutationError } = await supabase.from("series_rosters").delete().eq("id", rosterId).eq("series_id", seriesId);
+    if (mutationError) redirect(`/dashboard/series/${seriesId}/roster?error=${encodeURIComponent(mutationError.message)}`);
     
     revalidatePath(`/dashboard/series/${seriesId}/roster`);
     redirect(`/dashboard/series/${seriesId}/roster`);
@@ -90,6 +95,7 @@ export default async function SeriesRosterPage(props: {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 p-8">
+      {actionParams.error && <p role="alert" className="p-4 text-red-300 bg-red-950 rounded">{actionParams.error}</p>}
       <div className="flex items-center space-x-3">
         <Link 
           href={`/dashboard/series/${seriesId}`}

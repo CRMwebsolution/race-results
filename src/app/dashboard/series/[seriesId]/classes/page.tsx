@@ -1,23 +1,25 @@
+import { readAll } from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import { ArrowLeft, Plus, Edit2, Save, X, Trash2 } from "lucide-react";
 import { redirect } from "next/navigation";
 
-export default async function SeriesClassesPage(props: { params: Promise<{ seriesId: string }>, searchParams: Promise<{ edit_class_id?: string }> }) {
+export default async function SeriesClassesPage(props: { params: Promise<{ seriesId: string }>, searchParams: Promise<{ edit_class_id?: string; error?: string }> }) {
   const { seriesId } = await props.params;
   const searchParams = await props.searchParams;
+  const actionParams = searchParams;
   const editClassId = searchParams?.edit_class_id;
   
   const supabase = await createClient();
 
   const { data: series } = await supabase.from("series").select("*").eq("id", seriesId).single();
   
-  const { data: classes } = await supabase
+  const { data: classes } = await readAll(supabase
     .from("series_classes")
     .select("*")
     .eq("series_id", seriesId)
-    .order("order_num", { ascending: true });
+    .order("order_num", { ascending: true }));
 
   const classToEdit = classes?.find(c => c.id === editClassId);
 
@@ -32,13 +34,14 @@ export default async function SeriesClassesPage(props: { params: Promise<{ serie
     const { data: existing } = await supabase.from("series_classes").select("order_num").eq("series_id", seriesId).order("order_num", { ascending: false }).limit(1);
     const nextOrder = existing && existing.length > 0 ? existing[0].order_num + 1 : 1;
     
-    await supabase.from("series_classes").insert({
+    const { error: mutationError } = await supabase.from("series_classes").insert({
       series_id: seriesId,
       name,
       entry_fee_text: entryFeeText || null,
       rules_text: rulesText || null,
       order_num: nextOrder
     });
+    if (mutationError) redirect(`/dashboard/series/${seriesId}/classes?error=${encodeURIComponent(mutationError.message)}`);
     
     revalidatePath(`/dashboard/series/${seriesId}/classes`);
     revalidatePath(`/dashboard/series/${seriesId}`);
@@ -53,11 +56,12 @@ export default async function SeriesClassesPage(props: { params: Promise<{ serie
     
     const supabase = await createClient();
     
-    await supabase.from("series_classes").update({
+    const { error: mutationError } = await supabase.from("series_classes").update({
       name,
       entry_fee_text: entryFeeText || null,
       rules_text: rulesText || null,
     }).eq("id", id).eq("series_id", seriesId);
+    if (mutationError) redirect(`/dashboard/series/${seriesId}/classes?error=${encodeURIComponent(mutationError.message)}`);
     
     revalidatePath(`/dashboard/series/${seriesId}/classes`);
     revalidatePath(`/dashboard/series/${seriesId}`);
@@ -69,7 +73,8 @@ export default async function SeriesClassesPage(props: { params: Promise<{ serie
     const id = formData.get("class_id") as string;
     const supabase = await createClient();
 
-    await supabase.from("series_classes").delete().eq("id", id).eq("series_id", seriesId);
+    const { error: mutationError } = await supabase.from("series_classes").delete().eq("id", id).eq("series_id", seriesId);
+    if (mutationError) redirect(`/dashboard/series/${seriesId}/classes?error=${encodeURIComponent(mutationError.message)}`);
 
     revalidatePath(`/dashboard/series/${seriesId}/classes`);
     revalidatePath(`/dashboard/series/${seriesId}`);
@@ -78,6 +83,7 @@ export default async function SeriesClassesPage(props: { params: Promise<{ serie
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 p-8">
+      {actionParams.error && <p role="alert" className="p-4 text-red-300 bg-red-950 rounded">{actionParams.error}</p>}
       <div className="flex items-center space-x-3">
         <Link 
           href={`/dashboard/series/${seriesId}`}

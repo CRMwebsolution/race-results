@@ -1,3 +1,4 @@
+import { readAll } from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
@@ -15,17 +16,17 @@ export default async function ManageSeasonPage({ params }: { params: Promise<{ t
     .single();
 
   // Fetch linked events
-  const { data: seasonEvents } = await supabase
+  const { data: seasonEvents } = await readAll(supabase
     .from("season_events")
     .select("event_id, events(id, name, local_date, status)")
-    .eq("season_id", seasonId);
+    .eq("season_id", seasonId));
 
   // Fetch all track events to allow linking
-  const { data: allTrackEvents } = await supabase
+  const { data: allTrackEvents } = await readAll(supabase
     .from("events")
     .select("id, name, local_date, status")
     .eq("track_id", trackId)
-    .order("local_date", { ascending: false });
+    .order("local_date", { ascending: false }));
 
   const linkedEventIds = new Set(seasonEvents?.map(se => se.event_id) || []);
   const availableEvents = allTrackEvents?.filter(e => !linkedEventIds.has(e.id)) || [];

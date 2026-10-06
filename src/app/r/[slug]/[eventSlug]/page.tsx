@@ -1,3 +1,4 @@
+import { readAll } from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { LiveLeaderboard } from "./live-leaderboard";
@@ -29,11 +30,11 @@ export default async function PublicEventPage({
   if (!event) notFound();
 
   // Fetch all classes
-  const { data: classes } = await supabase
+  const { data: classes } = await readAll(supabase
     .from("event_classes")
     .select("id, name, scoring_type, scoring_version, scoring_config, order_num")
     .eq("event_id", event.id)
-    .order("order_num", { ascending: true });
+    .order("order_num", { ascending: true }));
 
   if (!classes || classes.length === 0) {
     return (
@@ -44,18 +45,18 @@ export default async function PublicEventPage({
   }
 
   // Fetch all entries for these classes
-  const { data: entries } = await supabase
+  const { data: entries } = await readAll(supabase
     .from("entries")
     .select("id, event_class_id, display_name, seed, order_num")
     .in("event_class_id", classes.map(c => c.id))
-    .order("order_num", { ascending: true });
+    .order("order_num", { ascending: true }));
 
   // Fetch all attempts for these entries
-  const { data: attempts } = await supabase
+  const { data: attempts } = await readAll(supabase
     .from("attempts")
     .select("id, event_class_id, entry_id, ordinal, status, elapsed_ms, distance_mm, penalty_ms, raw_input")
     .in("event_class_id", classes.map(c => c.id))
-    .order("ordinal", { ascending: true });
+    .order("ordinal", { ascending: true }));
 
   return (
     <LiveLeaderboard

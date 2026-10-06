@@ -1,3 +1,4 @@
+import { readAll } from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { Plus, Users, Timer, Settings, Trophy } from "lucide-react";
@@ -11,11 +12,11 @@ export default async function EventOverviewPage({
   const { trackId, eventId } = await params;
   const supabase = await createClient();
 
-  const { data: classes } = await supabase
+  const { data: classes } = await readAll(supabase
     .from("event_classes")
     .select("id, name, scoring_type, order_num")
     .eq("event_id", eventId)
-    .order("order_num", { ascending: true });
+    .order("order_num", { ascending: true }));
 
   const { data: entriesCount } = await supabase
     .from("entries")

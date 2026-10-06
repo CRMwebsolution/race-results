@@ -1,4 +1,5 @@
 "use server";
+import { readAll } from "@/lib/read-all";
 
 import { createClient } from "@/lib/supabase/server";
 import { scoreClass, rankEntries } from "@/scoring";
@@ -11,25 +12,25 @@ export async function finalizeEventStandings(eventId: string) {
 
   // Fetch one revision, then compare it inside the transaction after calculating.
   // 1. Fetch all classes
-  const { data: classes, error: classesError } = await supabase
+  const { data: classes, error: classesError } = await readAll(supabase
     .from("event_classes")
     .select("*")
-    .eq("event_id", eventId);
+    .eq("event_id", eventId));
 
   if (classesError) return { error: classesError.message };
   if (!classes) return { error: "Classes unavailable" };
 
   // 2. Fetch all entries
-  const { data: entries, error: entriesError } = classes.length ? await supabase
+  const { data: entries, error: entriesError } = classes.length ? await readAll(supabase
     .from("entries")
     .select("*")
-    .in("event_class_id", classes.map(c => c.id)) : { data: [], error: null };
+    .in("event_class_id", classes.map(c => c.id))) : { data: [], error: null };
 
   // 3. Fetch all attempts
-  const { data: attempts, error: attemptsError } = classes.length ? await supabase
+  const { data: attempts, error: attemptsError } = classes.length ? await readAll(supabase
     .from("attempts")
     .select("*")
-    .in("event_class_id", classes.map(c => c.id)) : { data: [], error: null };
+    .in("event_class_id", classes.map(c => c.id))) : { data: [], error: null };
 
   if (entriesError || attemptsError) return { error: entriesError?.message ?? attemptsError?.message };
 

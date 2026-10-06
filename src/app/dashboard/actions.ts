@@ -32,12 +32,12 @@ export async function registerTrackAction(
     return { error: "Track name is required" };
   }
 
-  // Auto-populate slug from shorthand if exists, otherwise from track name
   const slug = generateTrackSlug(trackName, shorthand);
+  const state = (formData.get("state") as string) || null;
 
   const { data, error } = await supabase.rpc("register_track", {
     p_track_name: trackName,
-    p_shorthand: shorthand,
+    p_shorthand: shorthand ?? undefined,
     p_timezone: timezone,
     p_slug: slug,
   });
@@ -55,6 +55,10 @@ export async function registerTrackAction(
       };
     }
     return { error: error.message };
+  }
+
+  if (state && data) {
+    await supabase.from("tracks").update({ state }).eq("id", data as string);
   }
 
   revalidatePath("/dashboard");

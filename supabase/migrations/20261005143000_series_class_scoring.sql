@@ -1,0 +1,1 @@
+alter table public.series_classes drop column scoring_type, drop column scoring_config;

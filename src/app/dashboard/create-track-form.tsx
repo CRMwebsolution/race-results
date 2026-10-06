@@ -104,6 +104,22 @@ export function CreateTrackForm() {
               </select>
             </div>
 
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
+                State
+              </label>
+              <select
+                name="state"
+                className="w-full px-4 py-2.5 bg-slate-950/80 border border-slate-800 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                defaultValue="TX"
+              >
+                <option value="">Select State</option>
+                {["AL", "AR", "CA", "FL", "GA", "IL", "IN", "KY", "LA", "MI", "MO", "MS", "NC", "NY", "OH", "OK", "PA", "SC", "TN", "TX", "VA"].map(st => (
+                  <option key={st} value={st}>{st}</option>
+                ))}
+              </select>
+            </div>
+
             {/* Live Auto-populated Slug Preview */}
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">

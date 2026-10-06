@@ -21,6 +21,7 @@ export type Score = {
   primary: number | null;
   direction: Direction;
   tieBreakers: number[];
+  tieBreakerDirection?: Direction;
   label: string;
   details: Record<string, unknown>;
 };
@@ -74,9 +75,12 @@ export function compareScores(a: Score, b: Score): number {
   // 4. Tiebreaker comparison
   const length = Math.max(a.tieBreakers.length, b.tieBreakers.length);
   for (let i = 0; i < length; i += 1) {
-    const valA = a.tieBreakers[i] ?? Number.MAX_SAFE_INTEGER;
-    const valB = b.tieBreakers[i] ?? Number.MAX_SAFE_INTEGER;
-    const diff = valA - valB;
+    const direction = a.tieBreakerDirection ?? "asc";
+    // A missing qualifying pass loses to a recorded tiebreaker in either direction.
+    const missing = direction === "asc" ? Number.MAX_SAFE_INTEGER : -Number.MAX_SAFE_INTEGER;
+    const valA = a.tieBreakers[i] ?? missing;
+    const valB = b.tieBreakers[i] ?? missing;
+    const diff = direction === "asc" ? valA - valB : valB - valA;
     if (diff !== 0) {
       return diff;
     }
@@ -124,7 +128,23 @@ export function compareRankedEntries<
  * Helper to compute adjusted elapsed time including penalties.
  */
 export function adjustedTime(attempt: Attempt): number | null {
-  return attempt.status === "valid" && attempt.elapsedMs != null
+  return attempt.status === "valid" && attempt.elapsedMs != null &&
+    Number.isInteger(attempt.elapsedMs) && attempt.elapsedMs > 0 &&
+    Number.isInteger(attempt.penaltyMs) && attempt.penaltyMs >= 0
     ? attempt.elapsedMs + (attempt.penaltyMs ?? 0)
     : null;
+}
+
+/** Shared competition ranks: equal complete scores share 1,1,3; ineligible entries have no rank. */
+export function rankEntries<T extends { score: Score; entryId: string; seed?: number | null; orderNum?: number }>(entries: T[]) {
+  const sorted = [...entries].sort(compareRankedEntries);
+  let lastRank: number | null = null;
+  return sorted.map((entry, index) => {
+    const equalPrevious = index > 0 && compareScores(entry.score, sorted[index - 1].score) === 0;
+    const rank = entry.score.eligible ? (equalPrevious ? lastRank : index + 1) : null;
+    lastRank = rank;
+    const tied = entry.score.eligible && (equalPrevious ||
+      (index + 1 < sorted.length && compareScores(entry.score, sorted[index + 1].score) === 0));
+    return { ...entry, rank, tied };
+  });
 }

@@ -1,35 +1,33 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { scoreFastestPass } from "@/scoring/fastest-pass";
-import { scoreCombinedTime } from "@/scoring/combined-time";
-import { scoreConsistency } from "@/scoring/consistency";
-import { scoreJudgedPoints } from "@/scoring/judged-points";
-import { scoreStoppedDistance } from "@/scoring/stopped-distance";
-import { compareRankedEntries, Score } from "@/scoring/types";
+import { scoreClass, rankEntries } from "@/scoring";
 
 export async function finalizeEventStandings(eventId: string) {
   const supabase = await createClient();
 
   // 1. Fetch all classes
-  const { data: classes } = await supabase
+  const { data: classes, error: classesError } = await supabase
     .from("event_classes")
     .select("*")
     .eq("event_id", eventId);
 
+  if (classesError) return { error: classesError.message };
   if (!classes || classes.length === 0) return { success: true };
 
   // 2. Fetch all entries
-  const { data: entries } = await supabase
+  const { data: entries, error: entriesError } = await supabase
     .from("entries")
     .select("*")
     .in("event_class_id", classes.map(c => c.id));
 
   // 3. Fetch all attempts
-  const { data: attempts } = await supabase
+  const { data: attempts, error: attemptsError } = await supabase
     .from("attempts")
     .select("*")
     .in("event_class_id", classes.map(c => c.id));
+
+  if (entriesError || attemptsError) return { error: entriesError?.message ?? attemptsError?.message };
 
   const updates: { id: string, final_rank: number | null }[] = [];
 
@@ -53,21 +51,7 @@ export async function finalizeEventStandings(eventId: string) {
           rawInput: a.raw_input
         }));
 
-      let score: Score;
-      const scoringTypeStr = cls.scoring_type as string;
-      if (scoringTypeStr === "consistency") {
-        const cnf = Object.keys(config).length > 0 ? config : { requiredOrdinals: [1, 2], decimals: 3 };
-        score = scoreConsistency(entryAttempts, cnf);
-      } else if (scoringTypeStr === "combined_time") {
-        const cnf = Object.keys(config).length > 0 ? config : { requiredPasses: 2 };
-        score = scoreCombinedTime(entryAttempts as any, cnf);
-      } else if (scoringTypeStr === "judged_points") {
-        score = scoreJudgedPoints(entryAttempts as any);
-      } else if (scoringTypeStr === "stopped_distance") {
-        score = scoreStoppedDistance(entryAttempts as any);
-      } else {
-        score = scoreFastestPass(entryAttempts);
-      }
+      const score = scoreClass(cls.scoring_type, entryAttempts, config, cls.scoring_version);
 
       return {
         entryId: entry.id,
@@ -77,19 +61,15 @@ export async function finalizeEventStandings(eventId: string) {
       };
     });
 
-    const sorted = [...entriesWithScore].sort(compareRankedEntries);
-    
-    // Assign ranks (1-indexed based on array position, ties aren't explicitly mapped differently here since points allocation usually requires strict tiebreakers anyway)
-    sorted.forEach((e, idx) => {
-       if (e.score.eligible) {
-          updates.push({ id: e.entryId, final_rank: idx + 1 });
-       }
-    });
+    const invalid = entriesWithScore.find(e => e.score.details.error);
+    if (invalid) return { error: String(invalid.score.details.error) };
+    rankEntries(entriesWithScore).forEach(e => updates.push({ id: e.entryId, final_rank: e.rank }));
   }
 
   // 5. Save all final_ranks back to DB
   for (const update of updates) {
-    await supabase.from("entries").update({ final_rank: update.final_rank }).eq("id", update.id);
+    const { error } = await supabase.from("entries").update({ final_rank: update.final_rank }).eq("id", update.id);
+    if (error) return { error: error.message };
   }
 
   return { success: true };

@@ -31,7 +31,7 @@ export default async function PublicEventPage({
   // Fetch all classes
   const { data: classes } = await supabase
     .from("event_classes")
-    .select("id, name, scoring_type, scoring_config, order_num")
+    .select("id, name, scoring_type, scoring_version, scoring_config, order_num")
     .eq("event_id", event.id)
     .order("order_num", { ascending: true });
 

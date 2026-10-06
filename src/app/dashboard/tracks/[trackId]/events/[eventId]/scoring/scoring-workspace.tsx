@@ -3,16 +3,12 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { saveAttempt, publishRevision } from "./actions";
 import { parseAttemptInput, ParsedAttempt } from "@/scoring/parser";
-import { scoreFastestPass } from "@/scoring/fastest-pass";
-import { scoreConsistency } from "@/scoring/consistency";
-import { scoreCombinedTime } from "@/scoring/combined-time";
-import { scoreJudgedPoints } from "@/scoring/judged-points";
-import { compareRankedEntries, Score } from "@/scoring/types";
+import { scoreClass, rankEntries, compareRankedEntries } from "@/scoring";
 import { CheckCircle2, AlertCircle, Loader2, Download, Printer, ExternalLink, Users } from "lucide-react";
 import Link from "next/link";
 
 type EventType = { id: string; name: string; working_revision: number };
-type ClassType = { id: string; name: string; scoring_type: string; scoring_config: any; order_num: number };
+type ClassType = { id: string; name: string; scoring_type: string; scoring_version?: number; scoring_config: any; order_num: number };
 type EntryType = { id: string; event_class_id: string; display_name: string; seed: number | null; order_num: number };
 type AttemptType = { id: string; event_class_id: string; entry_id: string; ordinal: number; status: string; elapsed_ms: number | null; distance_mm: number | null; penalty_ms: number; raw_input: string | null };
 
@@ -48,6 +44,7 @@ export function ScoringWorkspace({
   const [activeClassId, setActiveClassId] = useState<string>(classes[0]?.id || "");
   const [localAttempts, setLocalAttempts] = useState<AttemptType[]>(initialAttempts);
   const [pendingSaves, setPendingSaves] = useState(0);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [visibleColumns, setVisibleColumns] = useState(2);
 
   // Sync when initial data changes from server revalidation
@@ -78,19 +75,7 @@ export function ScoringWorkspace({
           rawInput: a.raw_input,
         }));
 
-      let score: Score;
-      if (activeClass.scoring_type === "consistency") {
-        const config = activeClass.scoring_config && Object.keys(activeClass.scoring_config).length > 0 ? activeClass.scoring_config : { requiredOrdinals: [1, 2], decimals: 3 };
-        score = scoreConsistency(entryAttempts, config);
-      } else if (activeClass.scoring_type === "combined_time") {
-        const config = activeClass.scoring_config && Object.keys(activeClass.scoring_config).length > 0 ? activeClass.scoring_config : { requiredPasses: 2 };
-        score = scoreCombinedTime(entryAttempts as any, config);
-      } else if (activeClass.scoring_type === "judged_points") {
-        score = scoreJudgedPoints(entryAttempts as any);
-      } else {
-        // default to fastest_pass
-        score = scoreFastestPass(entryAttempts);
-      }
+      const score = scoreClass(activeClass.scoring_type, entryAttempts, activeClass.scoring_config, activeClass.scoring_version);
 
       return {
         entry,
@@ -102,43 +87,19 @@ export function ScoringWorkspace({
       };
     });
 
-    // 1. Sort a copy by score to determine absolute ranks
-    const sortedForRank = [...entriesWithScore].sort(compareRankedEntries);
-    const rankMap = new Map<string, number | string>();
-    
-    let currentRank = 1;
-    for (let i = 0; i < sortedForRank.length; i++) {
-      const curr = sortedForRank[i];
-      if (i > 0) {
-        const prev = sortedForRank[i - 1];
-        // Check for TRUE score tie, ignoring entry ID and order Num
-        if (curr.score.primary === prev.score.primary && curr.score.eligible && prev.score.eligible && curr.score.tieBreakers[0] === prev.score.tieBreakers[0]) {
-           // Tie!
-           rankMap.set(curr.entryId, "TIE");
-           // Update previous to also say tie if it wasn't already
-           rankMap.set(prev.entryId, "TIE");
-        } else {
-           currentRank = i + 1;
-           rankMap.set(curr.entryId, currentRank);
-        }
-      } else {
-        rankMap.set(curr.entryId, currentRank);
-      }
-    }
+    return rankEntries(entriesWithScore).sort((a, b) => a.orderNum - b.orderNum);
 
-    // 2. Sort the actual list by entry order (driver registration order)
-    entriesWithScore.sort((a, b) => a.orderNum - b.orderNum);
-
-    return entriesWithScore.map((item) => ({
-      ...item,
-      rank: rankMap.get(item.entryId) || "-",
-    }));
   }, [activeClass, activeEntries, localAttempts]);
 
   const handleInputBlur = async (entryId: string, ordinal: number, rawInput: string) => {
     if (!activeClass) return;
 
     const parsed: ParsedAttempt = parseAttemptInput(rawInput, 0);
+    if (parsed.error) {
+      setSaveError(parsed.error);
+      return;
+    }
+    setSaveError(null);
 
     // Optimistically update local state
     setLocalAttempts((prev) => {
@@ -189,9 +150,9 @@ export function ScoringWorkspace({
   const handleExportCSV = () => {
     if (!activeClass) return;
     const header = "Rank,Draw #,Racer,Score,Ties\n";
-    const rows = rankedEntries.map(r => {
-      const rowRank = r.rank === "TIE" ? "TIE" : r.rank;
-      return `${rowRank},${r.orderNum},"${r.entry.display_name}","${r.score.label}","${r.score.tieBreakers.join(", ")}"`;
+    const rows = [...rankedEntries].sort(compareRankedEntries).map(r => {
+      const rowRank = r.rank == null ? "-" : r.tied ? `T${r.rank}` : r.rank;
+      return `${rowRank},${r.orderNum},"${r.entry.display_name.replaceAll('"','""')}","${r.score.label}","${r.score.tieBreakers.join(", ")}"`;
     }).join("\n");
     
     const csv = header + rows;
@@ -271,6 +232,7 @@ export function ScoringWorkspace({
       </div>
 
       {/* Grid */}
+      {saveError && <p role="alert" className="p-4 text-red-400">{saveError}</p>}
       <div className="flex-1 overflow-auto bg-[#0B1120] p-4 print:hidden">
         <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg">
           <table className="w-full text-left text-sm text-slate-300">
@@ -304,12 +266,12 @@ export function ScoringWorkspace({
                             ? "bg-slate-300 text-slate-800"
                             : row.rank === 3 && row.score.eligible
                             ? "bg-amber-700 text-white"
-                            : row.rank === "TIE"
+                            : row.tied
                             ? "bg-blue-500 text-blue-950"
                             : "bg-slate-800 text-slate-400"
                         }`}
                       >
-                        {row.rank}
+                        {row.rank == null ? "-" : row.tied ? `T${row.rank}` : row.rank}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-center text-slate-500 font-mono text-xs">
@@ -376,15 +338,10 @@ export function ScoringWorkspace({
           </thead>
           <tbody className="divide-y divide-gray-300">
             {[...rankedEntries]
-              .sort((a, b) => {
-                 // Sort strictly by rank numbers. Put TIE, DNF, etc at the bottom appropriately.
-                 const rankA = typeof a.rank === 'number' ? a.rank : 999;
-                 const rankB = typeof b.rank === 'number' ? b.rank : 999;
-                 return rankA - rankB;
-              })
+              .sort(compareRankedEntries)
               .map((row) => (
               <tr key={row.entryId}>
-                <td className="py-2 pr-4 font-bold">{row.rank}</td>
+                <td className="py-2 pr-4 font-bold">{row.rank == null ? "-" : row.tied ? `T${row.rank}` : row.rank}</td>
                 <td className="py-2 pr-4 text-gray-500">{row.orderNum !== 999 ? row.orderNum : "-"}</td>
                 <td className="py-2 pr-4 font-medium">{row.entry.display_name}</td>
                 <td className="py-2 text-right font-mono font-bold">

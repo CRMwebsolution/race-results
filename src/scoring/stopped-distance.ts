@@ -39,6 +39,7 @@ export function scoreStoppedDistance(
     group: "distance",
     primary: best,
     direction: "desc",
+    tieBreakerDirection: "desc",
     tieBreakers,
     label: `${feet} ft`,
     details: {

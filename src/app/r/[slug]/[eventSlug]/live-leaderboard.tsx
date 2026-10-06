@@ -2,16 +2,12 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { scoreFastestPass } from "@/scoring/fastest-pass";
-import { scoreConsistency } from "@/scoring/consistency";
-import { scoreCombinedTime } from "@/scoring/combined-time";
-import { scoreJudgedPoints } from "@/scoring/judged-points";
-import { compareRankedEntries, Score } from "@/scoring/types";
+import { scoreClass, rankEntries, compareRankedEntries } from "@/scoring";
 import { Loader2, RefreshCw, Printer } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 type EventType = { id: string; name: string; status: string; published_revision: number | null };
-type ClassType = { id: string; name: string; scoring_type: string; scoring_config: any; order_num: number };
+type ClassType = { id: string; name: string; scoring_type: string; scoring_version?: number; scoring_config: any; order_num: number };
 type EntryType = { id: string; event_class_id: string; display_name: string; seed: number | null; order_num: number };
 type AttemptType = { id: string; event_class_id: string; entry_id: string; ordinal: number; status: string; elapsed_ms: number | null; distance_mm: number | null; penalty_ms: number; raw_input: string | null };
 
@@ -105,18 +101,7 @@ export function LiveLeaderboard({
           rawInput: a.raw_input,
         }));
 
-      let score: Score;
-      if (activeClass.scoring_type === "consistency") {
-        const config = activeClass.scoring_config && Object.keys(activeClass.scoring_config).length > 0 ? activeClass.scoring_config : { requiredOrdinals: [1, 2], decimals: 3 };
-        score = scoreConsistency(entryAttempts, config);
-      } else if (activeClass.scoring_type === "combined_time") {
-        const config = activeClass.scoring_config && Object.keys(activeClass.scoring_config).length > 0 ? activeClass.scoring_config : { requiredPasses: 2 };
-        score = scoreCombinedTime(entryAttempts as any, config);
-      } else if (activeClass.scoring_type === "judged_points") {
-        score = scoreJudgedPoints(entryAttempts as any);
-      } else {
-        score = scoreFastestPass(entryAttempts);
-      }
+      const score = scoreClass(activeClass.scoring_type, entryAttempts, activeClass.scoring_config, activeClass.scoring_version);
 
       return {
         entry,
@@ -128,35 +113,8 @@ export function LiveLeaderboard({
       };
     });
 
-    // 1. Sort a copy by score to determine absolute ranks
-    const sortedForRank = [...entriesWithScore].sort(compareRankedEntries);
-    const rankMap = new Map<string, number | string>();
-    
-    let currentRank = 1;
-    for (let i = 0; i < sortedForRank.length; i++) {
-      const curr = sortedForRank[i];
-      if (i > 0) {
-        const prev = sortedForRank[i - 1];
-        // Check for TRUE score tie, ignoring entry ID and order Num
-        if (curr.score.primary === prev.score.primary && curr.score.eligible && prev.score.eligible && curr.score.tieBreakers[0] === prev.score.tieBreakers[0]) {
-           rankMap.set(curr.entryId, "TIE");
-           rankMap.set(prev.entryId, "TIE");
-        } else {
-           currentRank = i + 1;
-           rankMap.set(curr.entryId, currentRank);
-        }
-      } else {
-        rankMap.set(curr.entryId, currentRank);
-      }
-    }
+    return rankEntries(entriesWithScore);
 
-    // 2. Sort the actual list by entry order (driver registration order)
-    entriesWithScore.sort((a, b) => a.orderNum - b.orderNum);
-
-    return entriesWithScore.map((item) => ({
-      ...item,
-      rank: rankMap.get(item.entryId) || "-",
-    }));
   }, [activeClass, activeEntries, initialAttempts]);
 
   return (
@@ -233,12 +191,12 @@ export function LiveLeaderboard({
                         ? "bg-slate-300 text-slate-800"
                         : row.rank === 3 && row.score.eligible
                         ? "bg-amber-700 text-white"
-                        : row.rank === "TIE"
+                        : row.tied
                         ? "bg-blue-500 text-blue-950"
                         : "bg-slate-800 text-slate-400"
                     }`}
                   >
-                    {row.rank}
+                    {row.rank == null ? "-" : row.tied ? `T${row.rank}` : row.rank}
                   </span>
                 </div>
                 
@@ -283,14 +241,10 @@ export function LiveLeaderboard({
           </thead>
           <tbody className="divide-y divide-gray-300">
             {[...rankedEntries]
-              .sort((a, b) => {
-                 const rankA = typeof a.rank === 'number' ? a.rank : 999;
-                 const rankB = typeof b.rank === 'number' ? b.rank : 999;
-                 return rankA - rankB;
-              })
+              .sort(compareRankedEntries)
               .map((row) => (
               <tr key={row.entryId}>
-                <td className="py-2 pr-4 font-bold">{row.rank}</td>
+                <td className="py-2 pr-4 font-bold">{row.rank == null ? "-" : row.tied ? `T${row.rank}` : row.rank}</td>
                 <td className="py-2 pr-4 text-gray-500">{row.orderNum !== 999 ? row.orderNum : "-"}</td>
                 <td className="py-2 pr-4 font-medium">{row.entry.display_name}</td>
                 <td className="py-2 text-right font-mono font-bold">

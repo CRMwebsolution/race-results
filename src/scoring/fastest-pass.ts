@@ -62,6 +62,7 @@ export function scoreFastestPass(
       group: "distance",
       primary: bestDistance,
       direction: "desc", // Greater distance is better
+      tieBreakerDirection: "desc",
       tieBreakers,
       label: `${feet} ft`,
       details: {

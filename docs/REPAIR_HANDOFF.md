@@ -35,8 +35,19 @@ TypeScript, production build, and diff checks. PGlite uses Auth role stubs, not 
 
 ## Remaining groups
 
-3. Correct penalties, distance tiebreakers, parsing, and shared scoring/rank handling.
 4. Make saves/revisions atomic, expose accurate save/error feedback, and recover missed live updates.
+
+## Group 3: Scoring and ranks
+
+- Combined times include penalties and reject invalid pass counts; partial configs retain defaults.
+- Distance secondary passes rank greater distances first, with missing passes last.
+- One versioned dispatcher rejects unimplemented formats/versions instead of silently using fastest pass.
+- One competition-rank helper uses all sporting tiebreakers; true ties share numeric ranks (1,1,3), and ineligible entries are unranked.
+- Spectator lists, CSV and print outputs follow scoring order; the scoring desk retains draw order.
+- The parser preserves original input, supports feet plus inches, and returns validation errors for zero times, invalid text and numeric overflow.
+- Finalization uses shared ranks, clears stale ranks on ineligible entries, and checks query/write errors; atomic finalization is addressed in group 4.
+
+Validation: 30 tests including new regression cases, TypeScript, production build and diff checks.
 
 Billing and self-serve registration remain Phase 4 work. Series standings integration, immutable
 official snapshots, full tier controls, and real-browser/end-to-end validation remain separate work.

@@ -10,7 +10,6 @@ export default async function AdminOrganizationsPage() {
     .select(`
       id, 
       name, 
-      stripe_subscription_status,
       tracks (id, name)
     `)
     .order("name", { ascending: true });
@@ -49,18 +48,14 @@ export default async function AdminOrganizationsPage() {
                   </div>
                 </td>
                 <td className="px-6 py-4">
-                  <span className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-widest ${
-                    org.stripe_subscription_status === 'active' 
-                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                      : 'bg-slate-800 text-slate-400 border border-slate-700'
-                  }`}>
-                    {org.stripe_subscription_status || 'Free / None'}
+                  <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-widest bg-slate-800 text-slate-400 border border-slate-700">
+                    Billing setup pending
                   </span>
                 </td>
                 <td className="px-6 py-4 text-right">
-                  <button className="text-slate-400 hover:text-white transition flex items-center justify-end space-x-2 w-full">
+                  <button disabled title="Tier controls are not implemented yet" className="text-slate-500 flex items-center justify-end space-x-2 w-full cursor-not-allowed">
                     <CreditCard className="w-4 h-4" />
-                    <span className="text-xs font-semibold">Edit Limits</span>
+                    <span className="text-xs font-semibold">Limits pending</span>
                   </button>
                 </td>
               </tr>

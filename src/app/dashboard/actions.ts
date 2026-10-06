@@ -35,11 +35,12 @@ export async function registerTrackAction(
   const slug = generateTrackSlug(trackName, shorthand);
   const state = (formData.get("state") as string) || null;
 
-  const { data, error } = await supabase.rpc("register_track", {
+  const { data, error } = await supabase.rpc("register_track_with_state", {
     p_track_name: trackName,
     p_shorthand: shorthand ?? undefined,
     p_timezone: timezone,
     p_slug: slug,
+    p_state: state ?? undefined,
   });
 
   if (error) {
@@ -55,10 +56,6 @@ export async function registerTrackAction(
       };
     }
     return { error: error.message };
-  }
-
-  if (state && data) {
-    await supabase.from("tracks").update({ state }).eq("id", data as string);
   }
 
   revalidatePath("/dashboard");

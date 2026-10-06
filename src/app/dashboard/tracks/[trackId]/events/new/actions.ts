@@ -38,22 +38,6 @@ export async function createEvent(trackId: string, formData: FormData) {
     return { error: "Failed to create event: " + error.message };
   }
 
-  // Fetch track's default classes
-  const { data: track } = await supabase.from("tracks").select("default_classes").eq("id", trackId).single();
-  
-  if (track && track.default_classes && Array.isArray(track.default_classes) && track.default_classes.length > 0) {
-    // Insert default classes
-    const classes = track.default_classes as {name: string, type: string}[];
-    const classesToInsert = classes.map((cls, index) => ({
-      event_id: eventId,
-      track_id: trackId,
-      name: cls.name,
-      scoring_type: cls.type as any,
-      order_num: index + 1,
-    }));
-    await supabase.from("event_classes").insert(classesToInsert);
-  }
-
   revalidatePath(`/dashboard/tracks/${trackId}`);
   redirect(`/dashboard/tracks/${trackId}/events/${eventId}`);
 }

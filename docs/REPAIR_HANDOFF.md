@@ -18,9 +18,23 @@ Validation: 23 existing tests, TypeScript, production build, diff checks; live r
 tested owner, official, member, outsider, platform-admin, and anonymous roles before and after
 applying the migration. Fixtures were rolled back, including Auth users.
 
+## Group 2: Schema consistency
+
+- Captured the live series-creation RPC and Auth profile trigger in migrations.
+- Retained legacy season tables and policies additively, preserving existing data.
+- Added missing bonus timestamps and fixed the damaged historical final-rank migration.
+- Track creation saves state atomically; event creation copies default classes atomically.
+- Enforced event/series organization scope and roster/bonus class scope in Postgres.
+- Revoked client access to retired SECURITY DEFINER RPCs without deleting their definitions.
+- Replaced the nonexistent billing-status query with an explicit pending state and fixed public event links.
+- Regenerated database types from the live project; added `npm run test:db` for full migration replay.
+
+Validation: empty Postgres replay, live rollback workflows (Auth profile creation, registration state,
+series creation, event defaults, rejected foreign scopes and unauthorized creation), unit tests,
+TypeScript, production build, and diff checks. PGlite uses Auth role stubs, not the Supabase HTTP API.
+
 ## Remaining groups
 
-2. Reconcile source migrations with live definitions, fix missing-column queries and registration state.
 3. Correct penalties, distance tiebreakers, parsing, and shared scoring/rank handling.
 4. Make saves/revisions atomic, expose accurate save/error feedback, and recover missed live updates.
 

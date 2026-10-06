@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
+    "test:db": "node scripts/test-database.mjs",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
   },
@@ -23,6 +24,7 @@
     "tailwind-merge": "3.0.2"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.3.14",
     "@types/node": "22.13.4",
     "@types/react": "19.0.8",
     "@types/react-dom": "19.0.3",

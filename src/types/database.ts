@@ -619,6 +619,7 @@ export type Database = {
       series_bonuses: {
         Row: {
           bonus_type: string
+          created_at: string
           frequency: string
           id: string
           points: number
@@ -627,6 +628,7 @@ export type Database = {
         }
         Insert: {
           bonus_type: string
+          created_at?: string
           frequency?: string
           id?: string
           points: number
@@ -635,6 +637,7 @@ export type Database = {
         }
         Update: {
           bonus_type?: string
+          created_at?: string
           frequency?: string
           id?: string
           points?: number
@@ -642,6 +645,13 @@ export type Database = {
           series_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "series_bonuses_class_scope_fkey"
+            columns: ["series_id", "series_class_id"]
+            isOneToOne: false
+            referencedRelation: "series_classes"
+            referencedColumns: ["series_id", "id"]
+          },
           {
             foreignKeyName: "series_bonuses_series_class_id_fkey"
             columns: ["series_class_id"]
@@ -751,6 +761,13 @@ export type Database = {
           series_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "series_rosters_class_scope_fkey"
+            columns: ["series_id", "series_class_id"]
+            isOneToOne: false
+            referencedRelation: "series_classes"
+            referencedColumns: ["series_id", "id"]
+          },
           {
             foreignKeyName: "series_rosters_competitor_id_fkey"
             columns: ["competitor_id"]
@@ -864,10 +881,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      public_series_organization_name: {
-        Args: { p_series_id: string }
-        Returns: string
-      }
       admin_reorder_categories: { Args: { p_slugs: string[] }; Returns: Json }
       admin_set_user_admin: {
         Args: { p_is_admin: boolean; p_user_id: string }
@@ -879,6 +892,7 @@ export type Database = {
       }
       archive_event_secure: { Args: { p_event_id: string }; Returns: Json }
       can_edit_track: { Args: { p_track_id: string }; Returns: boolean }
+      can_manage_track: { Args: { p_track_id: string }; Returns: boolean }
       can_view_track: { Args: { p_track_id: string }; Returns: boolean }
       cancel_rsvp: { Args: { p_rsvp_id: string }; Returns: Json }
       create_event_secure: {
@@ -932,6 +946,10 @@ export type Database = {
       is_org_admin: { Args: { p_org_id: string }; Returns: boolean }
       is_org_member: { Args: { p_org_id: string }; Returns: boolean }
       is_platform_admin: { Args: never; Returns: boolean }
+      public_series_organization_name: {
+        Args: { p_series_id: string }
+        Returns: string
+      }
       redeem_event_pass_for_event: {
         Args: { p_event_id: string }
         Returns: string
@@ -940,6 +958,16 @@ export type Database = {
         Args: {
           p_shorthand?: string
           p_slug?: string
+          p_timezone?: string
+          p_track_name: string
+        }
+        Returns: Json
+      }
+      register_track_with_state: {
+        Args: {
+          p_shorthand?: string
+          p_slug?: string
+          p_state?: string
           p_timezone?: string
           p_track_name: string
         }

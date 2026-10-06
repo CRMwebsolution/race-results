@@ -124,7 +124,7 @@ export default async function PublicSeriesPage({ params }: { params: Promise<{ s
                   <div>
                     {ev.status === "completed" ? (
                       <Link 
-                        href={`/r/${(ev.tracks as any).slug}/${ev.slug || ev.id}/standings`}
+                        href={`/r/${(ev.tracks as any).slug}/${ev.slug}`}
                         className="inline-block bg-slate-800 hover:bg-slate-700 text-white font-bold py-2 px-6 rounded-xl transition border border-slate-700 w-full text-center"
                       >
                         View Results

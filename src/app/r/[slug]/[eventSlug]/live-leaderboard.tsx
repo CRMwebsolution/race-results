@@ -176,7 +176,7 @@ export function LiveLeaderboard({
             </div>
           ) : (
             displayRows.map((row) => (
-              <div key={row.entryId} className="p-4 flex items-center space-x-4 hover:bg-slate-800/30 transition">
+              <div data-testid="result-row" data-entry-id={row.entryId} key={row.entryId} className="p-4 flex items-center space-x-4 hover:bg-slate-800/30 transition">
                 <div className="w-10 flex-shrink-0 flex justify-center">
                   <span
                     className={`inline-flex items-center justify-center min-w-[1.75rem] h-7 px-1.5 rounded-full font-bold text-xs ${

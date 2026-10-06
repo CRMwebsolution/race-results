@@ -1,243 +1,34 @@
-import { redirect } from "next/navigation";
-import { readAll } from "@/lib/read-all";
-import { createClient } from "@/lib/supabase/server";
-import { revalidatePath } from "next/cache";
-import Link from "next/link";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import {notFound,redirect} from 'next/navigation';
+import {readAll} from '@/lib/read-all';
+import {createClient} from '@/lib/supabase/server';
+import {revalidatePath} from 'next/cache';
+import Link from 'next/link';
 
-export default async function SeriesPointsPage({ params, searchParams }: { params: Promise<{ seriesId: string }>; searchParams: Promise<{error?: string}> }) {
-  const { seriesId } = await params;
-  const actionParams = await searchParams;
-  const supabase = await createClient();
-
-  const { data: series } = await supabase.from("series").select("*").eq("id", seriesId).single();
-  
-  const { data: classes } = await readAll(supabase
-    .from("series_classes")
-    .select("id, name")
-    .eq("series_id", seriesId)
-    .order("order_num", { ascending: true }));
-
-  const { data: pointsRules } = await readAll(supabase
-    .from("series_points_rules")
-    .select("*")
-    .eq("series_id", seriesId)
-    .order("rank_start", { ascending: true }));
-
-  const { data: bonuses } = await readAll(supabase
-    .from("series_bonuses")
-    .select("*, series_classes!series_bonuses_class_scope_fkey(name)")
-    .eq("series_id", seriesId)
-    .order("created_at", { ascending: true }));
-
-  async function addPointsRule(formData: FormData) {
-    "use server";
-    const rankStart = parseInt(formData.get("rank_start") as string);
-    const rankEnd = parseInt(formData.get("rank_end") as string);
-    const points = parseInt(formData.get("points") as string);
-    
-    const supabase = await createClient();
-    
-    const { error: mutationError } = await supabase.from("series_points_rules").insert({
-      series_id: seriesId,
-      rank_start: rankStart,
-      rank_end: rankEnd,
-      points: points
-    });
-    if (mutationError) redirect(`/dashboard/series/${seriesId}/points?error=${encodeURIComponent(mutationError.message)}`);
-    
-    revalidatePath(`/dashboard/series/${seriesId}/points`);
-    revalidatePath(`/dashboard/series/${seriesId}`);
-  }
-
-  async function deletePointsRule(formData: FormData) {
-    "use server";
-    const ruleId = formData.get("rule_id") as string;
-    const supabase = await createClient();
-    const { error: mutationError } = await supabase.from("series_points_rules").delete().eq("id", ruleId).eq("series_id", seriesId);
-    if (mutationError) redirect(`/dashboard/series/${seriesId}/points?error=${encodeURIComponent(mutationError.message)}`);
-    revalidatePath(`/dashboard/series/${seriesId}/points`);
-    revalidatePath(`/dashboard/series/${seriesId}`);
-  }
-
-  async function addBonus(formData: FormData) {
-    "use server";
-    const bonusType = formData.get("bonus_type") as string;
-    const points = parseInt(formData.get("points") as string);
-    const seriesClassId = formData.get("series_class_id") as string;
-    const frequency = formData.get("frequency") as string;
-    
-    const supabase = await createClient();
-    
-    const { error: mutationError } = await supabase.from("series_bonuses").insert({
-      series_id: seriesId,
-      bonus_type: bonusType,
-      points: points,
-      series_class_id: seriesClassId === "all" ? null : seriesClassId,
-      frequency: frequency
-    });
-    if (mutationError) redirect(`/dashboard/series/${seriesId}/points?error=${encodeURIComponent(mutationError.message)}`);
-    
-    revalidatePath(`/dashboard/series/${seriesId}/points`);
-    revalidatePath(`/dashboard/series/${seriesId}`);
-  }
-
-  async function deleteBonus(formData: FormData) {
-    "use server";
-    const bonusId = formData.get("bonus_id") as string;
-    const supabase = await createClient();
-    const { error: mutationError } = await supabase.from("series_bonuses").delete().eq("id", bonusId).eq("series_id", seriesId);
-    if (mutationError) redirect(`/dashboard/series/${seriesId}/points?error=${encodeURIComponent(mutationError.message)}`);
-    revalidatePath(`/dashboard/series/${seriesId}/points`);
-    revalidatePath(`/dashboard/series/${seriesId}`);
-  }
-
-  return (
-    <div className="max-w-4xl mx-auto space-y-8 p-4 sm:p-8">
-      {actionParams.error && <p role="alert" className="p-4 text-red-300 bg-red-950 rounded">{actionParams.error}</p>}
-      <div className="flex items-center space-x-3">
-        <Link 
-          href={`/dashboard/series/${seriesId}`}
-          className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
-        >
-          <ArrowLeft className="w-4 h-4" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-white">Points & Bonuses</h1>
-          <p className="text-sm text-slate-400">{series?.name}</p>
-        </div>
-      </div>
-      
-      <div className="grid md:grid-cols-2 gap-8">
-        {/* Points Rules Section */}
-        <div className="space-y-4">
-          <h2 className="font-bold text-lg text-white">Placement Points</h2>
-          
-          <div className="space-y-3">
-            {pointsRules?.map(pr => (
-              <div key={pr.id} className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex justify-between items-center">
-                <div>
-                  <h3 className="font-bold text-slate-200">
-                    {pr.rank_start === pr.rank_end 
-                      ? `Rank ${pr.rank_start}` 
-                      : pr.rank_end >= 999 
-                        ? `Rank ${pr.rank_start} and below` 
-                        : `Ranks ${pr.rank_start} - ${pr.rank_end}`}
-                  </h3>
-                </div>
-                <div className="flex items-center space-x-4">
-                  <span className="font-bold text-emerald-400">+{pr.points} pts</span>
-                  <form action={deletePointsRule}>
-                    <input type="hidden" name="rule_id" value={pr.id} />
-                    <button className="text-slate-500 hover:text-red-400 transition">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </form>
-                </div>
-              </div>
-            ))}
-            {pointsRules?.length === 0 && (
-              <p className="text-sm text-slate-500 bg-slate-900 border border-slate-800 p-4 rounded-xl text-center">No points configured yet.</p>
-            )}
-          </div>
-          
-          <form action={addPointsRule} className="bg-slate-900 border border-slate-800 rounded-xl p-4 mt-4">
-            <h3 className="text-sm font-bold text-white mb-3">Add Placement Rule</h3>
-            <div className="flex gap-2 mb-3">
-              <div className="flex-1">
-                <label className="block text-[10px] uppercase text-slate-500 mb-1">Start Rank</label>
-                <input name="rank_start" type="number" required min="1" placeholder="1" className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-white text-sm" />
-              </div>
-              <div className="flex-1">
-                <label className="block text-[10px] uppercase text-slate-500 mb-1">End Rank</label>
-                <input name="rank_end" type="number" required min="1" placeholder="1" className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-white text-sm" />
-                <p className="text-[10px] text-slate-500 mt-1">Use 999 for &quot;and below&quot;</p>
-              </div>
-              <div className="flex-1">
-                <label className="block text-[10px] uppercase text-slate-500 mb-1">Points</label>
-                <input name="points" type="number" required min="0" placeholder="50" className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-white text-sm" />
-              </div>
-            </div>
-            <button type="submit" className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-bold px-3 py-2 rounded-lg transition">Add Rule</button>
-          </form>
-        </div>
-        
-        {/* Bonuses Section */}
-        <div className="space-y-4">
-          <h2 className="font-bold text-lg text-white">Bonus Modifiers</h2>
-          
-          <div className="space-y-3">
-            {bonuses?.map(bonus => (
-              <div key={bonus.id} className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex justify-between items-start">
-                <div className="flex-1">
-                  <h3 className="font-bold text-slate-200 capitalize">{bonus.bonus_type.replace(/_/g, " ")}</h3>
-                  <div className="flex flex-wrap gap-2 mt-1.5">
-                    <span className="text-[10px] uppercase font-bold text-slate-500 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
-                      {bonus.series_class_id ? (bonus.series_classes as any)?.name : "All Classes"}
-                    </span>
-                    <span className="text-[10px] uppercase font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
-                      {bonus.frequency === 'per_event' ? '1 Per Race' : 'Per Class'}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-4 pl-4">
-                  <span className="font-bold text-emerald-400 whitespace-nowrap">+{bonus.points} pts</span>
-                  <form action={deleteBonus}>
-                    <input type="hidden" name="bonus_id" value={bonus.id} />
-                    <button className="text-slate-500 hover:text-red-400 transition pt-1">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </form>
-                </div>
-              </div>
-            ))}
-            {bonuses?.length === 0 && (
-              <p className="text-sm text-slate-500 bg-slate-900 border border-slate-800 p-4 rounded-xl text-center">No bonuses configured.</p>
-            )}
-          </div>
-          
-          <form action={addBonus} className="bg-slate-900 border border-slate-800 rounded-xl p-4 mt-4">
-            <h3 className="text-sm font-bold text-white mb-3">Add Bonus</h3>
-            <div className="space-y-3 mb-3">
-              <div>
-                <label className="block text-[10px] uppercase text-slate-500 mb-1">Bonus Condition</label>
-                <select name="bonus_type" className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-white text-sm">
-                  <option value="perfect_attendance">Perfect Attendance</option>
-                  <option value="consistent_pass">Most Consistent Pass (Event)</option>
-                  <option value="fastest_pass">Fastest Pass Overall (Event)</option>
-                  <option value="showmanship">Showmanship (Judged)</option>
-                  <option value="custom">Custom (Manual Entry)</option>
-                </select>
-              </div>
-
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <label className="block text-[10px] uppercase text-slate-500 mb-1">Applies To</label>
-                  <select name="series_class_id" className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-white text-sm">
-                    <option value="all">All Classes</option>
-                    {classes?.map(c => (
-                      <option key={c.id} value={c.id}>Only {c.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex-1">
-                  <label className="block text-[10px] uppercase text-slate-500 mb-1">Frequency</label>
-                  <select name="frequency" className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-white text-sm">
-                    <option value="per_class">Per Class (Multiple winners)</option>
-                    <option value="per_event">1 Per Race (Overall winner)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[10px] uppercase text-slate-500 mb-1">Points</label>
-                <input name="points" type="number" required min="1" placeholder="10" className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-white text-sm" />
-              </div>
-            </div>
-            <button type="submit" className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-bold px-3 py-2 rounded-lg transition">Add Bonus</button>
-          </form>
-        </div>
-      </div>
-    </div>
-  );
+export default async function SeriesPointsPage({params,searchParams}:{params:Promise<{seriesId:string}>;searchParams:Promise<{error?:string;message?:string}>}){
+ const {seriesId}=await params,p=await searchParams,db=await createClient();
+ const {data:series,error}=await db.from('series').select('name').eq('id',seriesId).single();
+ if(error||!series)notFound();
+ const [{data:classes},{data:rules},{data:bonuses}]=await Promise.all([
+  readAll(db.from('series_classes').select('id,name').eq('series_id',seriesId).order('order_num')),
+  readAll(db.from('series_points_rules').select('*').eq('series_id',seriesId).order('rank_start')),
+  readAll(db.from('series_bonuses').select('*,series_classes!series_bonuses_class_scope_fkey(name)').eq('series_id',seriesId).order('created_at')),
+ ]);
+ const url=`/dashboard/series/${seriesId}/points`;
+ async function saveRule(f:FormData){'use server';const db=await createClient(),id=String(f.get('id')||'');
+  const row={series_id:seriesId,rank_start:Number(f.get('rank_start')),rank_end:Number(f.get('rank_end')),points:Number(f.get('points'))};
+  const {error}=id?await db.from('series_points_rules').update(row).eq('id',id).eq('series_id',seriesId).select('id').single():await db.from('series_points_rules').insert(row);
+  if(error)redirect(`${url}?error=${encodeURIComponent(error.message)}`);revalidatePath('/dashboard/series','layout');redirect(`${url}?message=Placement rule saved`);
+ }
+ async function saveBonus(f:FormData){'use server';const db=await createClient(),id=String(f.get('id')||'');
+  const classId=String(f.get('series_class_id'));const row={series_id:seriesId,bonus_type:String(f.get('bonus_type')),points:Number(f.get('points')),series_class_id:classId==='all'?null:classId,frequency:String(f.get('frequency'))};
+  const {error}=id?await db.from('series_bonuses').update(row).eq('id',id).eq('series_id',seriesId).select('id').single():await db.from('series_bonuses').insert(row);
+  if(error)redirect(`${url}?error=${encodeURIComponent(error.message)}`);revalidatePath('/dashboard/series','layout');redirect(`${url}?message=Bonus saved`);
+ }
+ async function remove(f:FormData){'use server';const db=await createClient(),kind=f.get('kind');if(kind!=='rule'&&kind!=='bonus')throw new Error('Unknown rule type');
+  const {error}=await db.from(kind==='rule'?'series_points_rules':'series_bonuses').delete().eq('id',String(f.get('id'))).eq('series_id',seriesId).select('id').single();
+  if(error)redirect(`${url}?error=${encodeURIComponent(error.message)}`);revalidatePath('/dashboard/series','layout');redirect(`${url}?message=Rule removed`);
+ }
+ function ruleFields(rule?:typeof rules[number]){return <><input type="hidden" name="id" value={rule?.id||''}/><div className="grid grid-cols-3 gap-2">{[['rank_start','Start rank',rule?.rank_start||1],['rank_end','End rank',rule?.rank_end||1],['points','Points',rule?.points??50]].map(([name,label,value])=><label key={String(name)} className="min-w-0">{label}<input name={String(name)} required type="number" min={name==='points'?0:1} defaultValue={value} className="block w-full min-w-0 p-2 bg-slate-950 border rounded"/></label>)}</div><p className="text-xs text-slate-400">Use 999 for all remaining ranks. Bands cannot overlap.</p></>;}
+ function bonusFields(bonus?:typeof bonuses[number]){return <><input type="hidden" name="id" value={bonus?.id||''}/><label className="block">Bonus condition<select name="bonus_type" defaultValue={bonus?.bonus_type||'perfect_attendance'} className="block w-full min-w-0 p-3 bg-slate-950 border rounded">{[['perfect_attendance','Perfect attendance'],['consistent_pass','Most consistent pass'],['fastest_pass','Fastest pass'],['showmanship','Showmanship (manual award)'],['custom','Custom (manual award)']].map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label><label className="block">Applies to<select name="series_class_id" defaultValue={bonus?.series_class_id||'all'} className="block w-full p-3 bg-slate-950 border rounded"><option value="all">All classes</option>{classes.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label><label className="block">Frequency<select name="frequency" defaultValue={bonus?.frequency||'per_event'} className="block w-full p-3 bg-slate-950 border rounded"><option value="per_event">Once per race / racer</option><option value="per_class">Per class</option></select></label><label className="block">Points<input name="points" required type="number" min="0" defaultValue={bonus?.points??10} className="block w-full p-3 bg-slate-950 border rounded"/></label></>;}
+ return <main className="max-w-5xl mx-auto w-full p-4 sm:p-8 space-y-6"><Link href={`/dashboard/series/${seriesId}`} className="text-amber-400">Back to series</Link><h1 className="text-2xl font-bold">Points & Bonuses</h1><p>{series.name}</p>{p.error&&<p role="alert" className="p-3 bg-red-950 rounded text-red-300">{p.error}</p>}{p.message&&<p role="status" className="text-emerald-300">{p.message}</p>}<p>Rule changes require a new standings publication; earlier published versions are retained. Full attendance is awarded once after the complete announced schedule is official. Custom/showmanship points are recorded through audited manual awards on the championship page.</p><div className="grid md:grid-cols-2 gap-6"><section className="min-w-0 space-y-4"><h2 className="text-xl font-bold">Placement points</h2>{rules.map(rule=><article key={rule.id} className="p-4 bg-slate-900 border rounded space-y-3"><p className="font-bold">Ranks {rule.rank_start}–{rule.rank_end} · {rule.points} points</p><details><summary className="cursor-pointer p-2">Edit placement rule</summary><form action={saveRule} className="space-y-3">{ruleFields(rule)}<button className="p-3 border rounded">Save rule</button></form></details><form action={remove}><input type="hidden" name="kind" value="rule"/><input type="hidden" name="id" value={rule.id}/><button aria-label={`Remove ranks ${rule.rank_start} to ${rule.rank_end}`} className="p-2 text-red-300">Remove rule</button></form></article>)}<form action={saveRule} aria-label="Add placement rule" className="p-4 bg-slate-900 border rounded space-y-3"><h3 className="font-bold">Add placement rule</h3>{ruleFields()}<button className="p-3 bg-amber-500 rounded text-slate-950">Add rule</button></form></section><section className="min-w-0 space-y-4"><h2 className="text-xl font-bold">Bonus modifiers</h2>{bonuses.map(bonus=><article key={bonus.id} className="p-4 bg-slate-900 border rounded space-y-3"><p className="font-bold capitalize">{bonus.bonus_type.replaceAll('_',' ')} · {bonus.points} points</p><p>{bonus.series_classes?.name||'All classes'} · {bonus.frequency==='per_event'?'Once per race / racer':'Per class'}</p><details><summary className="cursor-pointer p-2">Edit bonus</summary><form action={saveBonus} className="space-y-3">{bonusFields(bonus)}<button className="p-3 border rounded">Save bonus</button></form></details><form action={remove}><input type="hidden" name="kind" value="bonus"/><input type="hidden" name="id" value={bonus.id}/><button aria-label={`Remove ${bonus.bonus_type.replaceAll('_',' ')} bonus`} className="p-2 text-red-300">Remove bonus</button></form></article>)}<form action={saveBonus} aria-label="Add bonus" className="p-4 bg-slate-900 border rounded space-y-3"><h3 className="font-bold">Add bonus</h3>{bonusFields()}<button className="p-3 bg-amber-500 rounded text-slate-950">Add bonus</button></form></section></div></main>;
 }

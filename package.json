@@ -11,7 +11,8 @@
     "test:db": "node scripts/test-database.mjs",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "test:offline": "node scripts/check-offline.mjs"
+    "test:offline": "node scripts/check-offline.mjs",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@supabase/ssr": "0.5.2",

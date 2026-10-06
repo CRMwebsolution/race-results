@@ -75,7 +75,7 @@ export function ScoringWorkspace({
   const [visibleColumns, setVisibleColumns] = useState(2);
 
 
-  useEffect(()=>{if(!accountId)return;activateAccount(accountId);async function load(){try{const r=await getPrepared(accountId!,event.id);setPrepared(r);if(r){confirmedAttempts.current=r.packet.initialAttempts;setLocalAttempts(deviceAttempts(r));acknowledgedRevision.current=Math.max(acknowledgedRevision.current,r.packet.event.working_revision);}}catch(e){setOfflineMessage((e as Error).message);}}void load();const unsubscribe=subscribePrepared(()=>void load());const sync=()=>void retryPrepared(accountId!,event.id).catch(e=>setOfflineMessage((e as Error).message));window.addEventListener('online',sync);const timer=window.setInterval(()=>{if(preparedRef.current?.outbox.some(o=>o.state==='queued'))void flushPrepared(accountId!,event.id).catch(e=>setOfflineMessage((e as Error).message));},5000);return()=>{unsubscribe();window.removeEventListener('online',sync);window.clearInterval(timer);};},[accountId,event.id]);
+  useEffect(()=>{if(!accountId)return;try{activateAccount(accountId);}catch{setOfflineMessage("Device storage is unavailable. Online scoring is available; offline preparation requires storage.");return;}async function load(){try{const r=await getPrepared(accountId!,event.id);setPrepared(r);if(r){confirmedAttempts.current=r.packet.initialAttempts;setLocalAttempts(deviceAttempts(r));acknowledgedRevision.current=Math.max(acknowledgedRevision.current,r.packet.event.working_revision);}}catch(e){setOfflineMessage((e as Error).message);}}void load();const unsubscribe=subscribePrepared(()=>void load());const sync=()=>void retryPrepared(accountId!,event.id).catch(e=>setOfflineMessage((e as Error).message));window.addEventListener('online',sync);const timer=window.setInterval(()=>{if(preparedRef.current?.outbox.some(o=>o.state==='queued'))void flushPrepared(accountId!,event.id).catch(e=>setOfflineMessage((e as Error).message));},5000);return()=>{unsubscribe();window.removeEventListener('online',sync);window.clearInterval(timer);};},[accountId,event.id]);
   async function prepare(){if(!accountId)return;setOfflineBusy(true);try{await prepareEvent(accountId,event.id);setOfflineMessage('Offline ready. Device saves upload while this app is open after reconnection.');}catch(e){setOfflineMessage((e as Error).message);}finally{setOfflineBusy(false);}}
   async function finish(){if(!accountId)return;setOfflineBusy(true);try{await retryPrepared(accountId,event.id);await finishPrepared(accountId,event.id);setOfflineMessage('Offline session closed. Prepare again before recording more device saves.');}catch(e){setOfflineMessage((e as Error).message);}finally{setOfflineBusy(false);}}
   async function resolve(entryId:string,ordinal:number,keep:boolean){if(!accountId)return;try{await resolveConflict(accountId,event.id,entryId,ordinal,keep);}catch(e){setOfflineMessage((e as Error).message);}}
@@ -299,7 +299,7 @@ export function ScoringWorkspace({
                 </tr>
               ) : (
                 displayRows.map((row) => (
-                  <tr key={row.entryId} className="hover:bg-slate-800/30 transition group">
+                  <tr data-testid="scoring-row" data-entry-id={row.entryId} key={row.entryId} className="hover:bg-slate-800/30 transition group">
                     <td className="px-4 py-3 text-center">
                       <span
                         className={`inline-flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 rounded-full font-bold text-xs ${

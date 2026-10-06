@@ -1,20 +1,10 @@
-import { createClient } from "@/lib/supabase/server";
-
-export default async function EditClassPage({ params }: { params: Promise<{ classId: string }> }) {
-  const { classId } = await params;
-  const supabase = await createClient();
-  const { data: cls } = await supabase.from("event_classes").select("name, scoring_type").eq("id", classId).single();
-
-  return (
-    <div className="p-8 max-w-2xl mx-auto w-full">
-      <h2 className="text-xl font-bold text-white mb-6">Edit Class Rules</h2>
-      <div className="bg-slate-900 border border-slate-800 rounded p-6">
-        <h3 className="font-bold text-lg text-white">{cls?.name}</h3>
-        <p className="text-slate-400 mt-2">Current format: <span className="text-amber-500 font-mono">{cls?.scoring_type}</span></p>
-        <div className="mt-6 border-t border-slate-800 pt-4">
-           <p className="text-slate-500 text-sm">Advanced rule configuration (custom tiebreakers, pass limits, combined-time formulas) will be implemented in Phase 3.</p>
-        </div>
-      </div>
-    </div>
-  );
+import {createClient} from '@/lib/supabase/server';
+import {redirect,notFound} from 'next/navigation';
+import {revalidatePath} from 'next/cache';
+import {ScoringFields,scoringFromForm} from '@/components/scoring-fields';
+export default async function EditClassPage({params,searchParams}:{params:Promise<{trackId:string;eventId:string;classId:string}>;searchParams:Promise<{error?:string}>}) {
+ const {trackId,eventId,classId}=await params;const {error}=await searchParams;const db=await createClient();
+ const {data:cls,error:readError}=await db.from('event_classes').select('*').eq('id',classId).eq('event_id',eventId).eq('track_id',trackId).single();if(readError||!cls)notFound();
+ async function save(f:FormData){'use server';const db=await createClient();const rules=scoringFromForm(f);const {error}=await db.from('event_classes').update({...rules,name:String(f.get('name')).trim(),rules_text:String(f.get('rules_text')||''),entry_fee_text:String(f.get('entry_fee_text')||'')}).eq('id',classId).eq('event_id',eventId).select('id').single();if(error)redirect(`?error=${encodeURIComponent(error.message)}`);revalidatePath(`/dashboard/tracks/${trackId}/events/${eventId}`);redirect(`/dashboard/tracks/${trackId}/events/${eventId}`);}
+ return <main className="p-4 sm:p-8 max-w-2xl w-full mx-auto space-y-6"><h1 className="text-2xl font-bold">Edit event class</h1>{error&&<p role="alert">{error}</p>}<form action={save} className="space-y-4"><label className="block">Name<input name="name" required defaultValue={cls.name} className="block w-full p-3 bg-slate-900 border rounded"/></label><label className="block">Rules<textarea name="rules_text" defaultValue={cls.rules_text||''} className="block w-full p-3 bg-slate-900 border rounded"/></label><label className="block">Entry fee<input name="entry_fee_text" defaultValue={cls.entry_fee_text||''} className="block w-full p-3 bg-slate-900 border rounded"/></label><ScoringFields type={cls.scoring_type} config={cls.scoring_config}/><button className="p-3 bg-amber-500 text-slate-950 rounded">Save class</button></form></main>;
 }

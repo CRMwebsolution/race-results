@@ -103,3 +103,8 @@ and publication setup; it does not run a full Supabase stack.
 - Series mutations redirect with provider errors; dashboard has a retry boundary for failed reads/actions.
 - Shared paginated reads cover series, event scoring/finalization and public result inputs; failures reject partial data.
 - Validation: 37 unit tests, 20 migration replay, existing SQL suites, TypeScript/build, live anonymous API before/after query comparison. Authenticated browser workflows are reserved for group 10.
+
+### Audit group 2: event defaults and management
+
+Series event insertion copies names/rules/fees/order/scoring configuration transactionally with stable series-class links. Untouched existing draft/scheduled events are initialized once. Event class reorder, allocation and removal use checked locked RPCs. UI includes drag/drop plus move buttons, independent rules/configuration, checked edit actions, and confirmed event deletion/withdrawal. Populated/completed events retain history via withdrawal. Empty venues can move atomically before registration; completed metadata is locked.
+Validation: 21-migration replay and event-management rollback workflow locally and on the live project; unit tests, TypeScript and production build. A corrupt Turbopack cache was moved aside and the clean build passed. Migration 20261006175457 is applied; types regenerated.

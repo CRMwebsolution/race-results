@@ -81,6 +81,7 @@ export default async function SeriesSchedulePage(props: {
       name,
       slug,
       local_date: date,
+      setup_request_id: String(formData.get("request_id")),
       status: "scheduled"
     });
     
@@ -134,16 +135,10 @@ export default async function SeriesSchedulePage(props: {
       }
     }
 
-    const { error: updateError } = await supabase
-      .from("events")
-      .update({
-        name,
-        local_date: date,
-        track_id: trackId,
-        status: status as any
-      })
-      .eq("id", eventId)
-      .eq("series_id", seriesId);
+    const { error: updateError } = await supabase.rpc("edit_race_event", {
+      p_event_id: eventId, p_name: name, p_date: date, p_track_id: trackId,
+      p_expected_revision: Number(formData.get("revision")),
+    });
 
     if (updateError) {
       console.error("Failed to update event:", updateError);
@@ -160,11 +155,7 @@ export default async function SeriesSchedulePage(props: {
     const eventId = formData.get("event_id") as string;
     const supabase = await createClient();
 
-    const { error: deleteError } = await supabase
-      .from("events")
-      .delete()
-      .eq("id", eventId)
-      .eq("series_id", seriesId);
+    const { error: deleteError } = await supabase.rpc("delete_or_withdraw_event", {p_event_id:eventId,p_confirm:formData.get("confirm") === "on"});
 
     if (deleteError) {
       console.error("Failed to delete event:", deleteError);
@@ -224,8 +215,8 @@ export default async function SeriesSchedulePage(props: {
                       </span>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Link
+                  <div className="flex flex-wrap gap-2">
+                    <Link href={`/dashboard/tracks/${ev.track_id}/events/${ev.id}`} className="text-amber-400">Manage race</Link><Link
                       href={`/dashboard/series/${seriesId}/schedule?edit_event_id=${ev.id}`}
                       className="p-2 text-slate-400 hover:text-amber-400 hover:bg-slate-800 rounded-lg transition"
                       title="Edit Race"
@@ -234,7 +225,7 @@ export default async function SeriesSchedulePage(props: {
                     </Link>
                     <form action={deleteEventFromSchedule}>
                       <input type="hidden" name="event_id" value={ev.id} />
-                      <button
+                      <label className="text-xs"><input type="checkbox" name="confirm" required/> Confirm delete/withdraw</label><button
                         type="submit"
                         className="p-2 text-slate-500 hover:text-red-400 hover:bg-slate-800 rounded-lg transition"
                         title="Delete Race"
@@ -266,6 +257,7 @@ export default async function SeriesSchedulePage(props: {
               )}
             </div>
 
+            {!editEventId && <input type="hidden" name="request_id" value={crypto.randomUUID()}/>}
             {editEventId && <input type="hidden" name="event_id" value={editEventId} />}
             
             <div>
@@ -308,22 +300,8 @@ export default async function SeriesSchedulePage(props: {
               </datalist>
             </div>
 
-            {editEventId && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1">Status</label>
-                <select 
-                  name="status"
-                  defaultValue={eventToEdit?.status || "scheduled"}
-                  className="w-full px-4 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white text-sm focus:border-amber-500 outline-none"
-                >
-                  <option value="scheduled">Scheduled</option>
-                  <option value="live">Live</option>
-                  <option value="completed">Completed</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
-              </div>
-            )}
-            
+            {editEventId && <><input type="hidden" name="revision" value={eventToEdit?.working_revision}/><Link className="block text-amber-400" href={`/dashboard/tracks/${eventToEdit?.track_id}/events/${editEventId}/settings`}>Manage status and official results</Link></>}
+
             <div className="flex items-center space-x-3 pt-2">
               <button 
                 type="submit" 

@@ -1,3 +1,4 @@
+import { EventClassList } from "@/components/event-class-list";
 import { readAll } from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
@@ -101,31 +102,7 @@ export default async function EventOverviewPage({
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {classes.map((cls) => (
-                <div key={cls.id} className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 flex flex-col justify-between space-y-4">
-                  <div>
-                    <div className="flex items-start justify-between">
-                      <h4 className="font-bold text-white text-base">{cls.name}</h4>
-                      <span className="text-xs font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400">
-                        Order: {cls.order_num}
-                      </span>
-                    </div>
-                    <span className="inline-block mt-2 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                      {cls.scoring_type.replace(/_/g, " ")}
-                    </span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                     <Link
-                        href={`/dashboard/tracks/${trackId}/events/${eventId}/classes/${cls.id}`}
-                        className="flex-1 text-center text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
-                      >
-                        Edit Rules
-                      </Link>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <EventClassList key={classes.map(c=>c.id+":"+c.order_num).join(",")} trackId={trackId} eventId={eventId} classes={classes} />
           )}
         </div>
       </div>

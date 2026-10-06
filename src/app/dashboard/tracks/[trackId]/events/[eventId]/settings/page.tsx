@@ -8,7 +8,7 @@ export default async function EventSettingsPage({ params, searchParams }: { sear
   const { error: actionError } = await searchParams;
   const supabase = await createClient();
   
-  const { data: event } = await supabase.from("events").select("name, status, working_revision").eq("id", eventId).eq("track_id",trackId).single();
+  const { data: event } = await supabase.from("events").select("name, local_date, status, working_revision").eq("id", eventId).eq("track_id",trackId).single();
 
   const { data: canPublish } = await supabase.rpc("can_publish_track",{p_track_id:trackId});
   if (!canPublish) return <p className="p-8 text-slate-400">Only the track or organization owner can publish final results or reopen this event.</p>;
@@ -30,11 +30,16 @@ export default async function EventSettingsPage({ params, searchParams }: { sear
     redirect(`/dashboard/tracks/${trackId}/events/${eventId}/settings`);
   }
 
+  async function editEvent(f:FormData) { "use server"; const db=await createClient();const {error}=await db.rpc("edit_race_event",{p_event_id:eventId,p_name:String(f.get("name")),p_date:String(f.get("date")),p_track_id:trackId,p_expected_revision:Number(f.get("revision"))});if(error)redirect(`?error=${encodeURIComponent(error.message)}`);revalidatePath("/dashboard/tracks","layout");redirect(`/dashboard/tracks/${trackId}/events/${eventId}/settings`); }
+  async function deleteEvent(f:FormData) { "use server"; const db=await createClient();const {error}=await db.rpc("delete_or_withdraw_event",{p_event_id:eventId,p_confirm:f.get("confirm")==="on"});if(error)redirect(`?error=${encodeURIComponent(error.message)}`);revalidatePath("/dashboard/tracks","layout");redirect(`/dashboard/tracks/${trackId}`); }
+
   return (
     <div className="p-8 max-w-2xl mx-auto w-full">
       <h2 className="text-2xl font-bold text-white mb-6">Event Settings</h2>
       
       {actionError && <p role="alert" className="mb-4 text-red-400">{actionError}</p>}
+      <form action={editEvent} className="space-y-4 mb-8"><h2 className="text-xl font-bold">Event details</h2><input type="hidden" name="revision" value={event?.working_revision}/><label className="block">Name<input required name="name" defaultValue={event?.name} className="block p-3 rounded bg-slate-900 border w-full"/></label><label className="block">Race date<input required type="date" name="date" defaultValue={event?.local_date} className="block p-3 rounded bg-slate-900 border w-full"/></label><button className="p-3 rounded bg-amber-500 text-slate-950">Save details</button></form>
+      <form action={deleteEvent} className="space-y-3 mb-8 p-4 border border-red-900 rounded"><h2 className="font-bold">Delete or withdraw event</h2><p>Empty events are deleted. Events with racers or official results are withdrawn; their history is retained.</p><label className="block"><input required type="checkbox" name="confirm"/> I confirm this event should be removed from the schedule.</label><button className="p-3 bg-red-950 rounded">Delete / withdraw event</button></form>
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-6">
         <div>
           <h3 className="font-bold text-lg text-white mb-2">Event Status</h3>
@@ -52,6 +57,7 @@ export default async function EventSettingsPage({ params, searchParams }: { sear
               <option value="draft">Draft (Hidden)</option>
               <option value="scheduled">Scheduled (Calendar Preview)</option>
               <option value="live">Live</option>
+              <option value="cancelled">Cancelled / withdrawn</option>
               <option value="completed">Completed (Final Results)</option>
             </select>
             <button type="submit" className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-2 rounded transition">

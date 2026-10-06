@@ -259,6 +259,7 @@ export type Database = {
           scoring_config: Json
           scoring_type: Database["public"]["Enums"]["scoring_type"]
           scoring_version: number
+          series_class_id: string | null
           template_id: string | null
           track_id: string
         }
@@ -272,6 +273,7 @@ export type Database = {
           scoring_config?: Json
           scoring_type: Database["public"]["Enums"]["scoring_type"]
           scoring_version?: number
+          series_class_id?: string | null
           template_id?: string | null
           track_id: string
         }
@@ -285,6 +287,7 @@ export type Database = {
           scoring_config?: Json
           scoring_type?: Database["public"]["Enums"]["scoring_type"]
           scoring_version?: number
+          series_class_id?: string | null
           template_id?: string | null
           track_id?: string
         }
@@ -294,6 +297,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_classes_series_class_id_fkey"
+            columns: ["series_class_id"]
+            isOneToOne: false
+            referencedRelation: "series_classes"
             referencedColumns: ["id"]
           },
           {
@@ -315,11 +325,13 @@ export type Database = {
       events: {
         Row: {
           created_at: string
+          defaults_initialized: boolean
           id: string
           local_date: string
           name: string
           published_revision: number | null
           series_id: string | null
+          setup_request_id: string | null
           slug: string
           starts_at: string | null
           status: string
@@ -329,11 +341,13 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          defaults_initialized?: boolean
           id?: string
           local_date: string
           name: string
           published_revision?: number | null
           series_id?: string | null
+          setup_request_id?: string | null
           slug: string
           starts_at?: string | null
           status: string
@@ -343,11 +357,13 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          defaults_initialized?: boolean
           id?: string
           local_date?: string
           name?: string
           published_revision?: number | null
           series_id?: string | null
+          setup_request_id?: string | null
           slug?: string
           starts_at?: string | null
           status?: string
@@ -678,6 +694,8 @@ export type Database = {
           name: string
           order_num: number
           rules_text: string | null
+          scoring_config: Json
+          scoring_type: Database["public"]["Enums"]["scoring_type"]
           series_id: string
         }
         Insert: {
@@ -686,6 +704,8 @@ export type Database = {
           name: string
           order_num?: number
           rules_text?: string | null
+          scoring_config?: Json
+          scoring_type?: Database["public"]["Enums"]["scoring_type"]
           series_id: string
         }
         Update: {
@@ -694,6 +714,8 @@ export type Database = {
           name?: string
           order_num?: number
           rules_text?: string | null
+          scoring_config?: Json
+          scoring_type?: Database["public"]["Enums"]["scoring_type"]
           series_id?: string
         }
         Relationships: [
@@ -903,6 +925,15 @@ export type Database = {
         Args: { p_event_id: string; p_expected_revision: number; p_ranks: Json }
         Returns: Json
       }
+      create_event_class: {
+        Args: {
+          p_config?: Json
+          p_event_id: string
+          p_name: string
+          p_type: Database["public"]["Enums"]["scoring_type"]
+        }
+        Returns: string
+      }
       create_event_secure: {
         Args: { p_payload: Json; p_use_event_pass?: boolean }
         Returns: Json
@@ -959,7 +990,22 @@ export type Database = {
         }
         Returns: string
       }
+      delete_or_withdraw_event: {
+        Args: { p_confirm: boolean; p_event_id: string }
+        Returns: string
+      }
+      edit_race_event: {
+        Args: {
+          p_date: string
+          p_event_id: string
+          p_expected_revision: number
+          p_name: string
+          p_track_id: string
+        }
+        Returns: undefined
+      }
       get_event_capacity_status: { Args: { p_event_id: string }; Returns: Json }
+      initialize_series_event: { Args: { p_event_id: string }; Returns: number }
       is_admin: { Args: { uid: string }; Returns: boolean }
       is_org_admin: { Args: { p_org_id: string }; Returns: boolean }
       is_org_member: { Args: { p_org_id: string }; Returns: boolean }
@@ -990,6 +1036,14 @@ export type Database = {
           p_track_name: string
         }
         Returns: Json
+      }
+      remove_event_class: {
+        Args: { p_class_id: string; p_confirm?: boolean; p_event_id: string }
+        Returns: undefined
+      }
+      reorder_event_classes: {
+        Args: { p_event_id: string; p_ids: string[] }
+        Returns: undefined
       }
       save_race_attempt: {
         Args: {

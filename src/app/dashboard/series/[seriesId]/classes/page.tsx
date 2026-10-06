@@ -1,3 +1,4 @@
+import {ScoringFields,scoringFromForm} from "@/components/scoring-fields";
 import { readAll } from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
@@ -37,6 +38,7 @@ export default async function SeriesClassesPage(props: { params: Promise<{ serie
     const { error: mutationError } = await supabase.from("series_classes").insert({
       series_id: seriesId,
       name,
+      ...scoringFromForm(formData),
       entry_fee_text: entryFeeText || null,
       rules_text: rulesText || null,
       order_num: nextOrder
@@ -58,6 +60,7 @@ export default async function SeriesClassesPage(props: { params: Promise<{ serie
     
     const { error: mutationError } = await supabase.from("series_classes").update({
       name,
+      ...scoringFromForm(formData),
       entry_fee_text: entryFeeText || null,
       rules_text: rulesText || null,
     }).eq("id", id).eq("series_id", seriesId);
@@ -197,6 +200,7 @@ export default async function SeriesClassesPage(props: { params: Promise<{ serie
               />
             </div>
             
+            <ScoringFields type={classToEdit?.scoring_type} config={classToEdit?.scoring_config}/>
             <div className="pt-2 flex items-center space-x-3">
               <button type="submit" className="flex-1 bg-amber-500 hover:bg-amber-400 text-amber-950 font-bold px-4 py-2.5 rounded-lg transition flex items-center justify-center space-x-2">
                 {editClassId ? <><Save className="w-4 h-4" /><span>Save Changes</span></> : <span>Create Master Class</span>}

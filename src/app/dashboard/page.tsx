@@ -43,17 +43,24 @@ export default async function DashboardPage() {
         created_at
       )
     `)
+    .eq("user_id", user.id)
+    .eq("active", true)
     .order("created_at", { ascending: false });
 
   const validMemberships = (trackMemberships ?? []).filter(
     (m): m is typeof m & { tracks: TrackInfo } => Boolean(m.tracks)
   );
 
-  // Fetch series (RLS ensures user only sees series they have access to via orgs)
-  const { data: mySeries } = await supabase
+  const { data: memberships } = await supabase.from("organization_memberships")
+    .select("organization_id").eq("user_id", user.id).eq("active", true)
+    .in("role", ["owner", "admin"]);
+  const organizationIds = (memberships ?? []).map(m => m.organization_id);
+  // Series have public read policies; management listings need explicit scope.
+  const { data: mySeries } = organizationIds.length ? await supabase
     .from("series")
     .select("id, name, description, created_at, organization_id")
-    .order("created_at", { ascending: false });
+    .in("organization_id", organizationIds)
+    .order("created_at", { ascending: false }) : { data: [] };
 
   const { data: isPlatformAdmin } = await supabase.rpc("is_platform_admin");
 

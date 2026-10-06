@@ -10,11 +10,12 @@ export default async function PublicSeriesPage({ params }: { params: Promise<{ s
   // Fetch Series Details
   const { data: series } = await supabase
     .from("series")
-    .select("*, organizations(name)")
+    .select("*")
     .eq("id", seriesId)
     .single();
 
   if (!series) notFound();
+  const { data: promoterName } = await supabase.rpc("public_series_organization_name", { p_series_id: seriesId });
 
   // Fetch Events
   const { data: events } = await supabase
@@ -60,7 +61,7 @@ export default async function PublicSeriesPage({ params }: { params: Promise<{ s
           <div className="mt-6 flex items-center justify-center space-x-6 text-sm text-slate-500 font-medium">
             <span className="flex items-center space-x-2">
               <Target className="w-4 h-4 text-slate-400" />
-              <span>Promoted by {(series.organizations as any).name}</span>
+              <span>Promoted by {promoterName || "Series organizer"}</span>
             </span>
           </div>
         </div>

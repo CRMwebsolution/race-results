@@ -36,13 +36,13 @@ test('five account modes stay discoverable on mobile and can be changed',async({
 test('series bonus and roster changes appear immediately and after reload',async({page})=>{
  await signIn(page);await page.goto(`/dashboard/series/${fixture.fixture.seriesId}/points`);
  const add=page.getByRole('form',{name:'Add bonus',exact:true});await add.getByLabel('Bonus condition').selectOption('custom');await add.getByLabel('Points',{exact:true}).fill('17');await add.getByRole('button',{name:'Add bonus',exact:true}).click();
- await expect(page.getByText('Custom · 17 points',{exact:true})).toBeVisible();await page.reload();await expect(page.getByText('Custom · 17 points',{exact:true})).toBeVisible();
- const card=page.locator('article').filter({has:page.getByText('Custom · 17 points',{exact:true})});await card.getByText('Edit bonus',{exact:true}).click();await card.getByLabel('Points',{exact:true}).fill('19');await card.getByRole('button',{name:'Save bonus'}).click();await expect(page.getByText('Custom · 19 points',{exact:true})).toBeVisible();
- await page.getByRole('button',{name:'Remove custom bonus'}).click();await expect(page.getByText('Custom · 19 points',{exact:true})).toHaveCount(0);
+ await expect(page.getByText(/^custom · 17 points$/i)).toBeVisible();await page.reload();await expect(page.getByText(/^custom · 17 points$/i)).toBeVisible();
+ const card=page.locator('article').filter({has:page.getByText(/^custom · 17 points$/i)});await card.getByText('Edit bonus',{exact:true}).click();await card.getByLabel('Points',{exact:true}).fill('19');await card.getByRole('button',{name:'Save bonus'}).click();await expect(page.getByText(/^custom · 19 points$/i)).toBeVisible();
+ await page.getByRole('button',{name:'Remove custom bonus'}).click();await expect(page.getByText(/^custom · 19 points$/i)).toHaveCount(0);
  await page.goto(`/dashboard/series/${fixture.fixture.seriesId}/roster`);
- const racer=`Browser racer ${test.info().project.name}`;await page.locator('input[name="display_name"]').fill(racer);await page.getByRole('button',{name:'Add to Roster',exact:true}).click();await expect(page.getByText(racer,{exact:true})).toBeVisible();await page.reload();await expect(page.getByText(racer,{exact:true})).toBeVisible();
- const row=page.locator('div').filter({has:page.getByText(racer,{exact:true})}).filter({has:page.getByTitle('Edit Racer')}).last();await row.getByTitle('Edit Racer').click();await page.locator('input[name="display_name"]').fill(`${racer} edited`);await page.getByRole('button',{name:'Save Changes',exact:true}).click();await expect(page.getByText(`${racer} edited`,{exact:true})).toBeVisible();
- const edited=page.locator('div').filter({has:page.getByText(`${racer} edited`,{exact:true})}).filter({has:page.getByTitle('Remove Racer')}).last();await edited.getByTitle('Remove Racer').click();await expect(page.getByText(`${racer} edited`,{exact:true})).toHaveCount(0);
+ const racer=`Browser racer ${test.info().project.name}`;await page.locator('input[name="display_name"]').fill(racer);await page.getByRole('button',{name:'Add to Roster',exact:true}).click();await expect(page.locator('p').filter({hasText:new RegExp(`^${racer}$`)})).toBeVisible();await page.reload();await expect(page.locator('p').filter({hasText:new RegExp(`^${racer}$`)})).toBeVisible();
+ const row=page.locator('div').filter({has:page.locator('p').filter({hasText:new RegExp(`^${racer}$`)})}).filter({has:page.getByTitle('Edit Racer')}).last();await row.getByTitle('Edit Racer').click();await page.locator('input[name="display_name"]').fill(`${racer} edited`);await page.getByRole('button',{name:'Save Changes',exact:true}).click();await expect(page.locator('p').filter({hasText:new RegExp(`^${racer} edited$`)})).toBeVisible();
+ const edited=page.locator('div').filter({has:page.locator('p').filter({hasText:new RegExp(`^${racer} edited$`)})}).filter({has:page.getByTitle('Remove Racer')}).last();await edited.getByTitle('Remove Racer').click();await expect(page.locator('p').filter({hasText:new RegExp(`^${racer} edited$`)})).toHaveCount(0);
 });
 
 test('series defaults can be reordered without altering another race',async({page})=>{
@@ -54,7 +54,7 @@ test('series defaults can be reordered without altering another race',async({pag
 });
 
 test('1205 racers render in the scorer, public results, and selected-order export',async({page})=>{
- await signIn(page);await page.goto(`/dashboard/tracks/${fixture.fixture.trackId}/events/${fixture.fixture.largeEventId}/scoring`);await expect(page.getByTestId('scoring-row')).toHaveCount(1205);
+ await signIn(page);await page.goto(`/dashboard/tracks/${fixture.fixture.trackId}/events/${fixture.fixture.largeEventId}`);await expect(page.getByText('1205 registered entries',{exact:true})).toBeVisible();await page.goto(`/dashboard/tracks/${fixture.fixture.trackId}/events/${fixture.fixture.largeEventId}/scoring`);await expect(page.getByTestId('scoring-row')).toHaveCount(1205);
  await page.goto(`/r/${fixture.trackSlug}/${fixture.largeSlug}`);await expect(page.getByTestId('result-row')).toHaveCount(1205);
  await page.getByLabel('Sort results').selectOption('run');const download=page.waitForEvent('download');await page.getByRole('button',{name:'Download results CSV'}).click();const data=await download;const text=fs.readFileSync((await data.path())!,'utf8');expect(text.split('\r\n').filter(Boolean)).toHaveLength(1206);expect(text).toContain('Large racer 1205');
 });
@@ -73,3 +73,13 @@ test('owners, scorers, and outsiders see only their allowed management actions',
  await signIn(page,5);await page.goto(route('/scoring'));await expect(page.getByRole('textbox',{name:'Fixture One, pass 1',exact:true})).toBeVisible();await page.goto(route('/settings'));await expect(page.getByText(/Only the track or organization owner/)).toBeVisible();
  await page.goto('/dashboard');await page.getByRole('button',{name:'Sign Out',exact:true}).click();await page.waitForURL('**/login');await signIn(page,6);await page.goto(route('/scoring'));await page.waitForURL('**/dashboard');await page.goto(`/dashboard/series/${fixture.fixture.seriesId}/points`);await page.waitForURL('**/dashboard');
 });
+
+ test('spectator home gives live races priority and orders the rest by race date',async({page})=>{
+  await page.goto(`/?track=${fixture.fixture.trackId}`);
+  const rows=await page.locator('a[data-event-id]').evaluateAll(elements=>elements.map(e=>({id:e.getAttribute('data-event-id'),text:e.textContent||''})));
+  expect(rows.length).toBeGreaterThanOrEqual(3);
+  const live=rows.filter(e=>e.text.toLowerCase().includes('live'));
+  expect(rows.slice(0,live.length).map(e=>e.id)).toEqual(live.map(e=>e.id));
+  const dates=rows.slice(live.length).map(e=>e.text.match(/\d{4}-\d{2}-\d{2}/)?.[0]);
+  expect(dates).toEqual([...dates].sort());
+ });

@@ -19,12 +19,13 @@ export default async function EventOverviewPage({
     .eq("event_id", eventId)
     .order("order_num", { ascending: true }));
 
-  const { data: entriesCount } = await supabase
+  const { count: entriesCount, error: countError } = await supabase
     .from("entries")
-    .select("id", { count: "exact" })
+    .select("id", { count: "exact", head: true })
     .in("event_class_id", classes?.map((c) => c.id) || []);
 
-  const totalEntries = entriesCount?.length || 0;
+  if(countError)throw new Error(countError.message);
+  const totalEntries = entriesCount ?? 0;
 
   return (
     <div className="flex-1 overflow-y-auto w-full">

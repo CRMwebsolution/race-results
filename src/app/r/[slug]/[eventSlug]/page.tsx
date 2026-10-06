@@ -39,7 +39,7 @@ export default async function PublicEventPage({
    const snapshot=await officialResult(supabase,event.id,requested);
    if(!snapshot)throw new Error("Official results version is unavailable");
    const payload=snapshot.payload as any;
-   return <div className="space-y-4"><p>Official results · Version {snapshot.version}{snapshot.reconstructed ? " · Reconstructed historical ranks" : ` · ${snapshot.finalized_at}`}</p><nav className="flex flex-wrap gap-3">{Array.from({length:snapshot.version},(_,i)=><Link key={i} href={`?version=${i+1}`}>Version {i+1}</Link>)}<Link href={`/r/${slug}/${eventSlug}`}>Current results</Link></nav><LiveLeaderboard event={{...payload.event,status:"completed"}} classes={payload.classes} initialEntries={payload.entries} initialAttempts={payload.attempts} officialResults={payload.results as OfficialRow[]}/></div>;
+   return <div className="space-y-4"><p>Official results · Version {snapshot.version}{snapshot.reconstructed ? " · Reconstructed historical ranks" : ` · ${snapshot.finalized_at}`}</p><nav className="flex flex-wrap gap-3">{Array.from({length:snapshot.version},(_,i)=><Link key={i} href={`?version=${i+1}`}>Version {i+1}</Link>)}<Link href={`/r/${slug}/${eventSlug}`}>Current results</Link></nav><LiveLeaderboard event={{...payload.event,status:"completed"}} classes={payload.classes} initialEntries={payload.entries} initialAttempts={payload.attempts} officialResults={payload.results as OfficialRow[]} officialVersion={snapshot.version} judgeScores={judgeInput(payload.judge_scores||[])}/></div>;
   }
   // Fetch all classes
   const { data: classes } = await readAll(supabase
@@ -56,21 +56,12 @@ export default async function PublicEventPage({
     );
   }
 
-  // Fetch all entries for these classes
-  const { data: entries } = await readAll(supabase
-    .from("entries")
-    .select("id, event_class_id, display_name, seed, order_num")
-    .in("event_class_id", classes.map(c => c.id))
-    .order("order_num", { ascending: true }));
-
-  // Fetch all attempts for these entries
-  const { data: attempts } = await readAll(supabase
-    .from("attempts")
-    .select("id, event_class_id, entry_id, ordinal, status, elapsed_ms, distance_mm, penalty_ms, raw_input")
-    .in("event_class_id", classes.map(c => c.id))
-    .order("ordinal", { ascending: true }));
-
-  const {data:judges}=await readAll(supabase.from("judge_scores").select("*").in("event_class_id",classes.map(c=>c.id)));
+  const classIds=classes.map(c=>c.id);
+  const [{data:entries},{data:attempts},{data:judges}]=await Promise.all([
+    readAll(supabase.from("entries").select("id, event_class_id, display_name, seed, order_num").in("event_class_id",classIds).order("order_num",{ascending:true})),
+    readAll(supabase.from("attempts").select("id, event_class_id, entry_id, ordinal, status, elapsed_ms, distance_mm, penalty_ms, raw_input").in("event_class_id",classIds).order("ordinal",{ascending:true})),
+    readAll(supabase.from("judge_scores").select("*").in("event_class_id",classIds)),
+  ]);
   return (
     <LiveLeaderboard
       key={event.id}

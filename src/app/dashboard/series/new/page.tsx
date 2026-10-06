@@ -95,7 +95,7 @@ export default async function NewSeriesPage({
         {orgList.length === 0 ? (
           <div>
             <label className="block text-xs font-semibold text-slate-400 mb-1">Promoter / Organization Name</label>
-            <p className="text-[11px] text-slate-500 mb-2">You don't have an organization yet. We'll create one for you to host this series under.</p>
+            <p className="text-[11px] text-slate-500 mb-2">You don&apos;t have an organization yet. We&apos;ll create one for you to host this series under.</p>
             <input type="hidden" name="organization_id" value="new_org" />
             <input 
               name="org_name"

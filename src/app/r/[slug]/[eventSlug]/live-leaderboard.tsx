@@ -1,4 +1,5 @@
 "use client";
+import {downloadResults} from "@/lib/results-csv";
 import type {OfficialRow} from "@/lib/official-results";
 import {JudgeInput,judgeRoundAttempts} from "@/scoring/multi-judge";
 import {ResultSort} from "@/components/result-sort";
@@ -33,14 +34,14 @@ export function LiveLeaderboard({
   initialEntries,
   initialAttempts,
   judgeScores=[],
-  officialResults,
+  officialResults,officialVersion,
 }: {
   event: EventType;
   classes: ClassType[];
   initialEntries: EntryType[];
   initialAttempts: AttemptType[];
   judgeScores?:JudgeInput[];
-  officialResults?: OfficialRow[];
+  officialResults?: OfficialRow[];officialVersion?:number;
 }) {
   const [sortOrder,setSortOrder]=useState<ResultOrder>("rank");
   const [reverse,setReverse]=useState(false);
@@ -104,6 +105,10 @@ export function LiveLeaderboard({
 
   const sortedRows=sortResults(rankedEntries,sortOrder,reverse);
   const displayRows=sortedRows;
+  function exportCSV(){if(!activeClass)return;downloadResults(`${activeClass.name.replace(/[^a-z0-9]/gi,"_").toLowerCase()}_results.csv`,[
+   ["Rank","Draw #","Racer","Score","Ties","Display order","Publication"],
+   ...displayRows.map(r=>[r.rank==null?"-":r.tied?`T${r.rank}`:r.rank,r.orderNum,r.entry.display_name,r.score.label,r.score.tieBreakers.join(", "),`${sortOrder}${reverse?" reversed":""}`,officialResults?`Official version ${officialVersion??"selected"}`:"Live provisional results"]),
+  ]);}
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between print:hidden">
@@ -144,14 +149,15 @@ export function LiveLeaderboard({
       <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
         <div className="p-4 border-b border-slate-800 bg-slate-800/30 flex items-center justify-between">
           <h3 className="font-bold text-white">{activeClass?.name} Leaderboard</h3>
-          <div className="flex items-center space-x-3">
+          <div className="flex flex-wrap gap-3 print:hidden">
+            <button onClick={exportCSV} aria-label="Download results CSV" className="p-2 border rounded">CSV</button>
             <button
               onClick={() => window.print()}
               className="text-slate-500 hover:text-slate-300 transition flex items-center space-x-1 text-sm font-medium"
               title="Print Results"
             >
               <Printer className="w-4 h-4" />
-              <span className="hidden sm:inline">Print</span>
+              <span>Print</span>
             </button>
             <button
               onClick={() => startTransition(() => router.refresh())}
@@ -218,7 +224,7 @@ export function LiveLeaderboard({
       {/* Print-only Table Sorted by Rank */}
       <div className="hidden print:block p-8 bg-white text-black w-full">
         <h1 className="text-2xl font-bold mb-1">{event.name}</h1>
-        <h2 className="text-lg font-semibold text-gray-700 mb-6">{activeClass?.name} Results · Order: {sortOrder} {reverse ? "reversed" : ""}</h2>
+        <h2 className="text-lg font-semibold text-gray-700 mb-6">{activeClass?.name} {officialResults ? `Official version ${officialVersion??"selected"}` : "Live provisional results"} · Order: {sortOrder} {reverse ? "reversed" : ""}</h2>
         <table className="w-full text-left text-sm border-collapse">
           <thead>
             <tr className="border-b-2 border-gray-900 uppercase text-xs font-bold text-gray-600">

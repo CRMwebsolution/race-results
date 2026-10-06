@@ -1,3 +1,4 @@
+import {readAll} from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -13,6 +14,8 @@ export default async function EventSettingsPage({ params, searchParams }: { sear
   const { data: canPublish } = await supabase.rpc("can_publish_track",{p_track_id:trackId});
   if (!canPublish) return <p className="p-8 text-slate-400">Only the track or organization owner can publish final results or reopen this event.</p>;
 
+  const {data:offlineSessions}=await readAll(supabase.from("offline_scoring_sessions").select("*").eq("event_id",eventId).is("closed_at",null));
+  async function releaseDevice(f:FormData){"use server";if(f.get("confirm")!=="on")throw new Error("Confirmation required");const db=await createClient();const {error}=await db.rpc("release_offline_session",{p_session_id:String(f.get("session_id")),p_reason:String(f.get("reason"))});if(error)redirect(`?error=${encodeURIComponent(error.message)}`);revalidatePath("/dashboard/tracks","layout");redirect(`/dashboard/tracks/${trackId}/events/${eventId}/settings`);}
   async function updateStatus(formData: FormData) {
     "use server";
     const newStatus = formData.get("status") as string;
@@ -38,6 +41,7 @@ export default async function EventSettingsPage({ params, searchParams }: { sear
       <h2 className="text-2xl font-bold text-white mb-6">Event Settings</h2>
       
       {actionError && <p role="alert" className="mb-4 text-red-400">{actionError}</p>}
+      {offlineSessions.length>0&&<section className="border border-amber-600 rounded p-4 space-y-4 mb-6"><h2 className="font-bold">Open offline devices · finalization blocked</h2><p>Finish each device session after uploading. An owner can release an abandoned device deliberately; unsent edits from that device cannot enter a completed race.</p>{offlineSessions.map(s=><form action={releaseDevice} key={s.id} className="space-y-3 border-t pt-3"><p>Device {s.device_id.slice(0,8)} · prepared {s.prepared_at}</p><input type="hidden" name="session_id" value={s.id}/><label className="block">Release reason<input name="reason" required minLength={5} className="block w-full p-3 bg-slate-900 border rounded"/></label><label className="block"><input type="checkbox" required name="confirm"/> I confirm its uploads are complete or intentionally abandon any remaining device edits.</label><button className="p-3 border rounded">Release device session (audited)</button></form>)}</section>}
       <form action={editEvent} className="space-y-4 mb-8"><h2 className="text-xl font-bold">Event details</h2><input type="hidden" name="revision" value={event?.working_revision}/><label className="block">Name<input required name="name" defaultValue={event?.name} className="block p-3 rounded bg-slate-900 border w-full"/></label><label className="block">Race date<input required type="date" name="date" defaultValue={event?.local_date} className="block p-3 rounded bg-slate-900 border w-full"/></label><button className="p-3 rounded bg-amber-500 text-slate-950">Save details</button></form>
       <form action={deleteEvent} className="space-y-3 mb-8 p-4 border border-red-900 rounded"><h2 className="font-bold">Delete or withdraw event</h2><p>Empty events are deleted. Events with racers or official results are withdrawn; their history is retained.</p><label className="block"><input required type="checkbox" name="confirm"/> I confirm this event should be removed from the schedule.</label><button className="p-3 bg-red-950 rounded">Delete / withdraw event</button></form>
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-6">

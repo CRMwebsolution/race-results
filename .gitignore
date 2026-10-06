@@ -37,3 +37,8 @@ supabase/.temp
 
 # Scratch & local configs
 mcp_confic.json.txt
+
+# Browser acceptance outputs and isolated private fixtures
+/test-results
+/playwright-report
+.acceptance-*.json

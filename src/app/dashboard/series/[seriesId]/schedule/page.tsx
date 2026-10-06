@@ -1,3 +1,4 @@
+import {uniqueRaceSlug} from "@/lib/slug";
 import { readAll } from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
@@ -55,7 +56,7 @@ export default async function SeriesSchedulePage(props: {
       trackId = existingTrack.id;
     } else {
       // Create a new track for this location via secure RPC
-      const trackSlug = `${trackName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "")}-${Date.now().toString().slice(-4)}`;
+      const trackSlug = uniqueRaceSlug(trackName);
       
       const { data: newTrackId, error: createTrackError } = await supabase.rpc("create_ghost_track", {
         p_org_id: series!.organization_id,
@@ -72,7 +73,7 @@ export default async function SeriesSchedulePage(props: {
       }
     }
     
-    const slug = `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "")}-${Date.now().toString().slice(-4)}`;
+    const slug = uniqueRaceSlug(name);
 
     // Create the event on the track, linked to the series
     const { error: eventError } = await supabase.from("events").insert({
@@ -118,7 +119,7 @@ export default async function SeriesSchedulePage(props: {
       trackId = existingTrack.id;
     } else {
       // Create a new track for this location via secure RPC
-      const trackSlug = `${trackName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "")}-${Date.now().toString().slice(-4)}`;
+      const trackSlug = uniqueRaceSlug(trackName);
       
       const { data: newTrackId, error: createTrackError } = await supabase.rpc("create_ghost_track", {
         p_org_id: series!.organization_id,

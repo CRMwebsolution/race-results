@@ -17,3 +17,8 @@ export function generateTrackSlug(
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
 }
+
+/** Separate server action allocation from the rendered form; avoid short timestamp collisions. */
+export function uniqueRaceSlug(name: string): string {
+  return `${generateTrackSlug(name) || "race"}-${crypto.randomUUID()}`;
+}

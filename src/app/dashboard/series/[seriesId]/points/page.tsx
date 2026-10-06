@@ -151,7 +151,7 @@ export default async function SeriesPointsPage({ params, searchParams }: { param
               <div className="flex-1">
                 <label className="block text-[10px] uppercase text-slate-500 mb-1">End Rank</label>
                 <input name="rank_end" type="number" required min="1" placeholder="1" className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-white text-sm" />
-                <p className="text-[10px] text-slate-500 mt-1">Use 999 for "and below"</p>
+                <p className="text-[10px] text-slate-500 mt-1">Use 999 for &quot;and below&quot;</p>
               </div>
               <div className="flex-1">
                 <label className="block text-[10px] uppercase text-slate-500 mb-1">Points</label>

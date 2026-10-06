@@ -1,5 +1,9 @@
 "use client";
 import {JudgeInput,judgeRoundAttempts} from "@/scoring/multi-judge";
+import {Prepared,getPrepared,subscribePrepared,queueAttempt,localAttempts as deviceAttempts,activateAccount} from "@/lib/offline/store";
+import {prepareEvent,finishPrepared} from "@/lib/offline/prepare";
+import {flushPrepared,retryPrepared,resolveConflict,isUploading} from "@/lib/offline/sync";
+import {downloadResults} from "@/lib/results-csv";
 import {ResultSort} from "@/components/result-sort";
 import {sortResults,passCount,ResultOrder} from "@/lib/race-order";
 
@@ -10,10 +14,12 @@ import { scoreClass, rankEntries, compareRankedEntries } from "@/scoring";
 import { CheckCircle2, Loader2, Download, Printer, ExternalLink, Users } from "lucide-react";
 import Link from "next/link";
 
-type EventType = { id: string; name: string; working_revision: number; status: string };
-type ClassType = { id: string; name: string; scoring_type: string; scoring_version?: number; scoring_config: any; order_num: number };
-type EntryType = { id: string; event_class_id: string; display_name: string; seed: number | null; order_num: number };
-type AttemptType = { id: string; event_class_id: string; entry_id: string; ordinal: number; status: string; elapsed_ms: number | null; distance_mm: number | null; penalty_ms: number; raw_input: string | null; save_version: number };
+export type EventType = { id: string; name: string; working_revision: number; status: string };
+export type ClassType = { id: string; name: string; scoring_type: string; scoring_version?: number; scoring_config: any; order_num: number };
+export type EntryType = { id: string; event_class_id: string; display_name: string; seed: number | null; order_num: number };
+export type AttemptType = { id: string; event_class_id: string; entry_id: string; ordinal: number; status: string; elapsed_ms: number | null; distance_mm: number | null; penalty_ms: number; raw_input: string | null; save_version: number };
+
+export type ScoringPacket={accountId?:string;trackId:string;trackSlug?:string;eventSlug?:string;event:EventType;classes:ClassType[];initialEntries:EntryType[];initialAttempts:AttemptType[];judgeScores?:JudgeInput[]};
 
 // We want to map DB types to the Scoring Engine types
 type ScoreEngineAttempt = {
@@ -28,6 +34,7 @@ type ScoreEngineAttempt = {
 };
 
 export function ScoringWorkspace({
+  accountId,offlineOnly=false,
   trackId,
   trackSlug,
   eventSlug,
@@ -37,6 +44,7 @@ export function ScoringWorkspace({
   initialAttempts,
   judgeScores=[],
 }: {
+  accountId?:string;offlineOnly?:boolean;
   trackId: string;
   trackSlug?: string;
   eventSlug?: string;
@@ -49,6 +57,11 @@ export function ScoringWorkspace({
   const [sortOrder,setSortOrder]=useState<ResultOrder>("run");
   const [reverse,setReverse]=useState(false);
   const [frozenOrder,setFrozenOrder]=useState<string[]|null>(null);
+  const [prepared,setPrepared]=useState<Prepared|null>(null);
+  const [offlineMessage,setOfflineMessage]=useState("");
+  const [offlineBusy,setOfflineBusy]=useState(false);
+  const preparedRef=useRef<Prepared|null>(null);
+  preparedRef.current=prepared;
   const [activeClassId, setActiveClassId] = useState<string>(classes[0]?.id || "");
   const [localAttempts, setLocalAttempts] = useState<AttemptType[]>(initialAttempts);
   const [pendingSaves, setPendingSaves] = useState(0);
@@ -61,7 +74,12 @@ export function ScoringWorkspace({
   const confirmedAttempts = useRef(initialAttempts);
   const [visibleColumns, setVisibleColumns] = useState(2);
 
-  const draftStorageKey = `raceholler:drafts:${trackId}:${event.id}`;
+
+  useEffect(()=>{if(!accountId)return;activateAccount(accountId);async function load(){try{const r=await getPrepared(accountId!,event.id);setPrepared(r);if(r){confirmedAttempts.current=r.packet.initialAttempts;setLocalAttempts(deviceAttempts(r));acknowledgedRevision.current=Math.max(acknowledgedRevision.current,r.packet.event.working_revision);}}catch(e){setOfflineMessage((e as Error).message);}}void load();const unsubscribe=subscribePrepared(()=>void load());const sync=()=>void retryPrepared(accountId!,event.id).catch(e=>setOfflineMessage((e as Error).message));window.addEventListener('online',sync);const timer=window.setInterval(()=>{if(preparedRef.current?.outbox.some(o=>o.state==='queued'))void flushPrepared(accountId!,event.id).catch(e=>setOfflineMessage((e as Error).message));},5000);return()=>{unsubscribe();window.removeEventListener('online',sync);window.clearInterval(timer);};},[accountId,event.id]);
+  async function prepare(){if(!accountId)return;setOfflineBusy(true);try{await prepareEvent(accountId,event.id);setOfflineMessage('Offline ready. Device saves upload while this app is open after reconnection.');}catch(e){setOfflineMessage((e as Error).message);}finally{setOfflineBusy(false);}}
+  async function finish(){if(!accountId)return;setOfflineBusy(true);try{await retryPrepared(accountId,event.id);await finishPrepared(accountId,event.id);setOfflineMessage('Offline session closed. Prepare again before recording more device saves.');}catch(e){setOfflineMessage((e as Error).message);}finally{setOfflineBusy(false);}}
+  async function resolve(entryId:string,ordinal:number,keep:boolean){if(!accountId)return;try{await resolveConflict(accountId,event.id,entryId,ordinal,keep);}catch(e){setOfflineMessage((e as Error).message);}}
+  const draftStorageKey = `raceholler:drafts:${accountId ?? "unknown"}:${trackId}:${event.id}`;
   useEffect(() => {
     try {
       const stored = JSON.parse(sessionStorage.getItem(draftStorageKey) ?? "{}");
@@ -81,7 +99,7 @@ export function ScoringWorkspace({
 
   // Sync when initial data changes from server revalidation
   useEffect(() => {
-    if (pendingSaves === 0 && event.working_revision >= acknowledgedRevision.current) {
+    if (!preparedRef.current && pendingSaves === 0 && event.working_revision >= acknowledgedRevision.current) {
       setLocalAttempts(initialAttempts);
       confirmedAttempts.current = initialAttempts;
       acknowledgedRevision.current = event.working_revision;
@@ -93,7 +111,8 @@ export function ScoringWorkspace({
   }, [classes, activeClassId]);
 
   const activeClass = classes.find((c) => c.id === activeClassId);
-  useEffect(()=>{setVisibleColumns(passCount(activeClass?.scoring_config,localAttempts.filter(a=>a.event_class_id===activeClassId)));},[activeClassId]);
+  const requiredColumns=passCount(activeClass?.scoring_config,localAttempts.filter(a=>a.event_class_id===activeClassId));
+  useEffect(()=>{setVisibleColumns(requiredColumns);},[activeClassId,requiredColumns]);
   const activeEntries = initialEntries.filter((e) => e.event_class_id === activeClassId);
 
   // Compute ranks and scores for the active class
@@ -146,6 +165,8 @@ export function ScoringWorkspace({
       setCellErrors(prev => ({ ...prev, [key]: parsed.error! }));
       return;
     }
+    if(accountId&&preparedRef.current){try{await queueAttempt(accountId,event.id,classId,entryId,ordinal,rawInput,parsed.penaltyMs);setDrafts(prev=>{const next={...prev};delete next[key];return next;});setCellErrors(prev=>{const next={...prev};delete next[key];return next;});void flushPrepared(accountId,event.id).catch(e=>setOfflineMessage((e as Error).message));}catch(e){setCellErrors(prev=>({...prev,[key]:(e as Error).message}));}return;}
+    if(offlineOnly){setCellErrors(prev=>({...prev,[key]:"Prepare this race online before offline edits"}));return;}
     busyCells.current.add(key);
     setSavingCells(new Set(busyCells.current));
     setPendingSaves(s => s + 1);
@@ -172,26 +193,16 @@ export function ScoringWorkspace({
 
   const handleExportCSV = () => {
     if (!activeClass) return;
-    const header = "Rank,Draw #,Racer,Score,Ties,Display order\n";
-    const rows = displayRows.map(r => {
-      const rowRank = r.rank == null ? "-" : r.tied ? `T${r.rank}` : r.rank;
-      return `${rowRank},${r.orderNum},"${r.entry.display_name.replaceAll('"','""')}","${r.score.label}","${r.score.tieBreakers.join(", ")}","${sortOrder}${reverse ? " reversed" : ""}"`;
-    }).join("\n");
-    
-    const csv = header + rows;
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${activeClass.name.replace(/[^a-z0-9]/gi, "_").toLowerCase()}_results.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    downloadResults(`${activeClass.name.replace(/[^a-z0-9]/gi,"_").toLowerCase()}_results.csv`,[
+      ["Rank","Draw #","Racer","Score","Ties","Display order","Publication"],
+      ...displayRows.map(r=>[r.rank==null ? "-" : r.tied ? `T${r.rank}` : r.rank,r.orderNum,r.entry.display_name,r.score.label,r.score.tieBreakers.join(", "),`${sortOrder}${reverse ? " reversed" : ""}`,prepared?.outbox.length ? "Provisional device results" : "Working results"]),
+    ]);
+
   };
 
   return (
     <div className="flex flex-col w-full h-full">
+      <section className="p-4 border-b border-slate-700 space-y-3 print:hidden"><div className="flex flex-wrap gap-3"><button disabled={offlineBusy} onClick={prepare} className="p-3 border rounded">Prepare for offline</button><button disabled={offlineBusy||!prepared} onClick={()=>accountId&&void retryPrepared(accountId,event.id).catch(e=>setOfflineMessage(e.message))} className="p-3 border rounded">Retry uploads</button><button disabled={offlineBusy||!prepared||prepared.closed} onClick={finish} className="p-3 border rounded">Finish offline session</button><a href="/offline" className="p-3 border rounded">Open saved races</a></div><p role="status">{prepared ? prepared.closed ? "Device session closed · cached view only" : prepared.outbox.length ? `${accountId&&isUploading(accountId,event.id) ? "Uploading" : "Saved on device"} · ${prepared.outbox.length} waiting to upload · local provisional results` : "Synced · offline session open" : "Online scoring · prepare before losing signal"}</p>{offlineMessage&&<p role="status" className="text-amber-300">{offlineMessage}</p>}{prepared?.outbox.filter((o,i,a)=>o.state!=="queued"&&a.findIndex(x=>x.entryId===o.entryId&&x.ordinal===o.ordinal)===i).map(o=><div key={o.id} role="alert" className="p-3 border border-red-700 rounded"><p>{o.state==="conflict"?"Conflict":"Upload blocked"}: {initialEntries.find(e=>e.id===o.entryId)?.display_name} · Pass {o.ordinal} · Device value: {o.raw} · {o.error}</p>{o.state==="conflict"&&<div className="flex flex-wrap gap-3"><button onClick={()=>resolve(o.entryId,o.ordinal,false)}>Use latest server value</button><button onClick={()=>{if(confirm("Replace this pass with your latest device value after checking the other scorer's change?"))void resolve(o.entryId,o.ordinal,true);}}>Reapply my device value</button></div>}</div>)}</section>
       {/* Top action bar */}
       <div className="bg-slate-900 border-b border-slate-800 p-4 flex flex-wrap gap-4 items-center justify-between print:hidden">
         <div className="flex flex-wrap gap-4">
@@ -212,6 +223,8 @@ export function ScoringWorkspace({
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 <span>Saving...</span>
               </span>
+            ) : prepared?.outbox.length ? (
+              <span className="text-amber-400">Device edits pending · provisional</span>
             ) : Object.keys(cellErrors).length ? (
               <span className="text-red-400">Unsaved changes</span>
             ) : Object.keys(drafts).length ? (
@@ -260,7 +273,7 @@ export function ScoringWorkspace({
 
       <ResultSort order={sortOrder} reverse={reverse} passes={passCount(activeClass?.scoring_config,localAttempts)} onOrder={setSortOrder} onReverse={setReverse}/>
       <p className="px-4 text-xs text-slate-400">Display order: {sortOrder} {reverse ? "(reversed)" : ""}</p>
-      {activeClass?.scoring_type==="judged_points" && <Link className="p-4 text-amber-400 underline" href={`/dashboard/tracks/${trackId}/events/${event.id}/judging`}>Enter independent judge scores</Link>}
+      {activeClass?.scoring_type==="judged_points" && <Link className="p-4 text-amber-400 underline" href={`/dashboard/tracks/${trackId}/events/${event.id}/judging`}>Enter independent judge scores (online)</Link>}
       {/* Grid */}
       {Object.keys(cellErrors).length > 0 && <p role="alert" className="p-4 text-red-400">{[...new Set(Object.values(cellErrors))].join(" · ")} Your input is retained; retry the highlighted pass or refresh after a conflict.</p>}
       <div className="flex-1 overflow-auto bg-[#0B1120] p-4 print:hidden">
@@ -324,7 +337,7 @@ export function ScoringWorkspace({
                               setDrafts(prev => { const next = { ...prev }; if (value === (attempt?.rawInput ?? "")) delete next[key]; else next[key] = value; return next; });
                               if (value === (attempt?.rawInput ?? "")) setCellErrors(prev => { const next = { ...prev }; delete next[key]; return next; });
                             }}
-                            disabled={savingCells.has(key) || event.status === "completed" || activeClass?.scoring_type === "judged_points"}
+                            disabled={savingCells.has(key) || event.status === "completed" || Boolean(prepared?.closed||prepared?.closing) || activeClass?.scoring_type === "judged_points"}
                             aria-label={`${row.entry.display_name}, pass ${ordinal}`}
                             aria-invalid={Boolean(cellErrors[key])}
                             title={cellErrors[key]}
@@ -366,7 +379,7 @@ export function ScoringWorkspace({
       {/* Print-only Table Sorted by Rank */}
       <div className="hidden print:block p-8 bg-white text-black w-full">
         <h1 className="text-2xl font-bold mb-1">{event.name}</h1>
-        <h2 className="text-lg font-semibold text-gray-700 mb-6">{activeClass?.name} Results · Order: {sortOrder} {reverse ? "reversed" : ""}</h2>
+        <h2 className="text-lg font-semibold text-gray-700 mb-6">{activeClass?.name} {prepared?.outbox.length ? "Provisional device results" : "Results"} · Order: {sortOrder} {reverse ? "reversed" : ""}</h2>
         <table className="w-full text-left text-sm border-collapse">
           <thead>
             <tr className="border-b-2 border-gray-900 uppercase text-xs font-bold text-gray-600">

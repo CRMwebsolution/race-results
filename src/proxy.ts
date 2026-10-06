@@ -14,6 +14,6 @@ export const config = {
      * - favicon.ico (favicon file)
      * - images, svg, icons
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|raceholler-sw.js|offline|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

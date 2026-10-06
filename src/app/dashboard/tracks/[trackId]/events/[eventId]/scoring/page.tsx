@@ -34,7 +34,7 @@ export default async function EventScoringPage({
   const eventSlug = event.slug;
 
 
-  if(event.status==="completed") {const snapshot=await officialResult(supabase,event.id);if(!snapshot)throw new Error("Official snapshot unavailable");const p=snapshot.payload as any;return <div className="p-4 w-full"><p>Official results · Version {snapshot.version}</p><LiveLeaderboard event={{...p.event,status:"completed"}} classes={p.classes} initialEntries={p.entries} initialAttempts={p.attempts} officialResults={p.results}/></div>;}
+  if(event.status==="completed") {const snapshot=await officialResult(supabase,event.id);if(!snapshot)throw new Error("Official snapshot unavailable");const p=snapshot.payload as any;return <div className="p-4 w-full"><p>Official results · Version {snapshot.version}</p><LiveLeaderboard event={{...p.event,status:"completed"}} classes={p.classes} initialEntries={p.entries} initialAttempts={p.attempts} officialResults={p.results} officialVersion={snapshot.version} judgeScores={judgeInput(p.judge_scores||[])}/></div>;}
   // Fetch all classes
   const { data: classes } = await readAll(supabase
     .from("event_classes")
@@ -51,24 +51,21 @@ export default async function EventScoringPage({
     );
   }
 
-  // Fetch all entries for these classes
-  const { data: entries } = await readAll(supabase
-    .from("entries")
-    .select("id, event_class_id, display_name, seed, status, order_num")
-    .in("event_class_id", classes.map(c => c.id))
-    .order("order_num", { ascending: true }));
-
-  // Fetch all attempts for these entries
-  const { data: attempts } = await readAll(supabase
-    .from("attempts")
-    .select("id, event_class_id, entry_id, ordinal, status, elapsed_ms, distance_mm, penalty_ms, raw_input, save_version")
-    .in("event_class_id", classes.map(c => c.id))
-    .order("ordinal", { ascending: true }));
-
-  const {data:judges}=await readAll(supabase.from("judge_scores").select("*").in("event_class_id",classes.map(c=>c.id)));
+  // Independent lists can load together once the class IDs are known.
+  const classIds=classes.map(c=>c.id);
+  const [{data:entries},{data:attempts},{data:judges}]=await Promise.all([
+    readAll(supabase.from("entries")
+      .select("id, event_class_id, display_name, seed, status, order_num")
+      .in("event_class_id",classIds).order("order_num",{ascending:true})),
+    readAll(supabase.from("attempts")
+      .select("id, event_class_id, entry_id, ordinal, status, elapsed_ms, distance_mm, penalty_ms, raw_input, save_version")
+      .in("event_class_id",classIds).order("ordinal",{ascending:true})),
+    readAll(supabase.from("judge_scores").select("*").in("event_class_id",classIds)),
+  ]);
   return (
     <ScoringWorkspace
       key={event.id}
+      accountId={user.id}
       trackId={trackId}
       trackSlug={trackSlug}
       eventSlug={eventSlug}

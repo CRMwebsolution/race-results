@@ -585,6 +585,41 @@ export type Database = {
           },
         ]
       }
+      offline_scoring_sessions: {
+        Row: {
+          closed_at: string | null
+          device_id: string
+          event_id: string
+          id: string
+          prepared_at: string
+          user_id: string
+        }
+        Insert: {
+          closed_at?: string | null
+          device_id: string
+          event_id: string
+          id?: string
+          prepared_at?: string
+          user_id: string
+        }
+        Update: {
+          closed_at?: string | null
+          device_id?: string
+          event_id?: string
+          id?: string
+          prepared_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offline_scoring_sessions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_memberships: {
         Row: {
           active: boolean
@@ -699,6 +734,41 @@ export type Database = {
             columns: ["home_track_id"]
             isOneToOne: false
             referencedRelation: "tracks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      race_operation_receipts: {
+        Row: {
+          created_at: string
+          event_id: string
+          operation_id: string
+          request: Json
+          result: Json
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          operation_id: string
+          request: Json
+          result: Json
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          operation_id?: string
+          request?: Json
+          result?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "race_operation_receipts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
             referencedColumns: ["id"]
           },
         ]
@@ -1289,6 +1359,10 @@ export type Database = {
         }
         Returns: string
       }
+      close_offline_session: {
+        Args: { p_session_id: string }
+        Returns: undefined
+      }
       complete_race_event: {
         Args: { p_event_id: string; p_expected_revision: number; p_ranks: Json }
         Returns: Json
@@ -1390,6 +1464,10 @@ export type Database = {
           user_id: string
         }[]
       }
+      prepare_offline_event: {
+        Args: { p_device_id: string; p_event_id: string }
+        Returns: Json
+      }
       public_series_organization_name: {
         Args: { p_series_id: string }
         Returns: string
@@ -1426,6 +1504,10 @@ export type Database = {
         }
         Returns: Json
       }
+      release_offline_session: {
+        Args: { p_reason: string; p_session_id: string }
+        Returns: undefined
+      }
       remove_event_class: {
         Args: { p_class_id: string; p_confirm?: boolean; p_event_id: string }
         Returns: undefined
@@ -1452,6 +1534,23 @@ export type Database = {
           p_entry_id: string
           p_event_id: string
           p_expected_version: number
+          p_ordinal: number
+          p_penalty_ms: number
+          p_raw_input: string
+          p_status: string
+          p_track_id: string
+        }
+        Returns: Json
+      }
+      save_race_attempt_operation: {
+        Args: {
+          p_class_id: string
+          p_distance_mm: number
+          p_elapsed_ms: number
+          p_entry_id: string
+          p_event_id: string
+          p_expected_version: number
+          p_operation_id: string
           p_ordinal: number
           p_penalty_ms: number
           p_raw_input: string

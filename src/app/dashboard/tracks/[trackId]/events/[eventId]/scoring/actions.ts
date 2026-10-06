@@ -5,14 +5,14 @@ import { revalidatePath } from "next/cache";
 import { parseAttemptInput } from "@/scoring/parser";
 import type { Database } from "@/types/database";
 
-type SaveResult = { success: false; error: string } | {
+type SaveResult = { success: false; error: string; errorCode?:string } | {
   success: true; attempt: Database["public"]["Tables"]["attempts"]["Row"];
   working_revision: number; published_revision: number | null;
 };
 
 export async function saveAttempt(
   trackId: string, eventId: string, eventClassId: string, entryId: string,
-  ordinal: number, rawInput: string, penaltyMs: number, expectedVersion: number
+  ordinal: number, rawInput: string, penaltyMs: number, expectedVersion: number, operationId?:string
 ): Promise<SaveResult> {
   const parsed = parseAttemptInput(rawInput, penaltyMs);
   if (parsed.error) return { success: false, error: parsed.error };
@@ -27,8 +27,8 @@ export async function saveAttempt(
     p_distance_mm: parsed.distanceMm, p_penalty_ms: parsed.penaltyMs, p_raw_input: parsed.rawInput,
     p_expected_version: expectedVersion,
   } as unknown as Database["public"]["Functions"]["save_race_attempt"]["Args"];
-  const { data, error } = await supabase.rpc("save_race_attempt", args);
-  if (error) return { success: false, error: error.message };
+  const { data, error } = operationId ? await supabase.rpc("save_race_attempt_operation",{...args,p_operation_id:operationId}) : await supabase.rpc("save_race_attempt", args);
+  if (error) return { success: false, error: error.message, errorCode:error.code };
   if (!data || typeof data !== "object" || Array.isArray(data) || !data.attempt) {
     return { success: false, error: "The server did not confirm this save. Refresh to check the recorded pass." };
   }

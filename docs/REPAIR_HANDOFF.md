@@ -113,3 +113,8 @@ Validation: 21-migration replay and event-management rollback workflow locally a
 
 Five exact operating modes are offered at registration and persisted in Auth user metadata; account settings allow switching. Dashboard track/series sections follow those preferences while access checks remain unchanged. Existing accounts see a selection reminder and retain all access. Navigation now exposes account settings and a labeled event workflow on small screens; controls wrap and receive visible focus/touch sizing. Track details/state/timezone and defaults are separate settings sections. Manage Seasons was removed from track navigation; legacy data/routes remain. Branding now reads RaceHoller.
 Validation: TypeScript, 37 tests, production build, diff checks. Browser viewport/onboarding acceptance follows in group 10.
+
+### Audit group 4: password changes
+
+Account settings verify current credentials in an isolated nonpersistent Auth client before password update, validate confirmation/minimum length, and expose the provider's email nonce reauthentication flow. Errors and success are visible; passwords are never logged or audited. Callback return paths are restricted to local paths. Leaked-password protection remains unverified/disabled: the connector cannot inspect/change Auth configuration or confirm paid-plan availability; Supabase documents Pro+ as required. Real credential acceptance tests follow in group 10; no email delivery claim is made.
+TypeScript, tests and production compilation passed. Repeated Turbopack cache panics prompted selecting Next's supported webpack production builder for stable builds.

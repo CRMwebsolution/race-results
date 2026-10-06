@@ -1,3 +1,5 @@
+import {officialResult} from "@/lib/official-results";
+import {LiveLeaderboard} from "@/app/r/[slug]/[eventSlug]/live-leaderboard";
 import { readAll } from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
@@ -30,6 +32,8 @@ export default async function EventScoringPage({
   const trackSlug = (event.tracks as any)?.slug;
   const eventSlug = event.slug;
 
+
+  if(event.status==="completed") {const snapshot=await officialResult(supabase,event.id);if(!snapshot)throw new Error("Official snapshot unavailable");const p=snapshot.payload as any;return <div className="p-4 w-full"><p>Official results · Version {snapshot.version}</p><LiveLeaderboard event={{...p.event,status:"completed"}} classes={p.classes} initialEntries={p.entries} initialAttempts={p.attempts} officialResults={p.results}/></div>;}
   // Fetch all classes
   const { data: classes } = await readAll(supabase
     .from("event_classes")

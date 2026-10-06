@@ -34,7 +34,7 @@ export async function finalizeEventStandings(eventId: string) {
 
   if (entriesError || attemptsError) return { error: entriesError?.message ?? attemptsError?.message };
 
-  const updates: { id: string, final_rank: number | null }[] = [];
+  const updates: { id: string, final_rank: number | null; score: import("@/scoring").Score; tied: boolean }[] = [];
 
   // 4. Compute for each class
   for (const cls of classes) {
@@ -70,11 +70,11 @@ export async function finalizeEventStandings(eventId: string) {
 
     const invalid = entriesWithScore.find(e => e.score.details.error);
     if (invalid) return { error: String(invalid.score.details.error) };
-    rankEntries(entriesWithScore).forEach(e => updates.push({ id: e.entryId, final_rank: e.rank }));
+    rankEntries(entriesWithScore).forEach(e => updates.push({ id: e.entryId, final_rank: e.rank, score:e.score, tied:e.tied }));
   }
 
   const { error } = await supabase.rpc("complete_race_event", {
-    p_event_id: eventId, p_expected_revision: event.working_revision, p_ranks: updates,
+    p_event_id: eventId, p_expected_revision: event.working_revision, p_ranks: updates as unknown as import("@/types/database").Json,
   });
   return error ? { error: error.message } : { success: true };
 }

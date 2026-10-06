@@ -123,3 +123,8 @@ TypeScript, tests and production compilation passed. Repeated Turbopack cache pa
 
 Spectator home is now a global race feed with live priority, ascending date/id order, track/state and upcoming/results filters, including published finals. Track and series schedules use the same ordering. Staff and spectators can sort run order, rank and every configured/recorded pass in either direction. Adjusted times ascend, distances descend, invalid/missing passes stay last, and display changes never alter draw/ranks. Staff row positions freeze while focus remains inside the input grid. Print/CSV identify the chosen order.
 Validation: 39 tests including chronology/pass-sort penalties/missing/distance regressions, TypeScript, production build and diff checks. Actual focus/mobile/browser tests follow in group 10.
+
+### Audit group 6: immutable official results
+
+Completion atomically records versioned event/class configuration, identities, attempts, canonical score labels/details/ties/ranks, source revision, actor and timestamps. Reopening retains every version; subsequent finals append. Completed spectator/staff reads and print output use stored official values without invoking the current scoring engine. Historical completed races receive explicitly reconstructed records with unknown original finalization time/score labels. Authenticated clients cannot write snapshots.
+Validation: 22-migration replay, live and local finalize/reopen/refinalize rollback workflow, stale completion/role suites, unit tests, TypeScript/build/diff checks. Applied migration 20261006180352; types refreshed.

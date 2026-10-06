@@ -1,11 +1,14 @@
+import {officialResult,OfficialRow} from "@/lib/official-results";
+import Link from "next/link";
 import { readAll } from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { LiveLeaderboard } from "./live-leaderboard";
 
 export default async function PublicEventPage({
-  params,
+  params,searchParams,
 }: {
+  searchParams:Promise<{version?:string}>;
   params: Promise<{ slug: string; eventSlug: string }>;
 }) {
   const { slug, eventSlug } = await params;
@@ -29,6 +32,14 @@ export default async function PublicEventPage({
 
   if (!event) notFound();
 
+
+  const requested=Number((await searchParams).version)||undefined;
+  if(event.status==="completed"||requested){
+   const snapshot=await officialResult(supabase,event.id,requested);
+   if(!snapshot)throw new Error("Official results version is unavailable");
+   const payload=snapshot.payload as any;
+   return <div className="space-y-4"><p>Official results · Version {snapshot.version}{snapshot.reconstructed ? " · Reconstructed historical ranks" : ` · ${snapshot.finalized_at}`}</p><nav className="flex flex-wrap gap-3">{Array.from({length:snapshot.version},(_,i)=><Link key={i} href={`?version=${i+1}`}>Version {i+1}</Link>)}<Link href={`/r/${slug}/${eventSlug}`}>Current results</Link></nav><LiveLeaderboard event={{...payload.event,status:"completed"}} classes={payload.classes} initialEntries={payload.entries} initialAttempts={payload.attempts} officialResults={payload.results as OfficialRow[]}/></div>;
+  }
   // Fetch all classes
   const { data: classes } = await readAll(supabase
     .from("event_classes")

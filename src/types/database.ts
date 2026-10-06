@@ -322,8 +322,63 @@ export type Database = {
           },
         ]
       }
+      event_result_versions: {
+        Row: {
+          actor_id: string | null
+          event_id: string
+          finalized_at: string | null
+          id: string
+          payload: Json
+          reconstructed: boolean
+          recorded_at: string
+          source_revision: number
+          track_id: string
+          version: number
+        }
+        Insert: {
+          actor_id?: string | null
+          event_id: string
+          finalized_at?: string | null
+          id?: string
+          payload: Json
+          reconstructed?: boolean
+          recorded_at?: string
+          source_revision: number
+          track_id: string
+          version: number
+        }
+        Update: {
+          actor_id?: string | null
+          event_id?: string
+          finalized_at?: string | null
+          id?: string
+          payload?: Json
+          reconstructed?: boolean
+          recorded_at?: string
+          source_revision?: number
+          track_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_result_versions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_result_versions_track_id_fkey"
+            columns: ["track_id"]
+            isOneToOne: false
+            referencedRelation: "tracks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
+          completed_at: string | null
           created_at: string
           defaults_initialized: boolean
           id: string
@@ -340,6 +395,7 @@ export type Database = {
           working_revision: number
         }
         Insert: {
+          completed_at?: string | null
           created_at?: string
           defaults_initialized?: boolean
           id?: string
@@ -356,6 +412,7 @@ export type Database = {
           working_revision?: number
         }
         Update: {
+          completed_at?: string | null
           created_at?: string
           defaults_initialized?: boolean
           id?: string
@@ -921,6 +978,15 @@ export type Database = {
       can_publish_track: { Args: { p_track_id: string }; Returns: boolean }
       can_view_track: { Args: { p_track_id: string }; Returns: boolean }
       cancel_rsvp: { Args: { p_rsvp_id: string }; Returns: Json }
+      capture_official_result: {
+        Args: {
+          p_event_id: string
+          p_reconstructed?: boolean
+          p_rows: Json
+          p_source: number
+        }
+        Returns: string
+      }
       complete_race_event: {
         Args: { p_event_id: string; p_expected_revision: number; p_ranks: Json }
         Returns: Json

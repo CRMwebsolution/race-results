@@ -1,4 +1,5 @@
 "use client";
+import type {OfficialRow} from "@/lib/official-results";
 import {ResultSort} from "@/components/result-sort";
 import {sortResults,passCount,ResultOrder} from "@/lib/race-order";
 
@@ -30,11 +31,13 @@ export function LiveLeaderboard({
   classes,
   initialEntries,
   initialAttempts,
+  officialResults,
 }: {
   event: EventType;
   classes: ClassType[];
   initialEntries: EntryType[];
   initialAttempts: AttemptType[];
+  officialResults?: OfficialRow[];
 }) {
   const [sortOrder,setSortOrder]=useState<ResultOrder>("rank");
   const [reverse,setReverse]=useState(false);
@@ -76,7 +79,8 @@ export function LiveLeaderboard({
           rawInput: a.raw_input,
         }));
 
-      const score = scoreClass(activeClass.scoring_type, entryAttempts, activeClass.scoring_config, activeClass.scoring_version);
+      const official=officialResults?.find(r=>r.id===entry.id);
+      const score = officialResults ? (official?.score ?? {eligible:official?.final_rank!=null,primary:null,direction:"asc" as const,tieBreakers:[],label:official?.final_rank!=null ? `Official rank ${official.final_rank} (original score not retained)` : "Unranked",details:{}}) : scoreClass(activeClass.scoring_type, entryAttempts, activeClass.scoring_config, activeClass.scoring_version);
 
       return {
         entry,
@@ -85,12 +89,14 @@ export function LiveLeaderboard({
         orderNum: entry.order_num,
         entryId: entry.id,
         attempts: entryAttempts,
+        rank: official?.final_rank ?? null,
+        tied: official?.tied ?? false,
       };
     });
 
-    return rankEntries(entriesWithScore);
+    return officialResults ? entriesWithScore : rankEntries(entriesWithScore);
 
-  }, [activeClass, activeEntries, initialAttempts]);
+  }, [activeClass, activeEntries, initialAttempts,officialResults]);
 
   const sortedRows=sortResults(rankedEntries,sortOrder,reverse);
   const displayRows=sortedRows;

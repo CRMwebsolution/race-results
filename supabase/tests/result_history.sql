@@ -1,0 +1,20 @@
+begin;
+insert into auth.users(id,email) values('fc000000-0000-4000-8000-000000000001','history@test.invalid');
+set local role authenticated;
+set local request.jwt.claim.sub='fc000000-0000-4000-8000-000000000001';
+do $$ declare t jsonb;e uuid;c uuid;en uuid;v bigint;original jsonb;begin
+ t:=public.register_track_with_state('History',null,'America/New_York','history-test','NC');e:=public.create_track_event((t->>'track_id')::uuid,'Race',current_date,'history-race',array[]::uuid[]);c:=public.create_event_class(e,'Class','fastest_pass');en:=public.create_race_entry((t->>'track_id')::uuid,e,c,'Racer',null);
+ perform public.save_race_attempt((t->>'track_id')::uuid,e,c,en,1,'valid',1000,null,0,'1.000',0);select working_revision into v from public.events where id=e;
+ perform public.complete_race_event(e,v,jsonb_build_array(jsonb_build_object('id',en,'final_rank',1,'score',jsonb_build_object('eligible',true,'label','1.000'),'tied',false)));
+ select payload into original from public.event_result_versions where event_id=e and version=1;
+ select working_revision into v from public.events where id=e;perform public.set_race_event_status(e,'live',v);
+ perform public.save_race_attempt((t->>'track_id')::uuid,e,c,en,1,'valid',2000,null,0,'2.000',1);select working_revision into v from public.events where id=e;
+ perform public.complete_race_event(e,v,jsonb_build_array(jsonb_build_object('id',en,'final_rank',1,'score',jsonb_build_object('eligible',true,'label','2.000'),'tied',false)));
+ if (select payload from public.event_result_versions where event_id=e and version=1)<>original then raise exception 'Old result changed';end if;
+ if (select count(*) from public.event_result_versions where event_id=e)<>2 then raise exception 'Missing result version';end if;
+ if not exists(select 1 from public.events where id=e and completed_at is not null) then raise exception 'Missing completion time';end if;
+ begin update public.event_result_versions set payload='{}' where event_id=e;raise exception 'Client changed official history' using errcode='XX000';exception when insufficient_privilege then null;end;
+end $$;
+reset role;
+select 'result_history: PASS' result;
+rollback;

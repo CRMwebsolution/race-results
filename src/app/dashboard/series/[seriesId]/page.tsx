@@ -68,6 +68,7 @@ export default async function SeriesHubPage({ params }: { params: Promise<{ seri
         </div>
       </div>
 
+      <Link href={`/dashboard/series/${seriesId}/standings`} className="inline-block p-4 bg-amber-500 text-slate-950 rounded font-bold">Championship standings & awards</Link>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
         {/* Master Classes */}

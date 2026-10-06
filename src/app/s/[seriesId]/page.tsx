@@ -1,3 +1,5 @@
+import {SeriesStandings} from "@/components/series-standings";
+import type {calculateSeries} from "@/championship/calculate";
 import {chronologicalRaces} from "@/lib/race-order";
 import { readAll } from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
@@ -39,9 +41,7 @@ export default async function PublicSeriesPage({ params }: { params: Promise<{ s
     .select("*")
     .eq("series_id", seriesId));
 
-  // Note: Full calculated standings across all events would require pulling all entries from all completed events 
-  // and applying the series_points_rules and series_bonuses. For the initial phase, we display the master list
-  // and schedule, letting users drill into individual completed events.
+  const {data:standings,error:standingsError}=await supabase.from("series_result_versions").select("*").eq("series_id",seriesId).eq("is_current",true).order("version",{ascending:false}).limit(1).maybeSingle();if(standingsError)throw new Error(standingsError.message);
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col">
@@ -95,6 +95,7 @@ export default async function PublicSeriesPage({ params }: { params: Promise<{ s
           </div>
         </div>
 
+        {standings ? <SeriesStandings payload={standings.payload as unknown as ReturnType<typeof calculateSeries>}/> : <section><h2 className="text-xl font-bold">Championship standings</h2><p>No current championship version. The organizer must publish or rebuild after changes.</p></section>}
         {/* Schedule */}
         <section>
           <h2 className="text-2xl font-black text-white mb-6 flex items-center space-x-3">

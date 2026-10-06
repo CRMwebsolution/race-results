@@ -30,6 +30,7 @@ export default async function SeriesRosterPage(props: {
     .eq("series_id", seriesId)
     .order("created_at", { ascending: true }));
 
+  const {data:identities}=await readAll(supabase.from("series_racers").select("*").eq("series_id",seriesId));
   const racerToEdit = roster?.find(r => r.id === editRosterId);
 
   async function addRacer(formData: FormData) {
@@ -41,6 +42,7 @@ export default async function SeriesRosterPage(props: {
     
     const { error: mutationError } = await supabase.from("series_rosters").insert({
       series_id: seriesId,
+      series_racer_id: String(formData.get("series_racer_id")||"") || null,
       series_class_id: seriesClassId,
       display_name: displayName
     });
@@ -59,6 +61,7 @@ export default async function SeriesRosterPage(props: {
     
     const { error: mutationError } = await supabase.from("series_rosters").update({
       display_name: displayName,
+      series_racer_id: String(formData.get("series_racer_id")||"") || null,
       series_class_id: seriesClassId
     }).eq("id", rosterId).eq("series_id", seriesId);
     if (mutationError) redirect(`/dashboard/series/${seriesId}/roster?error=${encodeURIComponent(mutationError.message)}`);
@@ -187,6 +190,7 @@ export default async function SeriesRosterPage(props: {
               )}
             </div>
 
+            <label className="block">Racer identity<select name="series_racer_id" defaultValue={racerToEdit?.series_racer_id||""} className="block w-full p-3 bg-slate-950 rounded border"><option value="">Create a separate racer</option>{identities.map(r=><option key={r.id} value={r.id}>{r.display_name}</option>)}</select><span className="text-xs text-slate-400">Select the same identity across classes to award event bonuses once. Similar names are never merged automatically.</span></label>
             {editRosterId && <input type="hidden" name="roster_id" value={editRosterId} />}
             
             {classes?.length === 0 && (

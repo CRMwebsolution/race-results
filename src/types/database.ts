@@ -206,6 +206,8 @@ export type Database = {
           id: string
           order_num: number
           seed: number | null
+          series_racer_id: string | null
+          series_roster_id: string | null
           status: string
           team_id: string | null
         }
@@ -217,6 +219,8 @@ export type Database = {
           id?: string
           order_num: number
           seed?: number | null
+          series_racer_id?: string | null
+          series_roster_id?: string | null
           status?: string
           team_id?: string | null
         }
@@ -228,6 +232,8 @@ export type Database = {
           id?: string
           order_num?: number
           seed?: number | null
+          series_racer_id?: string | null
+          series_roster_id?: string | null
           status?: string
           team_id?: string | null
         }
@@ -244,6 +250,20 @@ export type Database = {
             columns: ["event_class_id"]
             isOneToOne: false
             referencedRelation: "event_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entries_series_racer_id_fkey"
+            columns: ["series_racer_id"]
+            isOneToOne: false
+            referencedRelation: "series_racers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entries_series_roster_id_fkey"
+            columns: ["series_roster_id"]
+            isOneToOne: false
+            referencedRelation: "series_rosters"
             referencedColumns: ["id"]
           },
         ]
@@ -784,6 +804,7 @@ export type Database = {
           id: string
           name: string
           organization_id: string
+          rules_revision: number
           updated_at: string
         }
         Insert: {
@@ -792,6 +813,7 @@ export type Database = {
           id?: string
           name: string
           organization_id: string
+          rules_revision?: number
           updated_at?: string
         }
         Update: {
@@ -800,6 +822,7 @@ export type Database = {
           id?: string
           name?: string
           organization_id?: string
+          rules_revision?: number
           updated_at?: string
         }
         Relationships: [
@@ -905,6 +928,71 @@ export type Database = {
           },
         ]
       }
+      series_manual_awards: {
+        Row: {
+          actor_id: string
+          created_at: string
+          event_id: string
+          id: string
+          points: number
+          reason: string
+          series_class_id: string
+          series_id: string
+          series_racer_id: string
+        }
+        Insert: {
+          actor_id: string
+          created_at?: string
+          event_id: string
+          id?: string
+          points: number
+          reason: string
+          series_class_id: string
+          series_id: string
+          series_racer_id: string
+        }
+        Update: {
+          actor_id?: string
+          created_at?: string
+          event_id?: string
+          id?: string
+          points?: number
+          reason?: string
+          series_class_id?: string
+          series_id?: string
+          series_racer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "series_manual_awards_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "series_manual_awards_series_class_id_fkey"
+            columns: ["series_class_id"]
+            isOneToOne: false
+            referencedRelation: "series_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "series_manual_awards_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "series"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "series_manual_awards_series_racer_id_fkey"
+            columns: ["series_racer_id"]
+            isOneToOne: false
+            referencedRelation: "series_racers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       series_points_rules: {
         Row: {
           id: string
@@ -937,6 +1025,79 @@ export type Database = {
           },
         ]
       }
+      series_racers: {
+        Row: {
+          created_at: string
+          display_name: string
+          id: string
+          series_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          id?: string
+          series_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          id?: string
+          series_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "series_racers_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "series"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      series_result_versions: {
+        Row: {
+          actor_id: string
+          id: string
+          is_current: boolean
+          payload: Json
+          published_at: string
+          series_id: string
+          source_revision: number
+          source_version_ids: string[]
+          version: number
+        }
+        Insert: {
+          actor_id: string
+          id?: string
+          is_current?: boolean
+          payload: Json
+          published_at?: string
+          series_id: string
+          source_revision: number
+          source_version_ids: string[]
+          version: number
+        }
+        Update: {
+          actor_id?: string
+          id?: string
+          is_current?: boolean
+          payload?: Json
+          published_at?: string
+          series_id?: string
+          source_revision?: number
+          source_version_ids?: string[]
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "series_result_versions_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "series"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       series_rosters: {
         Row: {
           competitor_id: string | null
@@ -945,6 +1106,7 @@ export type Database = {
           id: string
           series_class_id: string
           series_id: string
+          series_racer_id: string | null
         }
         Insert: {
           competitor_id?: string | null
@@ -953,6 +1115,7 @@ export type Database = {
           id?: string
           series_class_id: string
           series_id: string
+          series_racer_id?: string | null
         }
         Update: {
           competitor_id?: string | null
@@ -961,6 +1124,7 @@ export type Database = {
           id?: string
           series_class_id?: string
           series_id?: string
+          series_racer_id?: string | null
         }
         Relationships: [
           {
@@ -989,6 +1153,13 @@ export type Database = {
             columns: ["series_id"]
             isOneToOne: false
             referencedRelation: "series"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "series_rosters_series_racer_id_fkey"
+            columns: ["series_racer_id"]
+            isOneToOne: false
+            referencedRelation: "series_racers"
             referencedColumns: ["id"]
           },
         ]
@@ -1083,6 +1254,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_series_award: {
+        Args: {
+          p_class_id: string
+          p_event_id: string
+          p_points: number
+          p_racer_id: string
+          p_reason: string
+          p_series_id: string
+        }
+        Returns: string
+      }
       admin_reorder_categories: { Args: { p_slugs: string[] }; Returns: Json }
       admin_set_user_admin: {
         Args: { p_is_admin: boolean; p_user_id: string }
@@ -1195,6 +1377,7 @@ export type Database = {
         Returns: undefined
       }
       get_event_capacity_status: { Args: { p_event_id: string }; Returns: Json }
+      import_series_roster: { Args: { p_event_id: string }; Returns: number }
       initialize_series_event: { Args: { p_event_id: string }; Returns: number }
       is_admin: { Args: { uid: string }; Returns: boolean }
       is_org_admin: { Args: { p_org_id: string }; Returns: boolean }
@@ -1209,6 +1392,15 @@ export type Database = {
       }
       public_series_organization_name: {
         Args: { p_series_id: string }
+        Returns: string
+      }
+      publish_series_standings: {
+        Args: {
+          p_expected_revision: number
+          p_payload: Json
+          p_series_id: string
+          p_source_ids: string[]
+        }
         Returns: string
       }
       redeem_event_pass_for_event: {

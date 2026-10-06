@@ -36,6 +36,11 @@ export default async function ManageEntriesPage({ params, searchParams }: { para
     );
   }
 
+
+  const {data:event}=await supabase.from("events").select("series_id").eq("id",eventId).single();
+  const {data:rosters}=event?.series_id ? await readAll(supabase.from("series_rosters").select("*").eq("series_id",event.series_id)) : {data:[]};
+  async function importRoster(){"use server";const db=await createClient();const {error}=await db.rpc("import_series_roster",{p_event_id:eventId});if(error)redirect(`?error=${encodeURIComponent(error.message)}`);revalidatePath("/dashboard/tracks","layout");redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries`);}
+  async function linkIdentity(f:FormData){"use server";const db=await createClient();const {error}=await db.from("entries").update({series_roster_id:String(f.get("roster_id"))}).eq("id",String(f.get("entry_id"))).in("event_class_id",classes!.map(c=>c.id)).select("id").single();if(error)redirect(`?error=${encodeURIComponent(error.message)}`);revalidatePath("/dashboard/tracks","layout");redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries`);}
   async function addEntry(formData: FormData) {
     "use server";
     const displayName = formData.get("display_name") as string;
@@ -106,6 +111,8 @@ export default async function ManageEntriesPage({ params, searchParams }: { para
 
   return (
     <div className="p-8 max-w-3xl mx-auto w-full space-y-8">
+      {event?.series_id&&<form action={importRoster}><button className="p-3 rounded bg-amber-500 text-slate-950">Import series roster (keeps existing entries)</button></form>}
+      {event?.series_id && <details className="p-4 border rounded"><summary>Link existing racers to series identities</summary><p>Choose matching class/roster records deliberately. The database rejects cross-class links.</p><form action={linkIdentity} className="space-y-3"><label>Event racer<select name="entry_id" className="block p-3 bg-slate-900 border rounded">{entries.map(e=><option key={e.id} value={e.id}>{e.display_name} · {classes.find(c=>c.id===e.event_class_id)?.name}</option>)}</select></label><label>Series roster identity<select name="roster_id" className="block p-3 bg-slate-900 border rounded">{rosters.map(r=><option key={r.id} value={r.id}>{r.display_name} · {r.series_class_id}</option>)}</select></label><button className="p-3 border rounded">Link identity</button></form></details>}
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-white">Manage Roster</h2>
         <div className="flex items-center space-x-3">

@@ -1,0 +1,22 @@
+begin;
+insert into auth.users(id,email) values('fe000000-0000-4000-8000-000000000001','championship@test.invalid');set local role authenticated;set local request.jwt.claim.sub='fe000000-0000-4000-8000-000000000001';
+do $$declare t jsonb;s jsonb;c uuid;r uuid;person uuid;e uuid;v bigint;result_id uuid;published uuid;begin
+ t:=public.register_track_with_state('Championship',null,'America/New_York','championship-test','NC');s:=public.create_series_with_organization('Points','',(t->>'organization_id')::uuid,null);
+ insert into public.series_classes(series_id,name) values((s->>'series_id')::uuid,'Class') returning id into c;
+ insert into public.series_rosters(series_id,series_class_id,display_name) values((s->>'series_id')::uuid,c,'Racer') returning id,series_racer_id into r,person;
+ delete from public.series_points_rules where series_id=(s->>'series_id')::uuid;
+ insert into public.series_points_rules(series_id,rank_start,rank_end,points) values((s->>'series_id')::uuid,1,1,10);
+ begin insert into public.series_points_rules(series_id,rank_start,rank_end,points) values((s->>'series_id')::uuid,1,2,5);raise exception 'Overlapping band accepted' using errcode='XX000';exception when raise_exception then null;end;
+ insert into public.events(track_id,series_id,name,slug,local_date,status) values((t->>'track_id')::uuid,(s->>'series_id')::uuid,'Round','championship-race',current_date,'scheduled') returning id into e;
+ if public.import_series_roster(e)<>1 or public.import_series_roster(e)<>0 then raise exception 'Roster import not idempotent';end if;
+ if not exists(select 1 from public.entries en join public.event_classes ec on ec.id=en.event_class_id where ec.event_id=e and en.series_roster_id=r and en.series_racer_id=person) then raise exception 'Stable racer mapping missing';end if;
+ select working_revision into v from public.events where id=e;perform public.complete_race_event(e,v,(select jsonb_agg(jsonb_build_object('id',en.id,'final_rank',1)) from public.entries en join public.event_classes ec on ec.id=en.event_class_id where ec.event_id=e));
+ select id into result_id from public.event_result_versions where event_id=e;select rules_revision into v from public.series where id=(s->>'series_id')::uuid;
+ published:=public.publish_series_standings((s->>'series_id')::uuid,v,array[result_id],'{"standings":[]}');
+ if not exists(select 1 from public.series_result_versions where id=published and is_current) then raise exception 'No published version';end if;
+ select working_revision into v from public.events where id=e;perform public.set_race_event_status(e,'live',v);
+ if exists(select 1 from public.series_result_versions where id=published and is_current) then raise exception 'Reopen did not invalidate standings';end if;
+ select rules_revision into v from public.series where id=(s->>'series_id')::uuid;
+ begin perform public.publish_series_standings((s->>'series_id')::uuid,v,array[result_id],'{}');raise exception 'Stale official race accepted' using errcode='XX000';exception when serialization_failure then null;end;
+end $$;
+reset role;select 'championship: PASS' result;rollback;

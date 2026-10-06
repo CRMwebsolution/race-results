@@ -76,7 +76,7 @@ export default async function EventLayout({
         </div>
       </header>
 
-      <nav aria-label="Event setup and race actions" className="p-4 flex flex-wrap gap-3 border-b border-slate-800">{[["","1. Classes & rules"],["entries","2. Racers"],["settings","3. Date & status"],["scoring","4. Run race"]].map(([path,label])=><Link key={path} href={`/dashboard/tracks/${trackId}/events/${eventId}/${path}`} className="p-2 border rounded bg-slate-900">{label}</Link>)}<Link className="p-2 border rounded" href={`/r/${track.slug}/${event.slug}`}>Results / spectator view</Link></nav>
+      <nav aria-label="Event setup and race actions" className="p-4 flex flex-wrap gap-3 border-b border-slate-800">{[["","1. Classes & rules"],["entries","2. Racers"],["settings","3. Date & status"],["scoring","4. Run race"],["judging","Judge scores"]].map(([path,label])=><Link key={path} href={`/dashboard/tracks/${trackId}/events/${eventId}/${path}`} className="p-2 border rounded bg-slate-900">{label}</Link>)}<Link className="p-2 border rounded" href={`/r/${track.slug}/${event.slug}`}>Results / spectator view</Link></nav>
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         {children}

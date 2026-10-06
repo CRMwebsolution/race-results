@@ -1,4 +1,5 @@
 "use server";
+import {judgeInput} from "@/scoring/multi-judge";
 import { readAll } from "@/lib/read-all";
 
 import { createClient } from "@/lib/supabase/server";
@@ -34,6 +35,7 @@ export async function finalizeEventStandings(eventId: string) {
 
   if (entriesError || attemptsError) return { error: entriesError?.message ?? attemptsError?.message };
 
+  const {data:judgeScores}=classes.length ? await readAll(supabase.from("judge_scores").select("*").in("event_class_id",classes.map(c=>c.id))) : {data:[]};
   const updates: { id: string, final_rank: number | null; score: import("@/scoring").Score; tied: boolean }[] = [];
 
   // 4. Compute for each class
@@ -58,7 +60,7 @@ export async function finalizeEventStandings(eventId: string) {
           rawInput: a.raw_input
         }));
 
-      const score = scoreClass(cls.scoring_type, entryAttempts, config, cls.scoring_version);
+      const score = scoreClass(cls.scoring_type, entryAttempts, config, cls.scoring_version,judgeInput(judgeScores.filter(s=>s.entry_id===entry.id)));
 
       return {
         entryId: entry.id,
@@ -68,6 +70,7 @@ export async function finalizeEventStandings(eventId: string) {
       };
     });
 
+    if(cls.scoring_type==="judged_points" && entriesWithScore.some(e=>!e.score.eligible))return {error:"All required judge submissions must be complete before finalizing"};
     const invalid = entriesWithScore.find(e => e.score.details.error);
     if (invalid) return { error: String(invalid.score.details.error) };
     rankEntries(entriesWithScore).forEach(e => updates.push({ id: e.entryId, final_rank: e.rank, score:e.score, tied:e.tied }));

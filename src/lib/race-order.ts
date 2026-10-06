@@ -6,8 +6,9 @@ export function sortResults<T extends {entryId:string;orderNum:number;rank:numbe
  const metric=(row:T):[number,number]|null=>{
   if(order==='run')return [0,row.orderNum];if(order==='rank')return row.rank===null?null:[0,row.rank];
   const a=row.attempts.find(a=>a.ordinal===pass);if(!a||a.status!=='valid')return null;
+  if(a.points!==undefined)return [0,-a.points];
   const time=adjustedTime(a);if(time!==null)return [0,time];if(a.distanceMm!==null)return [1,-a.distanceMm];return null;
  };
  return [...rows].sort((a,b)=>{const x=metric(a),y=metric(b);if(!x||!y)return x?-1:y?1:a.orderNum-b.orderNum||a.entryId.localeCompare(b.entryId);return (x[0]-y[0]||(x[1]-y[1])*(reverse?-1:1))||a.orderNum-b.orderNum||a.entryId.localeCompare(b.entryId);});
 }
-export function passCount(config:any,attempts:{ordinal:number}[]){return Math.min(100,Math.max(2,Number(config?.requiredPasses)||0,...(config?.requiredOrdinals||[]),...attempts.map(a=>a.ordinal)));}
+export function passCount(config:any,attempts:{ordinal:number}[]){return Math.min(100,Math.max(2,Number(config?.requiredPasses)||0,Number(config?.judgedRounds)||0,...(config?.requiredOrdinals||[]),...attempts.map(a=>a.ordinal)));}

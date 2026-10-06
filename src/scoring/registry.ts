@@ -1,3 +1,4 @@
+import {scoreMultiJudge,JudgeInput} from "./multi-judge";
 import { Attempt, Score } from "./types";
 import { scoreFastestPass } from "./fastest-pass";
 import { scoreConsistency } from "./consistency";
@@ -11,7 +12,7 @@ function invalid(message: string): Score {
 }
 
 /** Single versioned dispatch used by the scoring desk, spectators and finalization. */
-export function scoreClass(type: string, attempts: Attempt[], rawConfig: unknown = {}, version = 1): Score {
+export function scoreClass(type: string, attempts: Attempt[], rawConfig: unknown = {}, version = 1, judgeScores?:JudgeInput[]): Score {
   if (version !== 1) return invalid(`Unsupported scoring version: ${version}`);
   if (rawConfig == null || typeof rawConfig !== "object" || Array.isArray(rawConfig)) {
     return invalid("Invalid scoring configuration");
@@ -32,7 +33,7 @@ export function scoreClass(type: string, attempts: Attempt[], rawConfig: unknown
       return scoreConsistency(attempts, { requiredOrdinals: ordinals as [number, number], decimals: Number(decimals) });
     }
     case "combined_time": return scoreCombinedTime(attempts, { requiredPasses: config.requiredPasses as number | undefined });
-    case "judged_points": return scoreJudgedPoints(attempts);
+    case "judged_points": return judgeScores ? scoreMultiJudge(judgeScores,config) : scoreJudgedPoints(attempts);
     case "stopped_distance": return scoreStoppedDistance(attempts);
     default: return invalid(`Unsupported scoring format: ${type}`);
   }

@@ -445,6 +445,126 @@ export type Database = {
           },
         ]
       }
+      judge_assignments: {
+        Row: {
+          active: boolean
+          event_class_id: string
+          id: string
+          label: string
+          legacy: boolean
+          user_id: string | null
+        }
+        Insert: {
+          active?: boolean
+          event_class_id: string
+          id?: string
+          label: string
+          legacy?: boolean
+          user_id?: string | null
+        }
+        Update: {
+          active?: boolean
+          event_class_id?: string
+          id?: string
+          label?: string
+          legacy?: boolean
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "judge_assignments_event_class_id_fkey"
+            columns: ["event_class_id"]
+            isOneToOne: false
+            referencedRelation: "event_classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      judge_score_history: {
+        Row: {
+          actor_id: string | null
+          after_data: Json
+          before_data: Json | null
+          changed_at: string
+          event_class_id: string
+          id: string
+          score_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          after_data: Json
+          before_data?: Json | null
+          changed_at?: string
+          event_class_id: string
+          id?: string
+          score_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          after_data?: Json
+          before_data?: Json | null
+          changed_at?: string
+          event_class_id?: string
+          id?: string
+          score_id?: string
+        }
+        Relationships: []
+      }
+      judge_scores: {
+        Row: {
+          assignment_id: string
+          entry_id: string
+          event_class_id: string
+          id: string
+          ordinal: number
+          save_version: number
+          updated_at: string
+          values: Json
+        }
+        Insert: {
+          assignment_id: string
+          entry_id: string
+          event_class_id: string
+          id?: string
+          ordinal: number
+          save_version?: number
+          updated_at?: string
+          values: Json
+        }
+        Update: {
+          assignment_id?: string
+          entry_id?: string
+          event_class_id?: string
+          id?: string
+          ordinal?: number
+          save_version?: number
+          updated_at?: string
+          values?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "judge_scores_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "judge_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "judge_scores_event_class_id_entry_id_fkey"
+            columns: ["event_class_id", "entry_id"]
+            isOneToOne: false
+            referencedRelation: "entries"
+            referencedColumns: ["event_class_id", "id"]
+          },
+          {
+            foreignKeyName: "judge_scores_event_class_id_fkey"
+            columns: ["event_class_id"]
+            isOneToOne: false
+            referencedRelation: "event_classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_memberships: {
         Row: {
           active: boolean
@@ -1056,6 +1176,10 @@ export type Database = {
         }
         Returns: string
       }
+      deactivate_judge: {
+        Args: { p_assignment_id: string }
+        Returns: undefined
+      }
       delete_or_withdraw_event: {
         Args: { p_confirm: boolean; p_event_id: string }
         Returns: string
@@ -1076,6 +1200,13 @@ export type Database = {
       is_org_admin: { Args: { p_org_id: string }; Returns: boolean }
       is_org_member: { Args: { p_org_id: string }; Returns: boolean }
       is_platform_admin: { Args: never; Returns: boolean }
+      judge_candidates: {
+        Args: { p_track_id: string }
+        Returns: {
+          label: string
+          user_id: string
+        }[]
+      }
       public_series_organization_name: {
         Args: { p_series_id: string }
         Returns: string
@@ -1111,6 +1242,16 @@ export type Database = {
         Args: { p_event_id: string; p_ids: string[] }
         Returns: undefined
       }
+      save_judge_score: {
+        Args: {
+          p_assignment_id: string
+          p_entry_id: string
+          p_expected_version: number
+          p_ordinal: number
+          p_values: Json
+        }
+        Returns: Json
+      }
       save_race_attempt: {
         Args: {
           p_class_id: string
@@ -1126,6 +1267,15 @@ export type Database = {
           p_track_id: string
         }
         Returns: Json
+      }
+      set_class_judge: {
+        Args: {
+          p_active?: boolean
+          p_class_id: string
+          p_label: string
+          p_user_id: string
+        }
+        Returns: undefined
       }
       set_race_event_status: {
         Args: {

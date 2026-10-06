@@ -10,6 +10,7 @@ export type Attempt = {
   elapsedMs: number | null;
   distanceMm: number | null;
   penaltyMs: number;
+  points?:number;
   rawInput?: string | null;
 };
 

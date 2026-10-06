@@ -1,5 +1,6 @@
 "use client";
 import type {OfficialRow} from "@/lib/official-results";
+import {JudgeInput,judgeRoundAttempts} from "@/scoring/multi-judge";
 import {ResultSort} from "@/components/result-sort";
 import {sortResults,passCount,ResultOrder} from "@/lib/race-order";
 
@@ -31,12 +32,14 @@ export function LiveLeaderboard({
   classes,
   initialEntries,
   initialAttempts,
+  judgeScores=[],
   officialResults,
 }: {
   event: EventType;
   classes: ClassType[];
   initialEntries: EntryType[];
   initialAttempts: AttemptType[];
+  judgeScores?:JudgeInput[];
   officialResults?: OfficialRow[];
 }) {
   const [sortOrder,setSortOrder]=useState<ResultOrder>("rank");
@@ -66,7 +69,8 @@ export function LiveLeaderboard({
     const attemptsForClass = initialAttempts.filter((a) => a.event_class_id === activeClass.id);
 
     const entriesWithScore = activeEntries.map((entry) => {
-      const entryAttempts: ScoreEngineAttempt[] = attemptsForClass
+      const judges=judgeScores.filter(s=>s.entryId===entry.id);
+      const entryAttempts: ScoreEngineAttempt[] = activeClass.scoring_type==="judged_points" ? judgeRoundAttempts(entry.id,judges,activeClass.scoring_config) : attemptsForClass
         .filter((a) => a.entry_id === entry.id)
         .map((a) => ({
           id: a.id,
@@ -80,7 +84,7 @@ export function LiveLeaderboard({
         }));
 
       const official=officialResults?.find(r=>r.id===entry.id);
-      const score = officialResults ? (official?.score ?? {eligible:official?.final_rank!=null,primary:null,direction:"asc" as const,tieBreakers:[],label:official?.final_rank!=null ? `Official rank ${official.final_rank} (original score not retained)` : "Unranked",details:{}}) : scoreClass(activeClass.scoring_type, entryAttempts, activeClass.scoring_config, activeClass.scoring_version);
+      const score = officialResults ? (official?.score ?? {eligible:official?.final_rank!=null,primary:null,direction:"asc" as const,tieBreakers:[],label:official?.final_rank!=null ? `Official rank ${official.final_rank} (original score not retained)` : "Unranked",details:{}}) : scoreClass(activeClass.scoring_type, entryAttempts, activeClass.scoring_config, activeClass.scoring_version,judges);
 
       return {
         entry,
@@ -96,7 +100,7 @@ export function LiveLeaderboard({
 
     return officialResults ? entriesWithScore : rankEntries(entriesWithScore);
 
-  }, [activeClass, activeEntries, initialAttempts,officialResults]);
+  }, [activeClass, activeEntries, initialAttempts,officialResults,judgeScores]);
 
   const sortedRows=sortResults(rankedEntries,sortOrder,reverse);
   const displayRows=sortedRows;

@@ -1,4 +1,5 @@
 "use client";
+import {JudgeInput,judgeRoundAttempts} from "@/scoring/multi-judge";
 import {ResultSort} from "@/components/result-sort";
 import {sortResults,passCount,ResultOrder} from "@/lib/race-order";
 
@@ -34,6 +35,7 @@ export function ScoringWorkspace({
   classes,
   initialEntries,
   initialAttempts,
+  judgeScores=[],
 }: {
   trackId: string;
   trackSlug?: string;
@@ -42,6 +44,7 @@ export function ScoringWorkspace({
   classes: ClassType[];
   initialEntries: EntryType[];
   initialAttempts: AttemptType[];
+  judgeScores?:JudgeInput[];
 }) {
   const [sortOrder,setSortOrder]=useState<ResultOrder>("run");
   const [reverse,setReverse]=useState(false);
@@ -100,7 +103,8 @@ export function ScoringWorkspace({
     const attemptsForClass = localAttempts.filter((a) => a.event_class_id === activeClass.id);
 
     const entriesWithScore = activeEntries.map((entry) => {
-      const entryAttempts: ScoreEngineAttempt[] = attemptsForClass
+      const judges=judgeScores.filter(s=>s.entryId===entry.id);
+      const entryAttempts: ScoreEngineAttempt[] = activeClass.scoring_type==="judged_points" ? judgeRoundAttempts(entry.id,judges,activeClass.scoring_config) : attemptsForClass
         .filter((a) => a.entry_id === entry.id)
         .map((a) => ({
           id: a.id,
@@ -113,7 +117,7 @@ export function ScoringWorkspace({
           rawInput: a.raw_input,
         }));
 
-      const score = scoreClass(activeClass.scoring_type, entryAttempts, activeClass.scoring_config, activeClass.scoring_version);
+      const score = scoreClass(activeClass.scoring_type, entryAttempts, activeClass.scoring_config, activeClass.scoring_version,judges);
 
       return {
         entry,
@@ -127,7 +131,7 @@ export function ScoringWorkspace({
 
     return rankEntries(entriesWithScore);
 
-  }, [activeClass, activeEntries, localAttempts]);
+  }, [activeClass, activeEntries, localAttempts,judgeScores]);
 
   const sortedRows=sortResults(rankedEntries,sortOrder,reverse);
   const displayRows=frozenOrder ? [...sortedRows].sort((a,b)=>frozenOrder.indexOf(a.entryId)-frozenOrder.indexOf(b.entryId)) : sortedRows;
@@ -256,6 +260,7 @@ export function ScoringWorkspace({
 
       <ResultSort order={sortOrder} reverse={reverse} passes={passCount(activeClass?.scoring_config,localAttempts)} onOrder={setSortOrder} onReverse={setReverse}/>
       <p className="px-4 text-xs text-slate-400">Display order: {sortOrder} {reverse ? "(reversed)" : ""}</p>
+      {activeClass?.scoring_type==="judged_points" && <Link className="p-4 text-amber-400 underline" href={`/dashboard/tracks/${trackId}/events/${event.id}/judging`}>Enter independent judge scores</Link>}
       {/* Grid */}
       {Object.keys(cellErrors).length > 0 && <p role="alert" className="p-4 text-red-400">{[...new Set(Object.values(cellErrors))].join(" · ")} Your input is retained; retry the highlighted pass or refresh after a conflict.</p>}
       <div className="flex-1 overflow-auto bg-[#0B1120] p-4 print:hidden">
@@ -319,7 +324,7 @@ export function ScoringWorkspace({
                               setDrafts(prev => { const next = { ...prev }; if (value === (attempt?.rawInput ?? "")) delete next[key]; else next[key] = value; return next; });
                               if (value === (attempt?.rawInput ?? "")) setCellErrors(prev => { const next = { ...prev }; delete next[key]; return next; });
                             }}
-                            disabled={savingCells.has(key) || event.status === "completed"}
+                            disabled={savingCells.has(key) || event.status === "completed" || activeClass?.scoring_type === "judged_points"}
                             aria-label={`${row.entry.display_name}, pass ${ordinal}`}
                             aria-invalid={Boolean(cellErrors[key])}
                             title={cellErrors[key]}

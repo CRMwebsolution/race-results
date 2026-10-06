@@ -1,3 +1,4 @@
+import {judgeInput} from "@/scoring/multi-judge";
 import {officialResult,OfficialRow} from "@/lib/official-results";
 import Link from "next/link";
 import { readAll } from "@/lib/read-all";
@@ -69,6 +70,7 @@ export default async function PublicEventPage({
     .in("event_class_id", classes.map(c => c.id))
     .order("ordinal", { ascending: true }));
 
+  const {data:judges}=await readAll(supabase.from("judge_scores").select("*").in("event_class_id",classes.map(c=>c.id)));
   return (
     <LiveLeaderboard
       key={event.id}
@@ -76,6 +78,7 @@ export default async function PublicEventPage({
       classes={classes}
       initialEntries={entries || []}
       initialAttempts={attempts || []}
+      judgeScores={judgeInput(judges)}
     />
   );
 }

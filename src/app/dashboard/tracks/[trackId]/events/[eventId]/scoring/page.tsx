@@ -1,3 +1,4 @@
+import {judgeInput} from "@/scoring/multi-judge";
 import {officialResult} from "@/lib/official-results";
 import {LiveLeaderboard} from "@/app/r/[slug]/[eventSlug]/live-leaderboard";
 import { readAll } from "@/lib/read-all";
@@ -64,6 +65,7 @@ export default async function EventScoringPage({
     .in("event_class_id", classes.map(c => c.id))
     .order("ordinal", { ascending: true }));
 
+  const {data:judges}=await readAll(supabase.from("judge_scores").select("*").in("event_class_id",classes.map(c=>c.id)));
   return (
     <ScoringWorkspace
       key={event.id}
@@ -74,6 +76,7 @@ export default async function EventScoringPage({
       classes={classes}
       initialEntries={entries || []}
       initialAttempts={attempts || []}
+      judgeScores={judgeInput(judges)}
     />
   );
 }

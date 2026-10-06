@@ -10,7 +10,7 @@ do $$ declare t jsonb;e uuid;c uuid;en uuid;j uuid;begin
  perform public.save_judge_score(j,en,1,'{"style":0}',0);
  begin perform public.save_judge_score(j,en,1,'{"style":11}',1);raise exception 'Out of bounds accepted' using errcode='XX000';exception when raise_exception then null;end;
  perform public.save_judge_score(j,en,1,'{"style":10}',1);
- begin perform public.save_judge_score(j,en,1,'{"style":9}',1);raise exception 'Stale judge score accepted' using errcode='XX000';exception when serialization_failure then null;end;
+ begin perform public.save_judge_score(j,en,1,'{"style":9}',1);raise exception 'Stale judge score accepted' using errcode='XX000';exception when sqlstate 'PT409' then null;end;
  if (select count(*) from public.judge_scores where assignment_id=j)<>1 or (select save_version from public.judge_scores where assignment_id=j)<>2 then raise exception 'Incorrect correction/version';end if;
  perform set_config('request.jwt.claim.sub','fd000000-0000-4000-8000-000000000001',true);
  if (select count(*) from public.judge_score_history where event_class_id=c)<>2 then raise exception 'Missing judge audit';end if;

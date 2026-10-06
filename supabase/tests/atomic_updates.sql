@@ -27,7 +27,7 @@ do $$ declare t jsonb; v_event uuid; v_class uuid; v_entry uuid; extra_entry uui
   begin
     perform public.save_race_attempt((t->>'track_id')::uuid,v_event,v_class,v_entry,1,'valid',8000,null,0,'8',0);
     raise exception 'Stale cell version accepted' using errcode='XX000';
-  exception when serialization_failure then null; end;
+  exception when sqlstate 'PT409' then null; end;
   if (select working_revision from public.events where id=v_event)<>before_rev then raise exception 'Rejected save revised event'; end if;
   perform public.set_race_event_status(v_event,'live',before_rev);
   select working_revision into before_rev from public.events where id=v_event;
@@ -43,7 +43,7 @@ do $$ declare t jsonb; v_event uuid; v_class uuid; v_entry uuid; extra_entry uui
   begin
     perform public.complete_race_event(v_event,before_rev-1,jsonb_build_array(jsonb_build_object('id',v_entry,'final_rank',1)));
     raise exception 'Stale finalization accepted' using errcode='XX000';
-  exception when serialization_failure then null; end;
+  exception when sqlstate 'PT409' then null; end;
   begin
     perform public.complete_race_event(v_event,before_rev,'[]');
     raise exception 'Incomplete ranks accepted' using errcode='XX000';

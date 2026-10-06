@@ -17,6 +17,6 @@ do $$declare t jsonb;s jsonb;c uuid;r uuid;person uuid;e uuid;v bigint;result_id
  select working_revision into v from public.events where id=e;perform public.set_race_event_status(e,'live',v);
  if exists(select 1 from public.series_result_versions where id=published and is_current) then raise exception 'Reopen did not invalidate standings';end if;
  select rules_revision into v from public.series where id=(s->>'series_id')::uuid;
- begin perform public.publish_series_standings((s->>'series_id')::uuid,v,array[result_id],'{}');raise exception 'Stale official race accepted' using errcode='XX000';exception when serialization_failure then null;end;
+ begin perform public.publish_series_standings((s->>'series_id')::uuid,v,array[result_id],'{}');raise exception 'Stale official race accepted' using errcode='XX000';exception when sqlstate 'PT409' then null;end;
 end $$;
 reset role;select 'championship: PASS' result;rollback;

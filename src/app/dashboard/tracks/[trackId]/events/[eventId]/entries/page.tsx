@@ -39,8 +39,8 @@ export default async function ManageEntriesPage({ params, searchParams }: { para
 
   const {data:event}=await supabase.from("events").select("series_id").eq("id",eventId).single();
   const {data:rosters}=event?.series_id ? await readAll(supabase.from("series_rosters").select("*").eq("series_id",event.series_id)) : {data:[]};
-  async function importRoster(){"use server";const db=await createClient();const {error}=await db.rpc("import_series_roster",{p_event_id:eventId});if(error)redirect(`?error=${encodeURIComponent(error.message)}`);revalidatePath("/dashboard/tracks","layout");redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries`);}
-  async function linkIdentity(f:FormData){"use server";const db=await createClient();const {error}=await db.from("entries").update({series_roster_id:String(f.get("roster_id"))}).eq("id",String(f.get("entry_id"))).in("event_class_id",classes!.map(c=>c.id)).select("id").single();if(error)redirect(`?error=${encodeURIComponent(error.message)}`);revalidatePath("/dashboard/tracks","layout");redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries`);}
+  async function importRoster(){"use server";const db=await createClient();const {error}=await db.rpc("import_series_roster",{p_event_id:eventId});if(error)redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries?error=${encodeURIComponent(error.message)}`);revalidatePath("/dashboard/tracks","layout");redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries`);}
+  async function linkIdentity(f:FormData){"use server";const db=await createClient();const {error}=await db.from("entries").update({series_roster_id:String(f.get("roster_id"))}).eq("id",String(f.get("entry_id"))).in("event_class_id",classes!.map(c=>c.id)).select("id").single();if(error)redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries?error=${encodeURIComponent(error.message)}`);revalidatePath("/dashboard/tracks","layout");redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries`);}
   async function addEntry(formData: FormData) {
     "use server";
     const displayName = formData.get("display_name") as string;

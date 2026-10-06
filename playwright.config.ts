@@ -2,8 +2,9 @@ import {defineConfig,devices} from '@playwright/test';
 try{process.loadEnvFile('.env.local');}catch{/* CI may supply environment variables instead. */}
 process.env.PLAYWRIGHT_DISABLE_FORCED_CHROMIUM_PROXIED_LOOPBACK='1';
 export default defineConfig({
+ outputDir:process.env.RACEHOLLER_TEST_OUTPUT_DIR||'test-results',
  testDir:'tests/e2e',workers:1,retries:0,timeout:180000,
- expect:{timeout:30000},reporter:[['list'],['json',{outputFile:'test-results/acceptance.json'}]],
+ expect:{timeout:30000},reporter:[['list'],['json',{outputFile:`${process.env.RACEHOLLER_TEST_OUTPUT_DIR||'test-results'}/acceptance.json`}]],
  use:{baseURL:process.env.RACEHOLLER_BASE_URL||'http://127.0.0.1:3000',
   ignoreHTTPSErrors:process.env.RACEHOLLER_TEST_IGNORE_HTTPS_ERRORS==='1',
   launchOptions:process.env.HTTPS_PROXY?{proxy:{server:process.env.HTTPS_PROXY,bypass:'127.0.0.1,localhost'}}:{},

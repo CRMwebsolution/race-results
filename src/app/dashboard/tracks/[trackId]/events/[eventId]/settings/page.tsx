@@ -15,7 +15,7 @@ export default async function EventSettingsPage({ params, searchParams }: { sear
   if (!canPublish) return <p className="p-8 text-slate-400">Only the track or organization owner can publish final results or reopen this event.</p>;
 
   const {data:offlineSessions}=await readAll(supabase.from("offline_scoring_sessions").select("*").eq("event_id",eventId).is("closed_at",null));
-  async function releaseDevice(f:FormData){"use server";if(f.get("confirm")!=="on")throw new Error("Confirmation required");const db=await createClient();const {error}=await db.rpc("release_offline_session",{p_session_id:String(f.get("session_id")),p_reason:String(f.get("reason"))});if(error)redirect(`?error=${encodeURIComponent(error.message)}`);revalidatePath("/dashboard/tracks","layout");redirect(`/dashboard/tracks/${trackId}/events/${eventId}/settings`);}
+  async function releaseDevice(f:FormData){"use server";if(f.get("confirm")!=="on")throw new Error("Confirmation required");const db=await createClient();const {error}=await db.rpc("release_offline_session",{p_session_id:String(f.get("session_id")),p_reason:String(f.get("reason"))});if(error)redirect(`/dashboard/tracks/${trackId}/events/${eventId}/settings?error=${encodeURIComponent(error.message)}`);revalidatePath("/dashboard/tracks","layout");redirect(`/dashboard/tracks/${trackId}/events/${eventId}/settings`);}
   async function updateStatus(formData: FormData) {
     "use server";
     const newStatus = formData.get("status") as string;
@@ -33,8 +33,8 @@ export default async function EventSettingsPage({ params, searchParams }: { sear
     redirect(`/dashboard/tracks/${trackId}/events/${eventId}/settings`);
   }
 
-  async function editEvent(f:FormData) { "use server"; const db=await createClient();const {error}=await db.rpc("edit_race_event",{p_event_id:eventId,p_name:String(f.get("name")),p_date:String(f.get("date")),p_track_id:trackId,p_expected_revision:Number(f.get("revision"))});if(error)redirect(`?error=${encodeURIComponent(error.message)}`);revalidatePath("/dashboard/tracks","layout");redirect(`/dashboard/tracks/${trackId}/events/${eventId}/settings`); }
-  async function deleteEvent(f:FormData) { "use server"; const db=await createClient();const {error}=await db.rpc("delete_or_withdraw_event",{p_event_id:eventId,p_confirm:f.get("confirm")==="on"});if(error)redirect(`?error=${encodeURIComponent(error.message)}`);revalidatePath("/dashboard/tracks","layout");redirect(`/dashboard/tracks/${trackId}`); }
+  async function editEvent(f:FormData) { "use server"; const db=await createClient();const {error}=await db.rpc("edit_race_event",{p_event_id:eventId,p_name:String(f.get("name")),p_date:String(f.get("date")),p_track_id:trackId,p_expected_revision:Number(f.get("revision"))});if(error)redirect(`/dashboard/tracks/${trackId}/events/${eventId}/settings?error=${encodeURIComponent(error.message)}`);revalidatePath("/dashboard/tracks","layout");redirect(`/dashboard/tracks/${trackId}/events/${eventId}/settings`); }
+  async function deleteEvent(f:FormData) { "use server"; const db=await createClient();const {error}=await db.rpc("delete_or_withdraw_event",{p_event_id:eventId,p_confirm:f.get("confirm")==="on"});if(error)redirect(`/dashboard/tracks/${trackId}/events/${eventId}/settings?error=${encodeURIComponent(error.message)}`);revalidatePath("/dashboard/tracks","layout");redirect(`/dashboard/tracks/${trackId}`); }
 
   return (
     <div className="p-8 max-w-2xl mx-auto w-full">

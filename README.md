@@ -4,6 +4,8 @@ TrackScore is a standalone multi-tenant SaaS platform for track and venue owners
 
 This repository implements the authoritative specification defined in `docs/TrackScore-Product-Engineering-Blueprint.md`.
 
+For a breakdown of all implementation phases and current progress, see [**Phase Roadmap & Status Tracker**](docs/ROADMAP.md).
+
 ---
 
 ## Technical Stack

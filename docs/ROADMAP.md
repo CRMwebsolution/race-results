@@ -1,103 +1,67 @@
-# TrackScore Implementation Roadmap & Phase Tracker
+# RaceHoller implementation roadmap
 
-This document tracks all implementation phases for the TrackScore platform, detailing the architectural scope, status, and completed features for each phase.
+Updated October 6, 2026. This tracker reflects inspected implementation and recorded test coverage, not a general production-readiness certification. Detailed evidence: `FIXES_1_10_REPORT.md`; concise coding context: `REPAIR_HANDOFF.md`.
 
----
+| Phase | Scope | Current status |
+| --- | --- | --- |
+| 1 | Tenant foundation, Auth and scoring contracts | Implemented; role/SQL/unit checks passed. Actual email delivery remains a provider/field check. |
+| 2 | Racing core, management, live/official results and offline scoring | Implemented with recorded acceptance coverage; physical-device/long-night verification remains. |
+| 3 | Advanced scoring, multi-judge workflows and series championships | Implemented core plus admin overview; billing/grant controls remain Phase 4. |
+| 4 | Billing, registration, retention and pit display | Not started. Complete the manual/provider readiness follow-ups before a paid launch. |
 
-## Quick Phase Status Summary
+## Phase 1: foundation
 
-| Phase | Focus Area | Status |
-| :--- | :--- | :--- |
-| **Phase 1** | Tenant Foundation, Auth & Scoring Engine Contract | ✅ **COMPLETED** |
-| **Phase 2** | Racing Core, Scoring Workspace & Live Results | Core implemented; official snapshot history pending |
-| **Phase 3** | Ultra-Admin, Advanced Scoring & Series Architecture | Partially implemented; gaps below |
-| **Phase 4** | Racer Profiles, Online Registration & Monetization | ⏳ **READY TO START** |
+- [x] Organizations, tracks, memberships and database tenant boundaries.
+- [x] Cookie-based Supabase Auth and SSR route checks.
+- [x] Five account operating modes with editable preferences and tailored navigation.
+- [x] Password-change form with current-credential verification, confirmation and provider nonce flow.
+- [x] Parser, scoring contracts, consistent ranks/ties, configuration and format validation.
+- [x] Next.js 16 application; production builds use webpack after repeated local Turbopack cache failures.
+- [ ] Provider/manual verification of confirmation, recovery and reauthentication email delivery and enabling currently disabled leaked-password protection (Pro eligibility confirmed).
 
----
+## Phase 2: racing core
 
-## Phase 1: Foundation & Multi-Tenant Infrastructure
-**Status:** ✅ **COMPLETED**
+- [x] Event scheduling, roster/draw management and independent track/series default-class snapshots.
+- [x] Class add/edit/remove/reorder, drag/drop and move alternatives; checked event editing and deletion/withdrawal.
+- [x] Real track settings (details/state/timezone/defaults) and labeled mobile event steps; legacy Manage Seasons removed from track navigation.
+- [x] Atomic checked attempts, revision tracking, owner lifecycle controls and audit history.
+- [x] Live-priority global race feed, chronological schedules, draw/pass/rank sorting and ordered safe CSV/print output.
+- [x] Realtime updates with polling/reconnect recovery; complete paginated inputs and exact counts beyond the API row cap.
+- [x] Immutable official result versions and snapshot-based completed views; reopening/refinalizing preserves history.
+- [x] Prepared-event IndexedDB/offline shell, durable attempt outbox, idempotent receipts, conflicts, account scope and finalization/device-session guard.
+- [ ] Physical iOS/Android offline/airplane-mode and long race-night review, plus cross-deployment queued edits/storage-eviction checks.
 
-### Scope & Deliverables
-- [x] Multi-tenant database foundation (`organizations`, `organization_memberships`, `tracks`, `track_memberships`).
-- [x] Strict PostgreSQL Row-Level Security (RLS) policies enforcing tenant boundary isolation.
-- [x] Supabase Auth integration with cookie-based SSR sessions via `@supabase/ssr`.
-- [x] Next.js 16 (Turbopack) application structure with dark-mode responsive UI.
-- [x] Framework-independent scoring parser (`parser.ts`) supporting times (`SS.mmm`), distances (`FT'IN"`), and penalty markers (`DQ`, `DNF`).
-- [x] Comprehensive Vitest test suite validating parsing, edge cases, and arithmetic accuracy.
-- [x] Architectural Decision Records (`docs/ARCHITECTURAL_DECISIONS.md`).
+## Phase 3: advanced scoring and series
 
----
+- [x] Fastest pass, stopped distance, combined time and consistency with shared configuration/score/rank behavior.
+- [x] Dedicated judge assignments and rubric scores including zero, required submissions, sum/average, per-judge permissions and correction history.
+- [x] Standalone organization-owned series, multi-track schedule, master classes/configuration and roster CRUD.
+- [x] Stable racer/class mapping and idempotent roster import; historical unmatched entries are explicitly excluded until deliberately linked.
+- [x] Per-class championship placement/bonus/manual-award calculation using official versions, source/rule validation and retained publication history.
+- [x] Public series/standings pages and event-by-event breakdowns.
+- [x] Platform admin overview; tier/billing controls are identified as unimplemented.
+- [ ] Judge/staff invitation automation (judges currently need existing authorized membership).
+- [ ] Paid capacity/entitlements, admin grants and retention enforcement (Phase 4).
 
-## Phase 2: Racing Core & Live Spectator View
-**Status:** Core implemented; official snapshot history pending
+## Phase 4: next implementation work
 
-### Scope & Deliverables
-- [x] **Racing Core Database Schema:**
-  - `events`: Single or multi-day race meets tied to a venue.
-  - `class_templates` & `event_classes`: Vehicle classes with snapshot rules and scoring formats.
-  - `competitors` & `entries`: Racer enrollment and run-order seeds.
-  - `attempts`: Atomic timed/measured passes.
-- [x] **Track Management Hub (`/dashboard/tracks/[trackId]`):**
-  - Event list, date scheduling, and class setup.
-  - Roster management (adding entries and competitors).
-- [x] **Official Scoring Workspace (`/dashboard/tracks/[trackId]/events/[eventId]/scoring`):**
-  - Distraction-free, keyboard-first attempt entry interface.
-  - Live calculations for Fastest Pass and Stopped Distance.
-  - Atomic live publication with monotonic revisions; owner-only completion/reopening and immutable lifecycle audit records.
-  - [ ] Immutable versioned official result snapshots and snapshot-based public reads.
-- [x] **Public Spectator Experience (`/r/[slug]` and `/r/[slug]/[eventSlug]`):**
-  - Mobile-first read-only leaderboards.
-  - Supabase Postgres Changes subscription with reconnect/focus recovery and 15-second fallback polling.
+- [ ] Stripe checkout, customer portal, signed idempotent payment webhooks and failed-payment recovery.
+- [ ] Tier definitions, server-enforced quotas/entitlements and audited platform-admin overrides.
+- [ ] Racer profiles and self-service event registration, promoter review and entry payments.
+- [ ] Completion/tier-aware archive visibility/expiry and approved retention rules; preserve history independently of public hiding.
+- [ ] Dedicated big-screen pit display and recovery behavior.
 
----
+Account mode is distinct from the paid tier. Test payment flows before accepting real charges. No billing, registration or archive-expiry implementation is claimed by repairs 1–10.
 
-## Phase 3: Ultra-Admin, Advanced Scoring & Series Architecture
-**Status:** Partially implemented
+## Later format expansion
 
-### Scope & Deliverables
-- [x] **Platform Ultra-Admin (`/admin`):**
-  - Database registry `platform_admins` with RLS bypass authority (`cody@southernautomate.com`).
-  - Global overview of all registered organizations, venues, and user accounts.
-  - [ ] Entitlement and tier override controls (current organization view explicitly shows billing/limits as pending).
-- [x] **Advanced Scoring Algorithms:**
-  - **Combined Time (`src/scoring/combined-time.ts`):** Sums multi-pass runs with penalty calculations.
-  - **Consistency:** Ranks competitors by minimal delta between qualifying passes.
-  - **Judged points (`src/scoring/judged-points.ts`):** Basic numeric aggregation using attempt time storage; this is not a multi-judge workflow.
-  - [ ] Dedicated judge assignments, point storage (including zero), rubric validation and multi-judge aggregation.
-- [x] **Standalone Series Architecture (Overhauled from single-track Seasons):**
-  - Top-level `series` entity owned directly by organizations, decoupled from tracks.
-  - **Tour Schedule:** Free-text track location support with automatic atomic ghost-track provisioning (`create_ghost_track` RPC).
-  - **Master Classes:** Universal class templates with rules, fees, and no rigid format restrictions (timing formats chosen per race).
-  - **Points System:** Flexible rank-band allocation (`1st = 50`, `2nd = 49`, `11th-999th = 25`).
-  - **Bonus Points:** Support for bonus modifiers with per-class or 1-per-race frequency scoping.
-  - **Championship Roster:** Pre-seeded driver enrollment for season-long standings.
-  - **Public Series Portal (`/s/[seriesId]`):** Spectator view with tour dates, master classes, and roster.
-  - [ ] Modern series championship standings: event-class mapping, roster matching, points/bonus application and public standings output.
-- [x] **Universal Edit & Delete Standard:**
-  - Full CRUD operations enabled across series events, master classes, roster drivers, and series settings.
+- [ ] Team scoring and roster/aggregation rules.
+- [ ] Head-to-head winner/progression/elimination brackets where elapsed time alone does not determine advancement.
 
----
+Each expansion needs its complete storage, rules, permissions, live display, snapshots and tests. Unsupported formats currently fail explicitly.
 
-## Phase 4: Racer Profiles, Online Registration & Monetization
-**Status:** ⏳ **READY TO START**
+## Acceptance checkpoint
 
-### Scope & Deliverables
-1. **Billing & Subscriptions (Monetization):**
-   - Stripe Checkout and Customer Portal integration.
-   - Subscription tier enforcement (Event Pass, Season, Series/Promoter).
-   - Ultra-Admin subscription visibility and manual grants.
-2. **Racer Profiles & Self-Serve Registration:**
-   - Global Driver Accounts for racers to maintain cross-track profiles and career history.
-   - Self-serve event pre-registration with upfront entry fee processing.
-   - Promoter/Track official queue to approve or reject online entries.
-3. **Big-Screen Pit Displays:**
-   - Dedicated high-contrast TV display route (`/r/[slug]/[eventSlug]/display`) with auto-scrolling leaderboards for staging lanes and pits.
-4. **Elimination Brackets (Optional Expansion):**
-   - Head-to-head bracket generation (8-car, 16-car) derived from qualifying passes.
+49 unit/queue tests, 27-migration replay, nine SQL workflow suites, lint, TypeScript and production build passed. CI runs those checks on main. Deployed browser evidence includes Chromium mobile core flows and real realtime recovery; Firefox desktop and WebKit mobile preferences/series CRUD/permissions; real password credentials; two-browser save conflicts; and a disconnected browser reload/sync test. Final deployed password/concurrency/judging/championship/spectator smoke: four passed without retries. Large-event official capture also passed with 1,205 valid passes and ranks 1–1,205. Disconnected reload/sync passed again, with two receipts, one version increment per pass and a closed session. Guarded fixture/account cleanup is complete. Automated acceptance is complete; manual/provider checks above remain explicit.
 
-## Verified repair checkpoint — October 6, 2026
-
-See [REPAIR_HANDOFF.md](REPAIR_HANDOFF.md) for tested fixes, migration history, current implementation
-limits and validation coverage. Phase labels above describe feature coverage, not a production-readiness certification.
-Archive retention described in ADR-002 still requires completion timestamps, tier-aware expiry and enforcement.
+Automated emulation does not prove physical-device behavior or first-time usability. The remaining provider/field checks are documented in the report and handoff. Legacy season data/routes were retained rather than dropped.

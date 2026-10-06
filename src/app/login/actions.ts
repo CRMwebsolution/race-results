@@ -1,4 +1,5 @@
 "use server";
+import {validMode} from "@/lib/account-mode";
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -37,9 +38,12 @@ export async function signup(formData: FormData) {
 
   const supabase = await createClient();
 
+  const mode=formData.get("operating_mode");
+  if(!validMode(mode)) redirect("/login?error=Choose how you run races before registering");
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
+    options:{data:{operating_mode:mode}},
   });
 
   if (error) {

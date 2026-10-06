@@ -51,7 +51,7 @@ export default async function SeriesSettingsPage({ params, searchParams }: { par
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-8 p-8">
+    <div className="max-w-3xl mx-auto space-y-8 p-4 sm:p-8">
       <div className="flex items-center space-x-3 mb-8">
         <Link 
           href={`/dashboard/series/${seriesId}`}

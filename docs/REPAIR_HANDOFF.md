@@ -108,3 +108,8 @@ and publication setup; it does not run a full Supabase stack.
 
 Series event insertion copies names/rules/fees/order/scoring configuration transactionally with stable series-class links. Untouched existing draft/scheduled events are initialized once. Event class reorder, allocation and removal use checked locked RPCs. UI includes drag/drop plus move buttons, independent rules/configuration, checked edit actions, and confirmed event deletion/withdrawal. Populated/completed events retain history via withdrawal. Empty venues can move atomically before registration; completed metadata is locked.
 Validation: 21-migration replay and event-management rollback workflow locally and on the live project; unit tests, TypeScript and production build. A corrupt Turbopack cache was moved aside and the clean build passed. Migration 20261006175457 is applied; types regenerated.
+
+### Audit group 3: account modes and mobile navigation
+
+Five exact operating modes are offered at registration and persisted in Auth user metadata; account settings allow switching. Dashboard track/series sections follow those preferences while access checks remain unchanged. Existing accounts see a selection reminder and retain all access. Navigation now exposes account settings and a labeled event workflow on small screens; controls wrap and receive visible focus/touch sizing. Track details/state/timezone and defaults are separate settings sections. Manage Seasons was removed from track navigation; legacy data/routes remain. Branding now reads RaceHoller.
+Validation: TypeScript, 37 tests, production build, diff checks. Browser viewport/onboarding acceptance follows in group 10.

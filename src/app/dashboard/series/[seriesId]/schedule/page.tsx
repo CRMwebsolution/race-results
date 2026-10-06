@@ -168,7 +168,7 @@ export default async function SeriesSchedulePage(props: {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 p-8">
+    <div className="max-w-4xl mx-auto space-y-6 p-4 sm:p-8">
       {errorMsg && (
         <div className="p-4 rounded-xl bg-red-950/60 border border-red-800 text-red-300 text-sm">
           <strong>Notice:</strong> {decodeURIComponent(errorMsg)}

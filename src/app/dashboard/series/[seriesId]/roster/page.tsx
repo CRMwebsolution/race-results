@@ -94,7 +94,7 @@ export default async function SeriesRosterPage(props: {
   });
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 p-8">
+    <div className="max-w-5xl mx-auto space-y-6 p-4 sm:p-8">
       {actionParams.error && <p role="alert" className="p-4 text-red-300 bg-red-950 rounded">{actionParams.error}</p>}
       <div className="flex items-center space-x-3">
         <Link 

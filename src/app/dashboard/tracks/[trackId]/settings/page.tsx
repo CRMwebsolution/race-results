@@ -1,3 +1,4 @@
+import {redirect} from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
@@ -16,6 +17,13 @@ export default async function TrackSettingsPage({ params }: { params: Promise<{ 
 
   if (!track) {
     return <div>Track not found</div>;
+  }
+
+  async function saveDetails(f:FormData) { "use server";
+   const db=await createClient();const name=String(f.get("name")||"").trim(),state=String(f.get("state")||"").trim().toUpperCase(),timezone=String(f.get("timezone")||"");
+   if(!name||!/^[A-Z]{2}$/.test(state))throw new Error("Track name and two-letter state required");
+   try {new Intl.DateTimeFormat('en',{timeZone:timezone});}catch{throw new Error("Choose a valid timezone");}
+   const {error}=await db.from("tracks").update({name,state,timezone,shorthand:String(f.get("shorthand")||"").trim()||null}).eq("id",trackId).select("id").single();if(error)throw new Error(error.message);revalidatePath("/dashboard/tracks","layout");revalidatePath("/r","layout");redirect(`/dashboard/tracks/${trackId}/settings?saved=1`);
   }
 
   // Pre-defined classes list from class_templates or hardcoded for now
@@ -43,6 +51,7 @@ export default async function TrackSettingsPage({ params }: { params: Promise<{ 
       </header>
 
       <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-8 space-y-8">
+        <form action={saveDetails} className="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4"><h2 className="text-xl font-bold">Track details</h2>{[["name","Track name",track.name],["shorthand","Short name",track.shorthand],["state","State (two letters)",track.state],["timezone","Timezone",track.timezone]].map(([name,label,value])=><label key={name} className="block">{label}<input name={name!} defaultValue={value||""} required={name!=="shorthand"} className="block w-full p-3 bg-slate-950 border rounded"/></label>)}<p className="text-sm text-slate-400">Public address: /r/{track.slug}</p><button className="p-3 rounded bg-amber-500 text-slate-950">Save track details</button></form>
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
           <h2 className="text-xl font-bold text-white mb-6">Default Classes</h2>
           <p className="text-slate-400 text-sm mb-6">

@@ -31,11 +31,11 @@ export function TrackSettingsForm({ trackId, defaultClasses, availableClasses }:
     if (result.success) {
       setMessage("Settings saved successfully!");
     } else {
-      setMessage("Error saving settings.");
+      setMessage(result.error || "Error saving settings.");
     }
     
     setIsPending(false);
-    setTimeout(() => setMessage(""), 3000);
+
   };
 
   return (
@@ -115,7 +115,7 @@ export function TrackSettingsForm({ trackId, defaultClasses, availableClasses }:
           <span>Save Track Settings</span>
         </button>
         {message && (
-          <span className="text-sm font-medium text-emerald-400">{message}</span>
+          <span role="status" className="text-sm font-medium">{message}</span>
         )}
       </div>
     </div>

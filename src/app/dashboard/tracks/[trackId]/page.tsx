@@ -31,7 +31,7 @@ export default async function TrackDashboardPage({ params }: { params: Promise<{
     <div className="flex-1 flex flex-col">
       <header className="border-b border-slate-800 bg-slate-900/60 backdrop-blur sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
+          <div className="flex flex-wrap gap-3">
             <Link href="/dashboard" className="text-slate-400 hover:text-white transition font-medium text-sm">
               Dashboard
             </Link>
@@ -52,23 +52,17 @@ export default async function TrackDashboardPage({ params }: { params: Promise<{
       </header>
 
       <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-8 space-y-8">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-white">Events & Meets</h1>
             <p className="text-slate-400 text-sm mt-1">Manage single-day events and races for this venue.</p>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex flex-wrap gap-3">
             <Link
               href={`/dashboard/tracks/${track.id}/settings`}
               className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold py-2 px-4 rounded-xl flex items-center space-x-2 transition"
             >
               <span>Track Settings</span>
-            </Link>
-            <Link
-              href={`/dashboard/tracks/${track.id}/seasons`}
-              className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold py-2 px-4 rounded-xl flex items-center space-x-2 transition"
-            >
-              <span>Manage Seasons</span>
             </Link>
             <Link
               href={`/dashboard/tracks/${track.id}/events/new`}
@@ -97,7 +91,7 @@ export default async function TrackDashboardPage({ params }: { params: Promise<{
                 className="bg-slate-900/60 border border-slate-800 hover:border-amber-500/50 p-5 rounded-2xl transition flex items-center justify-between group"
               >
                 <div className="space-y-1">
-                  <div className="flex items-center space-x-3">
+                  <div className="flex flex-wrap gap-3">
                     <h2 className="text-lg font-bold text-white group-hover:text-amber-400 transition">
                       {event.name}
                     </h2>

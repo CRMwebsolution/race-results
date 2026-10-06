@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "TrackScore - Standalone Race Results SaaS",
+  title: "RaceHoller - Standalone Race Results SaaS",
   description: "Deterministic race scoring, live standings, and multi-tenant track management.",
 };
 

@@ -9,7 +9,7 @@ export async function updateTrackSettings(trackId: string, defaultClasses: any[]
   const { error } = await supabase
     .from("tracks")
     .update({ default_classes: defaultClasses })
-    .eq("id", trackId);
+    .eq("id", trackId).select("id").single();
 
   if (error) {
     console.error("Failed to update track settings", error);

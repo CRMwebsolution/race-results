@@ -1,3 +1,4 @@
+import {modeFeatures} from "@/lib/account-mode";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Flag, MapPin, Shield, User, ExternalLink, Calendar } from "lucide-react";
@@ -25,6 +26,7 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
+  const features=modeFeatures(user.user_metadata.operating_mode);
   // Fetch track memberships with tenant-scoped RLS
   const { data: trackMemberships } = await supabase
     .from("track_memberships")
@@ -75,7 +77,7 @@ export default async function DashboardPage() {
                 <Flag className="w-4 h-4" />
               </div>
               <span className="font-extrabold text-lg tracking-tight text-white">
-                Track<span className="text-amber-500">Score</span>
+                Race<span className="text-amber-500">Holler</span>
               </span>
             </Link>
             <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
@@ -136,10 +138,11 @@ export default async function DashboardPage() {
         </div>
 
         {/* Register New Track Form */}
-        <CreateTrackForm />
+        {!user.user_metadata.operating_mode && <p className="p-4 border border-amber-500 rounded">Tailor your dashboard: <Link href="/dashboard/settings" className="text-amber-400">choose how you run races</Link>.</p>}
+        {features.tracks && <CreateTrackForm />}
 
         {/* Tracks & Venues Section */}
-        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
+        {features.tracks && <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-2.5">
               <MapPin className="w-5 h-5 text-amber-500" />
@@ -188,7 +191,7 @@ export default async function DashboardPage() {
                       </div>
                     </div>
 
-                    <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between">
+                    <div className="pt-3 border-t border-slate-800/80 flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
                       <div className="text-xs font-mono text-slate-400 flex items-center space-x-1.5">
                         <span className="text-slate-500">Live URL:</span>
                         <span className="text-amber-400">/r/{track.slug}</span>
@@ -217,8 +220,9 @@ export default async function DashboardPage() {
           )}
         </div>
 
+        }
         {/* Championship Series Section */}
-        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
+        {features.series && <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-2.5">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path></svg>
@@ -267,6 +271,7 @@ export default async function DashboardPage() {
             </div>
           )}
         </div>
+        }
       </main>
     </div>
   );

@@ -41,7 +41,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
               <Flag className="w-5 h-5 text-slate-950" />
             </div>
             <span className="font-black text-xl text-white tracking-tight">
-              Track<span className="text-amber-500">Score</span>
+              Race<span className="text-amber-500">Holler</span>
             </span>
           </div>
           <div className="flex items-center space-x-4 text-sm font-medium">
@@ -192,7 +192,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                 Run a Track?
               </h2>
               <p className="text-slate-400">
-                TrackScore is designed for the realities of race night. Set up your venue in two minutes.
+                RaceHoller is designed for the realities of race night. Set up your venue in two minutes.
               </p>
             </div>
 
@@ -243,8 +243,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
       {/* Footer */}
       <footer className="bg-slate-950 py-8 text-center text-xs text-slate-500">
-        <p className="text-slate-400 font-semibold mb-1">TrackScore &mdash; Modern Race Scoring & Standings</p>
-        <p>&copy; {new Date().getFullYear()} TrackScore. All rights reserved.</p>
+        <p className="text-slate-400 font-semibold mb-1">RaceHoller &mdash; Modern Race Scoring & Standings</p>
+        <p>&copy; {new Date().getFullYear()} RaceHoller. All rights reserved.</p>
       </footer>
     </div>
   );

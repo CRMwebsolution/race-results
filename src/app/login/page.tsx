@@ -1,3 +1,4 @@
+import {accountModes} from "@/lib/account-mode";
 import Link from "next/link";
 import { Flag, ShieldCheck } from "lucide-react";
 import { login, signup } from "./actions";
@@ -19,7 +20,7 @@ export default async function LoginPage(props: { searchParams: SearchParams }) {
               <Flag className="w-5 h-5" />
             </div>
             <span className="font-extrabold text-2xl tracking-tight text-white">
-              Track<span className="text-amber-500">Score</span>
+              Race<span className="text-amber-500">Holler</span>
             </span>
           </Link>
           <h2 className="text-xl font-bold text-white">Sign in to your account</h2>
@@ -79,6 +80,7 @@ export default async function LoginPage(props: { searchParams: SearchParams }) {
               />
             </div>
 
+            <label className="block text-sm">New account: how do you run races?<select name="operating_mode" defaultValue="single_track" className="block w-full p-3 mt-2 bg-slate-950 border rounded">{accountModes.map(([id,label])=><option key={id} value={id}>{label}</option>)}</select><span className="text-slate-400 text-xs">Change this later in account settings.</span></label>
             <div className="pt-2 flex flex-col sm:flex-row gap-3">
               <button
                 type="submit"

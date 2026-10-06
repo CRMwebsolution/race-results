@@ -53,7 +53,7 @@ export default async function NewSeriesPage({
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 p-8">
+    <div className="max-w-2xl mx-auto space-y-6 p-4 sm:p-8">
       <div className="flex items-center space-x-3">
         <Link 
           href={`/dashboard`}

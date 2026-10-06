@@ -1,3 +1,4 @@
+import {chronologicalRaces} from "@/lib/race-order";
 import { readAll } from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
@@ -106,7 +107,7 @@ export default async function PublicSeriesPage({ params }: { params: Promise<{ s
             </div>
           ) : (
             <div className="grid gap-4">
-              {events?.map((ev, i) => (
+              {chronologicalRaces(events || []).map((ev, i) => (
                 <div key={ev.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 group hover:border-slate-700 transition">
                   <div className="flex items-center space-x-6">
                     <div className="text-center w-16">
@@ -123,7 +124,7 @@ export default async function PublicSeriesPage({ params }: { params: Promise<{ s
                     </div>
                   </div>
                   <div>
-                    {ev.status === "completed" ? (
+                    {["completed","live"].includes(ev.status) ? (
                       <Link 
                         href={`/r/${(ev.tracks as any).slug}/${ev.slug}`}
                         className="inline-block bg-slate-800 hover:bg-slate-700 text-white font-bold py-2 px-6 rounded-xl transition border border-slate-700 w-full text-center"

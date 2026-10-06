@@ -118,3 +118,8 @@ Validation: TypeScript, 37 tests, production build, diff checks. Browser viewpor
 
 Account settings verify current credentials in an isolated nonpersistent Auth client before password update, validate confirmation/minimum length, and expose the provider's email nonce reauthentication flow. Errors and success are visible; passwords are never logged or audited. Callback return paths are restricted to local paths. Leaked-password protection remains unverified/disabled: the connector cannot inspect/change Auth configuration or confirm paid-plan availability; Supabase documents Pro+ as required. Real credential acceptance tests follow in group 10; no email delivery claim is made.
 TypeScript, tests and production compilation passed. Repeated Turbopack cache panics prompted selecting Next's supported webpack production builder for stable builds.
+
+### Audit group 5: chronology and result sorting
+
+Spectator home is now a global race feed with live priority, ascending date/id order, track/state and upcoming/results filters, including published finals. Track and series schedules use the same ordering. Staff and spectators can sort run order, rank and every configured/recorded pass in either direction. Adjusted times ascend, distances descend, invalid/missing passes stay last, and display changes never alter draw/ranks. Staff row positions freeze while focus remains inside the input grid. Print/CSV identify the chosen order.
+Validation: 39 tests including chronology/pass-sort penalties/missing/distance regressions, TypeScript, production build and diff checks. Actual focus/mobile/browser tests follow in group 10.

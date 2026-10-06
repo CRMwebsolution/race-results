@@ -1,4 +1,6 @@
 "use client";
+import {ResultSort} from "@/components/result-sort";
+import {sortResults,passCount,ResultOrder} from "@/lib/race-order";
 
 import { useEffect, useState, useMemo, useRef, useTransition } from "react";
 import { watchPublicEvent } from "@/lib/event-sync";
@@ -34,6 +36,8 @@ export function LiveLeaderboard({
   initialEntries: EntryType[];
   initialAttempts: AttemptType[];
 }) {
+  const [sortOrder,setSortOrder]=useState<ResultOrder>("rank");
+  const [reverse,setReverse]=useState(false);
   const [activeClassId, setActiveClassId] = useState<string>(classes[0]?.id || "");
   const [connected, setConnected] = useState(false);
   const [isRefreshing, startTransition] = useTransition();
@@ -88,6 +92,8 @@ export function LiveLeaderboard({
 
   }, [activeClass, activeEntries, initialAttempts]);
 
+  const sortedRows=sortResults(rankedEntries,sortOrder,reverse);
+  const displayRows=sortedRows;
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between print:hidden">
@@ -122,6 +128,8 @@ export function LiveLeaderboard({
         ))}
       </div>
 
+      <ResultSort order={sortOrder} reverse={reverse} passes={passCount(activeClass?.scoring_config,initialAttempts)} onOrder={setSortOrder} onReverse={setReverse}/>
+      <p className="px-4 text-xs text-slate-400">Display order: {sortOrder} {reverse ? "(reversed)" : ""}</p>
       {/* Leaderboard */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
         <div className="p-4 border-b border-slate-800 bg-slate-800/30 flex items-center justify-between">
@@ -151,7 +159,7 @@ export function LiveLeaderboard({
               No entries to show.
             </div>
           ) : (
-            rankedEntries.map((row) => (
+            displayRows.map((row) => (
               <div key={row.entryId} className="p-4 flex items-center space-x-4 hover:bg-slate-800/30 transition">
                 <div className="w-10 flex-shrink-0 flex justify-center">
                   <span
@@ -200,7 +208,7 @@ export function LiveLeaderboard({
       {/* Print-only Table Sorted by Rank */}
       <div className="hidden print:block p-8 bg-white text-black w-full">
         <h1 className="text-2xl font-bold mb-1">{event.name}</h1>
-        <h2 className="text-lg font-semibold text-gray-700 mb-6">{activeClass?.name} Results</h2>
+        <h2 className="text-lg font-semibold text-gray-700 mb-6">{activeClass?.name} Results · Order: {sortOrder} {reverse ? "reversed" : ""}</h2>
         <table className="w-full text-left text-sm border-collapse">
           <thead>
             <tr className="border-b-2 border-gray-900 uppercase text-xs font-bold text-gray-600">
@@ -211,8 +219,7 @@ export function LiveLeaderboard({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-300">
-            {[...rankedEntries]
-              .sort(compareRankedEntries)
+            {displayRows
               .map((row) => (
               <tr key={row.entryId}>
                 <td className="py-2 pr-4 font-bold">{row.rank == null ? "-" : row.tied ? `T${row.rank}` : row.rank}</td>

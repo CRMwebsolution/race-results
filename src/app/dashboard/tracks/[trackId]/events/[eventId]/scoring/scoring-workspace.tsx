@@ -1,4 +1,6 @@
 "use client";
+import {ResultSort} from "@/components/result-sort";
+import {sortResults,passCount,ResultOrder} from "@/lib/race-order";
 
 import { useState, useMemo, useEffect, useRef } from "react";
 import { saveAttempt } from "./actions";
@@ -41,6 +43,9 @@ export function ScoringWorkspace({
   initialEntries: EntryType[];
   initialAttempts: AttemptType[];
 }) {
+  const [sortOrder,setSortOrder]=useState<ResultOrder>("run");
+  const [reverse,setReverse]=useState(false);
+  const [frozenOrder,setFrozenOrder]=useState<string[]|null>(null);
   const [activeClassId, setActiveClassId] = useState<string>(classes[0]?.id || "");
   const [localAttempts, setLocalAttempts] = useState<AttemptType[]>(initialAttempts);
   const [pendingSaves, setPendingSaves] = useState(0);
@@ -85,6 +90,7 @@ export function ScoringWorkspace({
   }, [classes, activeClassId]);
 
   const activeClass = classes.find((c) => c.id === activeClassId);
+  useEffect(()=>{setVisibleColumns(passCount(activeClass?.scoring_config,localAttempts.filter(a=>a.event_class_id===activeClassId)));},[activeClassId]);
   const activeEntries = initialEntries.filter((e) => e.event_class_id === activeClassId);
 
   // Compute ranks and scores for the active class
@@ -119,10 +125,12 @@ export function ScoringWorkspace({
       };
     });
 
-    return rankEntries(entriesWithScore).sort((a, b) => a.orderNum - b.orderNum);
+    return rankEntries(entriesWithScore);
 
   }, [activeClass, activeEntries, localAttempts]);
 
+  const sortedRows=sortResults(rankedEntries,sortOrder,reverse);
+  const displayRows=frozenOrder ? [...sortedRows].sort((a,b)=>frozenOrder.indexOf(a.entryId)-frozenOrder.indexOf(b.entryId)) : sortedRows;
   const handleInputBlur = async (entryId: string, ordinal: number, rawInput: string) => {
     if (!activeClass || event.status === "completed") return;
     const classId = activeClass.id;
@@ -160,10 +168,10 @@ export function ScoringWorkspace({
 
   const handleExportCSV = () => {
     if (!activeClass) return;
-    const header = "Rank,Draw #,Racer,Score,Ties\n";
-    const rows = [...rankedEntries].sort(compareRankedEntries).map(r => {
+    const header = "Rank,Draw #,Racer,Score,Ties,Display order\n";
+    const rows = displayRows.map(r => {
       const rowRank = r.rank == null ? "-" : r.tied ? `T${r.rank}` : r.rank;
-      return `${rowRank},${r.orderNum},"${r.entry.display_name.replaceAll('"','""')}","${r.score.label}","${r.score.tieBreakers.join(", ")}"`;
+      return `${rowRank},${r.orderNum},"${r.entry.display_name.replaceAll('"','""')}","${r.score.label}","${r.score.tieBreakers.join(", ")}","${sortOrder}${reverse ? " reversed" : ""}"`;
     }).join("\n");
     
     const csv = header + rows;
@@ -181,8 +189,8 @@ export function ScoringWorkspace({
   return (
     <div className="flex flex-col w-full h-full">
       {/* Top action bar */}
-      <div className="bg-slate-900 border-b border-slate-800 p-4 flex items-center justify-between print:hidden">
-        <div className="flex items-center space-x-4">
+      <div className="bg-slate-900 border-b border-slate-800 p-4 flex flex-wrap gap-4 items-center justify-between print:hidden">
+        <div className="flex flex-wrap gap-4">
           <select
             value={activeClassId}
             onChange={(e) => setActiveClassId(e.target.value)}
@@ -213,8 +221,8 @@ export function ScoringWorkspace({
           </span>
         </div>
 
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap gap-4">
+          <div className="flex flex-wrap gap-2">
             <Link 
               href={`/dashboard/tracks/${trackId}/events/${event.id}/entries`} 
               className="flex items-center space-x-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition text-sm mr-2"
@@ -246,11 +254,13 @@ export function ScoringWorkspace({
         </div>
       </div>
 
+      <ResultSort order={sortOrder} reverse={reverse} passes={passCount(activeClass?.scoring_config,localAttempts)} onOrder={setSortOrder} onReverse={setReverse}/>
+      <p className="px-4 text-xs text-slate-400">Display order: {sortOrder} {reverse ? "(reversed)" : ""}</p>
       {/* Grid */}
       {Object.keys(cellErrors).length > 0 && <p role="alert" className="p-4 text-red-400">{[...new Set(Object.values(cellErrors))].join(" · ")} Your input is retained; retry the highlighted pass or refresh after a conflict.</p>}
       <div className="flex-1 overflow-auto bg-[#0B1120] p-4 print:hidden">
         <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg">
-          <table className="w-full text-left text-sm text-slate-300">
+          <table onFocusCapture={()=>setFrozenOrder(displayRows.map(r=>r.entryId))} onBlurCapture={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node))setFrozenOrder(null);}} className="min-w-[640px] w-full text-left text-sm text-slate-300">
             <thead className="bg-slate-800/80 text-xs uppercase font-semibold text-slate-400 border-b border-slate-700">
               <tr>
                 <th className="px-4 py-3 w-16 text-center">Rank</th>
@@ -270,7 +280,7 @@ export function ScoringWorkspace({
                   </td>
                 </tr>
               ) : (
-                rankedEntries.map((row) => (
+                displayRows.map((row) => (
                   <tr key={row.entryId} className="hover:bg-slate-800/30 transition group">
                     <td className="px-4 py-3 text-center">
                       <span
@@ -351,7 +361,7 @@ export function ScoringWorkspace({
       {/* Print-only Table Sorted by Rank */}
       <div className="hidden print:block p-8 bg-white text-black w-full">
         <h1 className="text-2xl font-bold mb-1">{event.name}</h1>
-        <h2 className="text-lg font-semibold text-gray-700 mb-6">{activeClass?.name} Results</h2>
+        <h2 className="text-lg font-semibold text-gray-700 mb-6">{activeClass?.name} Results · Order: {sortOrder} {reverse ? "reversed" : ""}</h2>
         <table className="w-full text-left text-sm border-collapse">
           <thead>
             <tr className="border-b-2 border-gray-900 uppercase text-xs font-bold text-gray-600">
@@ -362,8 +372,7 @@ export function ScoringWorkspace({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-300">
-            {[...rankedEntries]
-              .sort(compareRankedEntries)
+            {displayRows
               .map((row) => (
               <tr key={row.entryId}>
                 <td className="py-2 pr-4 font-bold">{row.rank == null ? "-" : row.tied ? `T${row.rank}` : row.rank}</td>

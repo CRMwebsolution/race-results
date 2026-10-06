@@ -1,0 +1,5 @@
+import {expect,it} from 'vitest';
+import {chronologicalRaces,sortResults} from '../race-order';
+import {scoreClass} from '@/scoring';
+it('prioritizes live across tracks and dates, then ascending chronology',()=>{const e=[{id:'b',status:'scheduled',local_date:'2027-02-01'},{id:'a',status:'completed',local_date:'2026-01-01'},{id:'c',status:'live',local_date:'2026-12-01'}];expect(chronologicalRaces(e).map(e=>e.id)).toEqual(['c','a','b']);});
+it('sorts penalties, distances and invalid passes with blanks last in both directions',()=>{const rows=[1000,900,null].map((time,i)=>({entryId:String(i),orderNum:i+1,rank:i+1,score:scoreClass('fastest_pass',[]),attempts:[{id:String(i),entryId:String(i),ordinal:3,status:'valid' as const,elapsedMs:time,distanceMm:null,penaltyMs:i===1?200:0}]}));expect(sortResults(rows,'pass:3').map(r=>r.entryId)).toEqual(['0','1','2']);expect(sortResults(rows,'pass:3',true).map(r=>r.entryId)).toEqual(['1','0','2']);const distance=rows.map((r,i)=>({...r,attempts:[{...r.attempts[0],elapsedMs:null,distanceMm:i===2?null:100+i}]}));expect(sortResults(distance,'pass:3').map(r=>r.entryId)).toEqual(['1','0','2']);});

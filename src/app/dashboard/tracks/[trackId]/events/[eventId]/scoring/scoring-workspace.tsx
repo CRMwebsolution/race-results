@@ -1,16 +1,16 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
-import { saveAttempt, publishRevision } from "./actions";
+import { saveAttempt } from "./actions";
 import { parseAttemptInput, ParsedAttempt } from "@/scoring/parser";
 import { scoreClass, rankEntries, compareRankedEntries } from "@/scoring";
-import { CheckCircle2, AlertCircle, Loader2, Download, Printer, ExternalLink, Users } from "lucide-react";
+import { CheckCircle2, Loader2, Download, Printer, ExternalLink, Users } from "lucide-react";
 import Link from "next/link";
 
-type EventType = { id: string; name: string; working_revision: number };
+type EventType = { id: string; name: string; working_revision: number; status: string };
 type ClassType = { id: string; name: string; scoring_type: string; scoring_version?: number; scoring_config: any; order_num: number };
 type EntryType = { id: string; event_class_id: string; display_name: string; seed: number | null; order_num: number };
-type AttemptType = { id: string; event_class_id: string; entry_id: string; ordinal: number; status: string; elapsed_ms: number | null; distance_mm: number | null; penalty_ms: number; raw_input: string | null };
+type AttemptType = { id: string; event_class_id: string; entry_id: string; ordinal: number; status: string; elapsed_ms: number | null; distance_mm: number | null; penalty_ms: number; raw_input: string | null; save_version: number };
 
 // We want to map DB types to the Scoring Engine types
 type ScoreEngineAttempt = {
@@ -44,13 +44,45 @@ export function ScoringWorkspace({
   const [activeClassId, setActiveClassId] = useState<string>(classes[0]?.id || "");
   const [localAttempts, setLocalAttempts] = useState<AttemptType[]>(initialAttempts);
   const [pendingSaves, setPendingSaves] = useState(0);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [cellErrors, setCellErrors] = useState<Record<string,string>>({});
+  const [drafts, setDrafts] = useState<Record<string,string>>({});
+  const [draftStorageReady, setDraftStorageReady] = useState(false);
+  const [savingCells, setSavingCells] = useState<Set<string>>(new Set());
+  const busyCells = useRef(new Set<string>());
+  const acknowledgedRevision = useRef(event.working_revision);
+  const confirmedAttempts = useRef(initialAttempts);
   const [visibleColumns, setVisibleColumns] = useState(2);
+
+  const draftStorageKey = `raceholler:drafts:${trackId}:${event.id}`;
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(sessionStorage.getItem(draftStorageKey) ?? "{}");
+      if (stored && typeof stored === "object" && !Array.isArray(stored)) {
+        setDrafts(Object.fromEntries(Object.entries(stored).filter(([, value]) => typeof value === "string")) as Record<string,string>);
+      }
+    } catch { /* Storage may be unavailable; keep the in-memory draft. */ }
+    setDraftStorageReady(true);
+  }, [draftStorageKey]);
+  useEffect(() => {
+    if (!draftStorageReady) return;
+    try {
+      if (Object.keys(drafts).length) sessionStorage.setItem(draftStorageKey,JSON.stringify(drafts));
+      else sessionStorage.removeItem(draftStorageKey);
+    } catch { /* The scoring grid still retains draft input. */ }
+  }, [draftStorageReady, draftStorageKey, drafts]);
 
   // Sync when initial data changes from server revalidation
   useEffect(() => {
-    setLocalAttempts(initialAttempts);
-  }, [initialAttempts]);
+    if (pendingSaves === 0 && event.working_revision >= acknowledgedRevision.current) {
+      setLocalAttempts(initialAttempts);
+      confirmedAttempts.current = initialAttempts;
+      acknowledgedRevision.current = event.working_revision;
+    }
+  }, [initialAttempts, event.working_revision, pendingSaves]);
+
+  useEffect(() => {
+    if (!classes.some(c => c.id === activeClassId)) setActiveClassId(classes[0]?.id ?? "");
+  }, [classes, activeClassId]);
 
   const activeClass = classes.find((c) => c.id === activeClassId);
   const activeEntries = initialEntries.filter((e) => e.event_class_id === activeClassId);
@@ -92,58 +124,37 @@ export function ScoringWorkspace({
   }, [activeClass, activeEntries, localAttempts]);
 
   const handleInputBlur = async (entryId: string, ordinal: number, rawInput: string) => {
-    if (!activeClass) return;
-
-    const parsed: ParsedAttempt = parseAttemptInput(rawInput, 0);
+    if (!activeClass || event.status === "completed") return;
+    const classId = activeClass.id;
+    const key = `${entryId}:${ordinal}`;
+    if (busyCells.current.has(key)) return;
+    const previous = confirmedAttempts.current.find(a => a.entry_id === entryId && a.ordinal === ordinal);
+    const parsed: ParsedAttempt = parseAttemptInput(rawInput, previous?.penalty_ms ?? 0);
     if (parsed.error) {
-      setSaveError(parsed.error);
+      setCellErrors(prev => ({ ...prev, [key]: parsed.error! }));
       return;
     }
-    setSaveError(null);
-
-    // Optimistically update local state
-    setLocalAttempts((prev) => {
-      const existingIdx = prev.findIndex((a) => a.entry_id === entryId && a.ordinal === ordinal);
-      const newAttempt: AttemptType = {
-        id: existingIdx >= 0 ? prev[existingIdx].id : "temp-id-" + Date.now(),
-        event_class_id: activeClass.id,
-        entry_id: entryId,
-        ordinal,
-        status: parsed.status,
-        elapsed_ms: parsed.elapsedMs,
-        distance_mm: parsed.distanceMm,
-        penalty_ms: parsed.penaltyMs,
-        raw_input: rawInput,
-      };
-
-      if (existingIdx >= 0) {
-        const next = [...prev];
-        next[existingIdx] = newAttempt;
-        return next;
-      } else {
-        return [...prev, newAttempt];
-      }
-    });
-
-    // Save to server
-    setPendingSaves((s) => s + 1);
+    busyCells.current.add(key);
+    setSavingCells(new Set(busyCells.current));
+    setPendingSaves(s => s + 1);
     try {
-      await saveAttempt(
-        trackId,
-        event.id,
-        activeClass.id,
-        entryId,
-        ordinal,
-        parsed.status,
-        parsed.elapsedMs,
-        parsed.distanceMm,
-        parsed.penaltyMs,
-        rawInput
-      );
-    } catch (e) {
-      console.error("Save failed", e);
+      const result = await saveAttempt(trackId, event.id, classId, entryId, ordinal,
+        rawInput, parsed.penaltyMs, previous?.save_version ?? 0);
+      if (!result.success) throw new Error(result.error);
+      const saved = result.attempt;
+      const next = confirmedAttempts.current.filter(a => !(a.entry_id === entryId && a.ordinal === ordinal));
+      next.push(saved);
+      confirmedAttempts.current = next;
+      acknowledgedRevision.current = Math.max(acknowledgedRevision.current, result.working_revision);
+      setLocalAttempts(next);
+      setDrafts(prev => { const next = { ...prev }; delete next[key]; return next; });
+      setCellErrors(prev => { const next = { ...prev }; delete next[key]; return next; });
+    } catch (error) {
+      setCellErrors(prev => ({ ...prev, [key]: error instanceof Error ? error.message : "Save failed. Try again." }));
     } finally {
-      setPendingSaves((s) => s - 1);
+      busyCells.current.delete(key);
+      setSavingCells(new Set(busyCells.current));
+      setPendingSaves(s => s - 1);
     }
   };
 
@@ -187,12 +198,16 @@ export function ScoringWorkspace({
             {pendingSaves > 0 ? (
               <span className="flex items-center space-x-1.5 text-amber-500">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>Syncing live...</span>
+                <span>Saving...</span>
               </span>
+            ) : Object.keys(cellErrors).length ? (
+              <span className="text-red-400">Unsaved changes</span>
+            ) : Object.keys(drafts).length ? (
+              <span className="text-amber-400">Editing — not saved yet</span>
             ) : (
               <span className="flex items-center space-x-1.5 text-emerald-500">
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Live on Spectator View</span>
+                <span>{event.status === "live" ? "Saved · live event" : event.status === "completed" ? "Final results · locked" : "Saved · unpublished"}</span>
               </span>
             )}
           </span>
@@ -226,13 +241,13 @@ export function ScoringWorkspace({
           <div className="flex items-center space-x-2 bg-slate-800 rounded-lg p-1 border border-slate-700">
             <button onClick={() => setVisibleColumns(Math.max(1, visibleColumns - 1))} className="px-2 py-1 hover:bg-slate-700 rounded text-slate-300">- Col</button>
             <span className="text-sm text-slate-400 font-mono px-2">{visibleColumns}</span>
-            <button onClick={() => setVisibleColumns(visibleColumns + 1)} className="px-2 py-1 hover:bg-slate-700 rounded text-slate-300">+ Col</button>
+            <button onClick={() => setVisibleColumns(Math.min(100, visibleColumns + 1))} className="px-2 py-1 hover:bg-slate-700 rounded text-slate-300">+ Col</button>
           </div>
         </div>
       </div>
 
       {/* Grid */}
-      {saveError && <p role="alert" className="p-4 text-red-400">{saveError}</p>}
+      {Object.keys(cellErrors).length > 0 && <p role="alert" className="p-4 text-red-400">{[...new Set(Object.values(cellErrors))].join(" · ")} Your input is retained; retry the highlighted pass or refresh after a conflict.</p>}
       <div className="flex-1 overflow-auto bg-[#0B1120] p-4 print:hidden">
         <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg">
           <table className="w-full text-left text-sm text-slate-300">
@@ -283,11 +298,21 @@ export function ScoringWorkspace({
                     {Array.from({ length: visibleColumns }).map((_, i) => {
                       const ordinal = i + 1;
                       const attempt = row.attempts.find((a) => a.ordinal === ordinal);
+                      const key = `${row.entryId}:${ordinal}`;
                       return (
                         <td key={ordinal} className="px-2 py-2">
                           <input
                             type="text"
-                            defaultValue={attempt?.rawInput || ""}
+                            value={drafts[key] ?? attempt?.rawInput ?? ""}
+                            onChange={e => {
+                              const value = e.target.value;
+                              setDrafts(prev => { const next = { ...prev }; if (value === (attempt?.rawInput ?? "")) delete next[key]; else next[key] = value; return next; });
+                              if (value === (attempt?.rawInput ?? "")) setCellErrors(prev => { const next = { ...prev }; delete next[key]; return next; });
+                            }}
+                            disabled={savingCells.has(key) || event.status === "completed"}
+                            aria-label={`${row.entry.display_name}, pass ${ordinal}`}
+                            aria-invalid={Boolean(cellErrors[key])}
+                            title={cellErrors[key]}
                             onBlur={(e) => {
                               if (e.target.value !== (attempt?.rawInput || "")) {
                                 handleInputBlur(row.entryId, ordinal, e.target.value);
@@ -299,7 +324,7 @@ export function ScoringWorkspace({
                               }
                             }}
                             placeholder="-"
-                            className="w-full bg-slate-950/50 border border-slate-700/50 rounded px-2 py-1.5 text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition font-mono text-sm text-center"
+                            className={`w-full bg-slate-950/50 border ${cellErrors[key] ? "border-red-500" : "border-slate-700/50"} rounded px-2 py-1.5 text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition font-mono text-sm text-center disabled:opacity-50`}
                           />
                         </td>
                       );

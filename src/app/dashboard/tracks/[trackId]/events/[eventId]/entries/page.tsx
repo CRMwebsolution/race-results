@@ -43,29 +43,20 @@ export default async function ManageEntriesPage({ params, searchParams }: { para
     
     const supabase = await createClient();
 
-    let orderNum: number;
-    if (drawNumber) {
-      orderNum = parseInt(drawNumber, 10);
-    } else {
-      const { data: countData } = await supabase
-        .from("entries")
-        .select("id", { count: "exact" })
-        .eq("event_class_id", classId);
-      orderNum = (countData?.length || 0) + 1;
+    const orderNum = drawNumber ? Number(drawNumber) : null;
+    if (orderNum !== null && (!Number.isInteger(orderNum) || orderNum < 1)) {
+      redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries?error=${encodeURIComponent("Draw number must be a positive integer")}`);
     }
+    const { error: dbError } = await supabase.rpc("create_race_entry", {
+      p_track_id: trackId, p_event_id: eventId, p_class_id: classId, p_display_name: displayName,
+      p_order_num: orderNum,
+    } as unknown as import("@/types/database").Database["public"]["Functions"]["create_race_entry"]["Args"]);
 
-    const { error: dbError } = await supabase.from("entries").insert({
-      event_class_id: classId,
-      display_name: displayName,
-      order_num: orderNum,
-    });
-    
-    const { trackId, eventId } = await params;
     
     if (dbError && dbError.code === '23505') {
        redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries?error=duplicate_order`);
     } else if (dbError) {
-       redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries?error=db_error`);
+       redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries?error=${encodeURIComponent(dbError.message)}`);
     }
 
     redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries`);
@@ -74,15 +65,17 @@ export default async function ManageEntriesPage({ params, searchParams }: { para
   async function updateOrderAction(formData: FormData) {
     "use server";
     const entryId = formData.get("entry_id") as string;
-    const orderNum = parseInt(formData.get("order_num") as string, 10);
+    const orderNum = Number(formData.get("order_num"));
     
     const supabase = await createClient();
-    const { error: dbError } = await supabase.from("entries").update({ order_num: orderNum }).eq("id", entryId);
+    if (!Number.isInteger(orderNum) || orderNum < 1) redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries?error=${encodeURIComponent("Draw number must be a positive integer")}`);
+    const { error: dbError } = await supabase.from("entries").update({ order_num: orderNum }).eq("id", entryId)
+      .in("event_class_id",classes!.map(c => c.id)).select("id").single();
     
-    const { trackId, eventId } = await params;
     if (dbError && dbError.code === '23505') {
        redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries?error=duplicate_order`);
     }
+    if (dbError) redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries?error=${encodeURIComponent(dbError.message)}`);
     revalidatePath(`/dashboard/tracks/${trackId}/events/${eventId}/entries`);
     redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries`);
   }
@@ -91,8 +84,9 @@ export default async function ManageEntriesPage({ params, searchParams }: { para
     "use server";
     const entryId = formData.get("entry_id") as string;
     const supabase = await createClient();
-    await supabase.from("entries").delete().eq("id", entryId);
-    const { trackId, eventId } = await params;
+    const { error: dbError } = await supabase.from("entries").delete().eq("id", entryId)
+      .in("event_class_id",classes!.map(c => c.id)).select("id").single();
+    if (dbError) redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries?error=${encodeURIComponent(dbError.message)}`);
     revalidatePath(`/dashboard/tracks/${trackId}/events/${eventId}/entries`);
     redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries`);
   }
@@ -130,6 +124,7 @@ export default async function ManageEntriesPage({ params, searchParams }: { para
         </div>
       </div>
 
+      {error && error !== 'duplicate_order' && <p role="alert" className="text-red-400">{error}</p>}
       {error === 'duplicate_order' && (
         <div className="bg-red-500/10 border border-red-500/50 p-4 rounded-lg flex items-center space-x-3 text-red-400">
           <AlertCircle className="w-5 h-5" />

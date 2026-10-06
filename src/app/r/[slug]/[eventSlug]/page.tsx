@@ -59,6 +59,7 @@ export default async function PublicEventPage({
 
   return (
     <LiveLeaderboard
+      key={event.id}
       event={event}
       classes={classes}
       initialEntries={entries || []}

@@ -33,10 +33,6 @@ Validation: empty Postgres replay, live rollback workflows (Auth profile creatio
 series creation, event defaults, rejected foreign scopes and unauthorized creation), unit tests,
 TypeScript, production build, and diff checks. PGlite uses Auth role stubs, not the Supabase HTTP API.
 
-## Remaining groups
-
-4. Make saves/revisions atomic, expose accurate save/error feedback, and recover missed live updates.
-
 ## Group 3: Scoring and ranks
 
 - Combined times include penalties and reject invalid pass counts; partial configs retain defaults.
@@ -49,5 +45,54 @@ TypeScript, production build, and diff checks. PGlite uses Auth role stubs, not 
 
 Validation: 30 tests including new regression cases, TypeScript, production build and diff checks.
 
-Billing and self-serve registration remain Phase 4 work. Series standings integration, immutable
-official snapshots, full tier controls, and real-browser/end-to-end validation remain separate work.
+## Group 4: Atomic saves, completion and recovery
+
+- `save_race_attempt` locks its event and validates track/event/class/entry scope and the expected cell version before upserting.
+- Database triggers revise attempts, entries and classes atomically, using `working_revision + 1`; live changes promote the same revision. Drafts remain unpublished.
+- Direct client attempt writes are revoked; official scoring remains available through the checked RPC.
+- `complete_race_event` validates the calculation revision and full entry coverage, writes all ranks and changes event status in one transaction.
+- Completed attempts, classes and roster edits are blocked in Postgres. Reopening clears old ranks.
+- Track/organization owners control lifecycle publication and reopening; platform admins retain emergency authority. Ordinary administrators and officials cannot bypass this restriction.
+- Every lifecycle change writes an immutable client-protected audit row; completion and reopening have explicit action names.
+- The scoring desk distinguishes editing, saving, unsaved errors, confirmed saves and locked finals. Only confirmed attempts affect scores. Cell inputs are controlled; pending cells are disabled.
+- Failed/unfinished input remains in the grid and in session storage when browser storage is available; successful saves clear their drafts. Existing penalties survive edits.
+- Public event subscriptions remain attached across revisions and handle status changes, reconnects, online/focus/visibility recovery and 15-second fallback checks. The refresh indicator uses the actual router transition.
+- `create_race_entry` allocates `max(order_num)+1` under the event lock, validates route scope and preserves explicit draw numbers. Roster mutation errors are displayed.
+- Track dashboard routes now require actual membership. Scoring and lifecycle pages additionally enforce their respective role requirements.
+- Updated `docs/ROADMAP.md` to distinguish current implementation from pending snapshots, tier controls, multi-judge workflows and modern championship standings.
+
+Validation: 35 unit/regression tests, replay of all 20 migrations into empty Postgres, all three SQL
+workflow suites against the live project with rollback, TypeScript, production build and diff checks.
+The live atomic suite covers rapid revision increments, version conflicts, invalid-write rollback,
+stale/incomplete finalization, completed-result locks, owner-only lifecycle rights, audit records and roster numbering.
+
+## Commits and operational state
+
+| Group | Commit on main |
+| --- | --- |
+| Tenant permissions | `1de99d28a06b51ac3ac407e2fba418f914eb3fd0` |
+| Schema consistency | `740da76` |
+| Shared scoring and ranks | `1e3e098` |
+| Atomic saves and recovery | The commit containing this completed checkpoint; resolve with `git log -1 --format=%H -- docs/REPAIR_HANDOFF.md` |
+
+New migrations are applied to `kzugyadzbqnurwbkmrik`, and source filenames match remote versions:
+`20261006140717`, `20261006141908`, `20261006143227`, `20261006143818`.
+Generated types were refreshed from that project after schema changes. Existing legacy tables/data were retained.
+No application deployment or production-browser validation is claimed; a successful local build verifies compilation.
+
+## Remaining work and practical limits
+
+- Phase 4 billing, Stripe integration, quota/tier enforcement and self-serve racer registration remain unimplemented.
+- Modern series championship standings still need class/roster mapping, event-rank aggregation and bonus application. Legacy season routes remain for compatibility.
+- Official immutable snapshot history is still missing: completed data is locked, but owners can reopen it, and public ranks are calculated with the current engine.
+- Judged points remain a basic aggregate using attempt-time storage. Dedicated judge identities, rubrics, zero-point storage and multi-judge workflows are pending.
+- Head-to-head and team formats are not implemented; the dispatcher now rejects them explicitly.
+- ADR-002 archive expiry and retention enforcement are not implemented. No records were expired or deleted by these repairs.
+- Tests do not exercise real Auth emails/cookies, deployed browsers, actual websocket delivery, multiple simultaneous database connections, device/offline behavior or large-event API pagination. Recovery logic is tested with mocked transport; SQL locking/conflict behavior is tested through real Postgres transactions.
+- Session draft storage is best effort and scoped to the current browser session; it is not an offline scoring queue.
+- Supabase security advisors still report intentional client-callable SECURITY DEFINER helpers/RPCs and disabled leaked-password protection. Helpers/RPCs were role-tested and retired endpoints revoked; the Auth password setting remains a project configuration follow-up.
+
+To resume: work on main, inspect its latest remote head, read this file and `docs/ROADMAP.md`, then
+run `npm ci`, `npm run test:db`, `npm test`, `npm run typecheck` and `npm run build`. SQL test fixtures
+are wrapped in transactions and rolled back. The Postgres harness stubs Supabase Auth role functions
+and publication setup; it does not run a full Supabase stack.

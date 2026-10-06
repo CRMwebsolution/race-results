@@ -24,6 +24,7 @@ export type Database = {
           ordinal: number
           penalty_ms: number
           raw_input: string | null
+          save_version: number
           status: string
         }
         Insert: {
@@ -35,6 +36,7 @@ export type Database = {
           ordinal: number
           penalty_ms?: number
           raw_input?: string | null
+          save_version?: number
           status: string
         }
         Update: {
@@ -46,6 +48,7 @@ export type Database = {
           ordinal?: number
           penalty_ms?: number
           raw_input?: string | null
+          save_version?: number
           status?: string
         }
         Relationships: [
@@ -893,8 +896,13 @@ export type Database = {
       archive_event_secure: { Args: { p_event_id: string }; Returns: Json }
       can_edit_track: { Args: { p_track_id: string }; Returns: boolean }
       can_manage_track: { Args: { p_track_id: string }; Returns: boolean }
+      can_publish_track: { Args: { p_track_id: string }; Returns: boolean }
       can_view_track: { Args: { p_track_id: string }; Returns: boolean }
       cancel_rsvp: { Args: { p_rsvp_id: string }; Returns: Json }
+      complete_race_event: {
+        Args: { p_event_id: string; p_expected_revision: number; p_ranks: Json }
+        Returns: Json
+      }
       create_event_secure: {
         Args: { p_payload: Json; p_use_event_pass?: boolean }
         Returns: Json
@@ -921,6 +929,16 @@ export type Database = {
           p_track_slug: string
         }
         Returns: Json
+      }
+      create_race_entry: {
+        Args: {
+          p_class_id: string
+          p_display_name: string
+          p_event_id: string
+          p_order_num?: number
+          p_track_id: string
+        }
+        Returns: string
       }
       create_series_with_organization: {
         Args: {
@@ -970,6 +988,30 @@ export type Database = {
           p_state?: string
           p_timezone?: string
           p_track_name: string
+        }
+        Returns: Json
+      }
+      save_race_attempt: {
+        Args: {
+          p_class_id: string
+          p_distance_mm: number
+          p_elapsed_ms: number
+          p_entry_id: string
+          p_event_id: string
+          p_expected_version: number
+          p_ordinal: number
+          p_penalty_ms: number
+          p_raw_input: string
+          p_status: string
+          p_track_id: string
+        }
+        Returns: Json
+      }
+      set_race_event_status: {
+        Args: {
+          p_event_id: string
+          p_expected_revision: number
+          p_status: string
         }
         Returns: Json
       }

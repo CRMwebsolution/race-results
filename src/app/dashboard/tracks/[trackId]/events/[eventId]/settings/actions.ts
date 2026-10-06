@@ -6,6 +6,10 @@ import { scoreClass, rankEntries } from "@/scoring";
 export async function finalizeEventStandings(eventId: string) {
   const supabase = await createClient();
 
+  const { data: event, error: eventError } = await supabase.from("events").select("working_revision").eq("id",eventId).single();
+  if (eventError || !event) return { error: eventError?.message ?? "Event not found" };
+
+  // Fetch one revision, then compare it inside the transaction after calculating.
   // 1. Fetch all classes
   const { data: classes, error: classesError } = await supabase
     .from("event_classes")
@@ -13,19 +17,19 @@ export async function finalizeEventStandings(eventId: string) {
     .eq("event_id", eventId);
 
   if (classesError) return { error: classesError.message };
-  if (!classes || classes.length === 0) return { success: true };
+  if (!classes) return { error: "Classes unavailable" };
 
   // 2. Fetch all entries
-  const { data: entries, error: entriesError } = await supabase
+  const { data: entries, error: entriesError } = classes.length ? await supabase
     .from("entries")
     .select("*")
-    .in("event_class_id", classes.map(c => c.id));
+    .in("event_class_id", classes.map(c => c.id)) : { data: [], error: null };
 
   // 3. Fetch all attempts
-  const { data: attempts, error: attemptsError } = await supabase
+  const { data: attempts, error: attemptsError } = classes.length ? await supabase
     .from("attempts")
     .select("*")
-    .in("event_class_id", classes.map(c => c.id));
+    .in("event_class_id", classes.map(c => c.id)) : { data: [], error: null };
 
   if (entriesError || attemptsError) return { error: entriesError?.message ?? attemptsError?.message };
 
@@ -33,6 +37,8 @@ export async function finalizeEventStandings(eventId: string) {
 
   // 4. Compute for each class
   for (const cls of classes) {
+    const configCheck = scoreClass(cls.scoring_type, [], cls.scoring_config, cls.scoring_version);
+    if (configCheck.details.error) return { error: String(configCheck.details.error) };
     const classEntries = entries?.filter(e => e.event_class_id === cls.id) || [];
     const classAttempts = attempts?.filter(a => a.event_class_id === cls.id) || [];
     const config = (cls.scoring_config as any) || {};
@@ -66,11 +72,8 @@ export async function finalizeEventStandings(eventId: string) {
     rankEntries(entriesWithScore).forEach(e => updates.push({ id: e.entryId, final_rank: e.rank }));
   }
 
-  // 5. Save all final_ranks back to DB
-  for (const update of updates) {
-    const { error } = await supabase.from("entries").update({ final_rank: update.final_rank }).eq("id", update.id);
-    if (error) return { error: error.message };
-  }
-
-  return { success: true };
+  const { error } = await supabase.rpc("complete_race_event", {
+    p_event_id: eventId, p_expected_revision: event.working_revision, p_ranks: updates,
+  });
+  return error ? { error: error.message } : { success: true };
 }

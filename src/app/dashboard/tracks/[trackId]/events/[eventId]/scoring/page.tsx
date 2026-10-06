@@ -13,11 +13,15 @@ export default async function EventScoringPage({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  const { data: canEdit } = await supabase.rpc("can_edit_track",{p_track_id:trackId});
+  if (!canEdit) redirect(`/dashboard/tracks/${trackId}/events/${eventId}`);
+
   // Fetch event and track details
   const { data: event } = await supabase
     .from("events")
-    .select("id, name, working_revision, slug, tracks(slug)")
+    .select("id, name, working_revision, status, slug, tracks(slug)")
     .eq("id", eventId)
+    .eq("track_id", trackId)
     .single();
 
   if (!event) redirect("/dashboard");
@@ -51,12 +55,13 @@ export default async function EventScoringPage({
   // Fetch all attempts for these entries
   const { data: attempts } = await supabase
     .from("attempts")
-    .select("id, event_class_id, entry_id, ordinal, status, elapsed_ms, distance_mm, penalty_ms, raw_input")
+    .select("id, event_class_id, entry_id, ordinal, status, elapsed_ms, distance_mm, penalty_ms, raw_input, save_version")
     .in("event_class_id", classes.map(c => c.id))
     .order("ordinal", { ascending: true });
 
   return (
     <ScoringWorkspace
+      key={event.id}
       trackId={trackId}
       trackSlug={trackSlug}
       eventSlug={eventSlug}

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef, useTransition } from "react";
+import { watchPublicEvent } from "@/lib/event-sync";
 import { createClient } from "@/lib/supabase/client";
 import { scoreClass, rankEntries, compareRankedEntries } from "@/scoring";
 import { Loader2, RefreshCw, Printer } from "lucide-react";
@@ -34,50 +35,20 @@ export function LiveLeaderboard({
   initialAttempts: AttemptType[];
 }) {
   const [activeClassId, setActiveClassId] = useState<string>(classes[0]?.id || "");
-  const [publishedRevision, setPublishedRevision] = useState(event.published_revision);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const [isRefreshing, startTransition] = useTransition();
+  const currentEvent = useRef(event);
+  currentEvent.current = event;
   const router = useRouter();
 
-  // Supabase Realtime subscription for the event's published_revision
   useEffect(() => {
-    if (event.status !== "live") return; // no need to subscribe if completed
+    return watchPublicEvent(createClient(), event.id, () => currentEvent.current,
+      () => startTransition(() => router.refresh()), setConnected);
+  }, [event.id, router]);
 
-    const supabase = createClient();
-    const channel = supabase
-      .channel(`event-${event.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "events",
-          filter: `id=eq.${event.id}`,
-        },
-        (payload) => {
-          const newRevision = payload.new.published_revision;
-          if (newRevision && (!publishedRevision || newRevision > publishedRevision)) {
-            setIsRefreshing(true);
-            setPublishedRevision(newRevision);
-            // Re-fetch data by refreshing the server component
-            router.refresh();
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [event.id, event.status, publishedRevision, router]);
-
-  // Once router.refresh() finishes, we can clear the loading state
   useEffect(() => {
-    if (isRefreshing) {
-      // Small timeout to allow the UI to actually transition before hiding the spinner
-      const t = setTimeout(() => setIsRefreshing(false), 500);
-      return () => clearTimeout(t);
-    }
-  }, [isRefreshing, initialAttempts]);
+    if (!classes.some(c => c.id === activeClassId)) setActiveClassId(classes[0]?.id ?? "");
+  }, [classes, activeClassId]);
 
   const activeClass = classes.find((c) => c.id === activeClassId);
   const activeEntries = initialEntries.filter((e) => e.event_class_id === activeClassId);
@@ -126,7 +97,7 @@ export function LiveLeaderboard({
             <div className="flex items-center space-x-2 mt-1">
               <span className="flex items-center space-x-1.5 px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 text-[10px] font-bold text-red-400 uppercase tracking-widest animate-pulse">
                 <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
-                <span>Live updates active</span>
+                <span>{connected ? "Live updates connected" : "Checking for updates"}</span>
               </span>
               {isRefreshing && <Loader2 className="w-3.5 h-3.5 text-amber-500 animate-spin" />}
             </div>
@@ -165,7 +136,7 @@ export function LiveLeaderboard({
               <span className="hidden sm:inline">Print</span>
             </button>
             <button
-              onClick={() => { setIsRefreshing(true); router.refresh(); }}
+              onClick={() => startTransition(() => router.refresh())}
               className="text-slate-500 hover:text-slate-300 transition"
               title="Force refresh"
             >

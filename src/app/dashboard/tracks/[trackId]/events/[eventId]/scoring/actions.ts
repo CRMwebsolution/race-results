@@ -2,75 +2,40 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { parseAttemptInput } from "@/scoring/parser";
+import type { Database } from "@/types/database";
+
+type SaveResult = { success: false; error: string } | {
+  success: true; attempt: Database["public"]["Tables"]["attempts"]["Row"];
+  working_revision: number; published_revision: number | null;
+};
 
 export async function saveAttempt(
-  trackId: string,
-  eventId: string,
-  eventClassId: string,
-  entryId: string,
-  ordinal: number,
-  status: "valid" | "dq" | "dnf" | "dns" | "no_time",
-  elapsedMs: number | null,
-  distanceMm: number | null,
-  penaltyMs: number,
-  rawInput: string
-) {
+  trackId: string, eventId: string, eventClassId: string, entryId: string,
+  ordinal: number, rawInput: string, penaltyMs: number, expectedVersion: number
+): Promise<SaveResult> {
+  const parsed = parseAttemptInput(rawInput, penaltyMs);
+  if (parsed.error) return { success: false, error: parsed.error };
+  if (!Number.isInteger(ordinal) || ordinal < 1 || ordinal > 100 ||
+      !Number.isInteger(expectedVersion) || expectedVersion < 0) return { success: false, error: "Invalid pass number or save version" };
   const supabase = await createClient();
-
-  const { error } = await supabase.from("attempts").upsert({
-    event_class_id: eventClassId,
-    entry_id: entryId,
-    ordinal,
-    status,
-    elapsed_ms: elapsedMs,
-    distance_mm: distanceMm,
-    penalty_ms: penaltyMs,
-    raw_input: rawInput,
-  }, {
-    onConflict: "entry_id, ordinal"
-  });
-
-  if (error) {
-    console.error("Failed to save attempt:", error);
-    return { error: error.message };
+  // Generated RPC argument types do not express nullable SQL inputs. Send explicit
+  // nulls (omitting a required argument would prevent PostgREST resolving the RPC).
+  const args = {
+    p_track_id: trackId, p_event_id: eventId, p_class_id: eventClassId, p_entry_id: entryId,
+    p_ordinal: ordinal, p_status: parsed.status, p_elapsed_ms: parsed.elapsedMs,
+    p_distance_mm: parsed.distanceMm, p_penalty_ms: parsed.penaltyMs, p_raw_input: parsed.rawInput,
+    p_expected_version: expectedVersion,
+  } as unknown as Database["public"]["Functions"]["save_race_attempt"]["Args"];
+  const { data, error } = await supabase.rpc("save_race_attempt", args);
+  if (error) return { success: false, error: error.message };
+  if (!data || typeof data !== "object" || Array.isArray(data) || !data.attempt) {
+    return { success: false, error: "The server did not confirm this save. Refresh to check the recorded pass." };
   }
-
-  // Update working and published revision instantly
-  const rev = Math.floor(Date.now() / 1000);
-  await supabase
-    .from("events")
-    .update({ 
-      working_revision: rev,
-      published_revision: rev
-    })
-    .eq("id", eventId);
-
-  revalidatePath(`/dashboard/tracks/${trackId}/events/${eventId}/scoring`);
-  return { success: true };
-}
-
-export async function publishRevision(trackId: string, eventId: string) {
-  const supabase = await createClient();
-
-  // Get current working revision
-  const { data: event } = await supabase
-    .from("events")
-    .select("working_revision")
-    .eq("id", eventId)
-    .single();
-
-  if (!event) return { error: "Event not found" };
-
-  const { error } = await supabase
-    .from("events")
-    .update({ published_revision: event.working_revision })
-    .eq("id", eventId);
-
-  if (error) {
-    return { error: error.message };
-  }
-
-  revalidatePath(`/dashboard/tracks/${trackId}/events/${eventId}/scoring`);
-  revalidatePath(`/r/[slug]`, "layout"); // Revalidate public routes
-  return { success: true };
+  const result = data as {
+    attempt: Database["public"]["Tables"]["attempts"]["Row"];
+    working_revision: number; published_revision: number | null;
+  };
+  revalidatePath("/dashboard/tracks/" + trackId + "/events/" + eventId + "/scoring");
+  return { success: true, ...result };
 }

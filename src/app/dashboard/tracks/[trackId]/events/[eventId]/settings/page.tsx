@@ -1,33 +1,40 @@
 import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { finalizeEventStandings } from "./actions";
 
-export default async function EventSettingsPage({ params }: { params: Promise<{ trackId: string; eventId: string }> }) {
+export default async function EventSettingsPage({ params, searchParams }: { searchParams: Promise<{ error?: string }>; params: Promise<{ trackId: string; eventId: string }> }) {
   const { trackId, eventId } = await params;
+  const { error: actionError } = await searchParams;
   const supabase = await createClient();
   
-  const { data: event } = await supabase.from("events").select("name, status").eq("id", eventId).single();
+  const { data: event } = await supabase.from("events").select("name, status, working_revision").eq("id", eventId).eq("track_id",trackId).single();
+
+  const { data: canPublish } = await supabase.rpc("can_publish_track",{p_track_id:trackId});
+  if (!canPublish) return <p className="p-8 text-slate-400">Only the track or organization owner can publish final results or reopen this event.</p>;
 
   async function updateStatus(formData: FormData) {
     "use server";
     const newStatus = formData.get("status") as string;
     const supabase = await createClient();
-    await supabase.from("events").update({ status: newStatus }).eq("id", eventId);
-    
-    if (newStatus === "completed") {
-      await finalizeEventStandings(eventId);
+    const result = newStatus === "completed" ? await finalizeEventStandings(eventId) : await supabase.rpc("set_race_event_status", {
+      p_event_id: eventId, p_status: newStatus, p_expected_revision: Number(formData.get("revision")),
+    });
+    if (result.error) {
+      const message = typeof result.error === "string" ? result.error : result.error.message;
+      redirect(`/dashboard/tracks/${trackId}/events/${eventId}/settings?error=${encodeURIComponent(message)}`);
     }
-    
-    // Create params object inside server action context to revalidate properly
-    const { trackId, eventId: eId } = await params;
-    revalidatePath(`/dashboard/tracks/${trackId}/events/${eId}`);
+
+    revalidatePath(`/dashboard/tracks/${trackId}/events/${eventId}`);
     revalidatePath(`/r/[slug]`, 'layout');
+    redirect(`/dashboard/tracks/${trackId}/events/${eventId}/settings`);
   }
 
   return (
     <div className="p-8 max-w-2xl mx-auto w-full">
       <h2 className="text-2xl font-bold text-white mb-6">Event Settings</h2>
       
+      {actionError && <p role="alert" className="mb-4 text-red-400">{actionError}</p>}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-6">
         <div>
           <h3 className="font-bold text-lg text-white mb-2">Event Status</h3>
@@ -36,6 +43,7 @@ export default async function EventSettingsPage({ params }: { params: Promise<{ 
           </p>
           
           <form action={updateStatus} className="flex items-center space-x-4">
+            <input type="hidden" name="revision" value={event?.working_revision ?? ""} />
             <select 
               name="status" 
               defaultValue={event?.status}

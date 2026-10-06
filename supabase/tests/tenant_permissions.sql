@@ -52,8 +52,9 @@ set local request.jwt.claim.sub = 'f0000000-0000-4000-8000-000000000003';
 do $$ begin
   if not public.can_edit_track('f2000000-0000-4000-8000-000000000001') then raise exception 'Official cannot score'; end if;
   if public.can_manage_track('f2000000-0000-4000-8000-000000000001') then raise exception 'Official can manage memberships'; end if;
-  update public.attempts set elapsed_ms=9900 where id='f6000000-0000-4000-8000-000000000001';
-  if not found then raise exception 'Official result update failed'; end if;
+  perform public.save_race_attempt('f2000000-0000-4000-8000-000000000001','f3000000-0000-4000-8000-000000000001',
+    'f4000000-0000-4000-8000-000000000001','f5000000-0000-4000-8000-000000000001',1,'valid',9900,null,0,'9.9',1);
+  if (select elapsed_ms from public.attempts where id='f6000000-0000-4000-8000-000000000001')<>9900 then raise exception 'Official result update failed'; end if;
   begin
     insert into public.track_memberships(track_id,user_id,role)
     values ('f2000000-0000-4000-8000-000000000001','f0000000-0000-4000-8000-000000000004','owner');

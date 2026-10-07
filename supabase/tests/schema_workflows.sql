@@ -11,10 +11,11 @@ do $$ declare t jsonb; s jsonb; foreign_series jsonb; foreign_class uuid; v_even
   perform set_config('test.org_id',t->>'organization_id',true);
   s := public.create_series_with_organization('Schema test series','Test',(t->>'organization_id')::uuid,null);
   if not exists (select 1 from public.series where id=(s->>'series_id')::uuid) then raise exception 'Series creation failed'; end if;
-  update public.tracks set default_classes='[{"name":"Fastest","type":"fastest_pass"},{"name":"Consistency","type":"consistency"}]'
+  update public.tracks set default_classes='[{"name":"Fastest","type":"fastest_pass"},{"name":"Consistency","type":"consistency","scoring_config":{"requiredOrdinals":[2,3],"decimals":2},"rules_text":"DOT tires","entry_fee_text":"100"}]'
     where id=(t->>'track_id')::uuid;
   v_event_id := public.create_track_event((t->>'track_id')::uuid,'Good event',current_date,'schema-test-good',array[]::uuid[]);
   if (select count(*) from public.event_classes where event_classes.event_id=v_event_id)<>2 then raise exception 'Default classes missing'; end if;
+  if not exists(select 1 from public.event_classes where event_id=v_event_id and name='Consistency' and scoring_config->'requiredOrdinals'='[2,3]'::jsonb and rules_text='DOT tires' and entry_fee_text='100' and order_num=2) then raise exception 'Class rules or running order not copied';end if;
   foreign_series := public.create_series_with_organization('Other series','',null,'Other organization');
   insert into public.series_classes(series_id,name) values((foreign_series->>'series_id')::uuid,'Foreign class') returning id into foreign_class;
   begin

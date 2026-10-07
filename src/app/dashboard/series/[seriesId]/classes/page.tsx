@@ -1,3 +1,4 @@
+import {ActionFeedback} from '@/components/action-feedback';
 import {ScoringFields,scoringFromForm} from "@/components/scoring-fields";
 import { readAll } from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
@@ -6,7 +7,7 @@ import Link from "next/link";
 import { ArrowLeft, Plus, Edit2, Save, X, Trash2 } from "lucide-react";
 import { redirect } from "next/navigation";
 
-export default async function SeriesClassesPage(props: { params: Promise<{ seriesId: string }>, searchParams: Promise<{ edit_class_id?: string; error?: string }> }) {
+export default async function SeriesClassesPage(props: { params: Promise<{ seriesId: string }>, searchParams: Promise<{ edit_class_id?: string; error?: string; message?:string }> }) {
   const { seriesId } = await props.params;
   const searchParams = await props.searchParams;
   const actionParams = searchParams;
@@ -47,6 +48,7 @@ export default async function SeriesClassesPage(props: { params: Promise<{ serie
     
     revalidatePath(`/dashboard/series/${seriesId}/classes`);
     revalidatePath(`/dashboard/series/${seriesId}`);
+    redirect(`/dashboard/series/${seriesId}/classes?message=Class and rules saved`);
   }
 
   async function updateMasterClass(formData: FormData) {
@@ -68,7 +70,7 @@ export default async function SeriesClassesPage(props: { params: Promise<{ serie
     
     revalidatePath(`/dashboard/series/${seriesId}/classes`);
     revalidatePath(`/dashboard/series/${seriesId}`);
-    redirect(`/dashboard/series/${seriesId}/classes`);
+    redirect(`/dashboard/series/${seriesId}/classes?message=Changes saved`);
   }
 
   async function deleteMasterClass(formData: FormData) {
@@ -81,12 +83,12 @@ export default async function SeriesClassesPage(props: { params: Promise<{ serie
 
     revalidatePath(`/dashboard/series/${seriesId}/classes`);
     revalidatePath(`/dashboard/series/${seriesId}`);
-    redirect(`/dashboard/series/${seriesId}/classes`);
+    redirect(`/dashboard/series/${seriesId}/classes?message=Changes saved`);
   }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 p-4 sm:p-8">
-      {actionParams.error && <p role="alert" className="p-4 text-red-300 bg-red-950 rounded">{actionParams.error}</p>}
+      <ActionFeedback error={actionParams.error} message={actionParams.message}/>
       <div className="flex items-center space-x-3">
         <Link 
           href={`/dashboard/series/${seriesId}`}
@@ -102,7 +104,7 @@ export default async function SeriesClassesPage(props: { params: Promise<{ serie
       
       <div className="grid md:grid-cols-2 gap-8">
         <div className="space-y-4">
-          <h2 className="font-bold text-lg text-white">Configured Classes</h2>
+          <h2 className="font-bold text-lg text-white">Configured Classes</h2><p className="text-sm text-slate-400">Add classes in their race-day running order. Set the scoring rules as you create each class.</p>
           
           {classes?.length === 0 ? (
             <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl text-center text-slate-400">
@@ -129,16 +131,7 @@ export default async function SeriesClassesPage(props: { params: Promise<{ serie
                       >
                         <Edit2 className="w-4 h-4" />
                       </Link>
-                      <form action={deleteMasterClass}>
-                        <input type="hidden" name="class_id" value={cls.id} />
-                        <button
-                          type="submit"
-                          className="p-1.5 text-slate-500 hover:text-red-400 transition rounded hover:bg-slate-800"
-                          title="Delete Class"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </form>
+
                     </div>
                   </div>
                   {cls.rules_text && (
@@ -200,7 +193,7 @@ export default async function SeriesClassesPage(props: { params: Promise<{ serie
               />
             </div>
             
-            <ScoringFields type={classToEdit?.scoring_type} config={classToEdit?.scoring_config}/>
+            <ScoringFields key={classToEdit?.id||"new"} type={classToEdit?.scoring_type} config={classToEdit?.scoring_config}/>
             <div className="pt-2 flex items-center space-x-3">
               <button type="submit" className="flex-1 bg-amber-500 hover:bg-amber-400 text-amber-950 font-bold px-4 py-2.5 rounded-lg transition flex items-center justify-center space-x-2">
                 {editClassId ? <><Save className="w-4 h-4" /><span>Save Changes</span></> : <span>Create Master Class</span>}

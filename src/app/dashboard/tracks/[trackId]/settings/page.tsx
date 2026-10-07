@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { TrackSettingsForm } from "./track-settings-form";
+import {TrackDefaultClasses} from "@/components/track-default-classes";
 
 export default async function TrackSettingsPage({ params }: { params: Promise<{ trackId: string }> }) {
   const { trackId } = await params;
@@ -25,14 +25,6 @@ export default async function TrackSettingsPage({ params }: { params: Promise<{ 
    try {new Intl.DateTimeFormat('en',{timeZone:timezone});}catch{throw new Error("Choose a valid timezone");}
    const {error}=await db.from("tracks").update({name,state,timezone,shorthand:String(f.get("shorthand")||"").trim()||null}).eq("id",trackId).select("id").single();if(error)throw new Error(error.message);revalidatePath("/dashboard/tracks","layout");revalidatePath("/r","layout");redirect(`/dashboard/tracks/${trackId}/settings?saved=1`);
   }
-
-  // Pre-defined classes list from class_templates or hardcoded for now
-  const availableClasses = [
-    { id: "fastest_pass", name: "Fastest Pass", type: "fastest_pass" },
-    { id: "consistency", name: "Consistency Bracket", type: "consistency" },
-    { id: "combined_time", name: "Combined Time (2 Passes)", type: "combined_time" },
-    { id: "judged_points", name: "Judged Freestyle Points", type: "judged_points" },
-  ];
 
   return (
     <div className="flex-1 flex flex-col">
@@ -57,7 +49,7 @@ export default async function TrackSettingsPage({ params }: { params: Promise<{ 
           <p className="text-slate-400 text-sm mb-6">
             Select the classes this track runs by default. They will be automatically added to any new event you create.
           </p>
-          <TrackSettingsForm trackId={track.id} defaultClasses={track.default_classes as any[]} availableClasses={availableClasses} />
+          <TrackDefaultClasses trackId={track.id} defaultClasses={track.default_classes as any[]} />
         </div>
       </main>
     </div>

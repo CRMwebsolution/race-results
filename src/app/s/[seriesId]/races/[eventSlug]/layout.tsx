@@ -1,0 +1,4 @@
+import Link from 'next/link';
+import {createClient} from '@/lib/supabase/server';
+import {notFound} from 'next/navigation';
+export default async function Layout({children,params}:{children:React.ReactNode;params:Promise<{seriesId:string;eventSlug:string}>}){const {seriesId,eventSlug}=await params;const db=await createClient();const {data:series}=await db.from('series').select('name').eq('id',seriesId).single();const {data:event}=await db.from('events').select('name,local_date,venue_description').eq('series_id',seriesId).eq('slug',eventSlug).single();if(!series||!event)notFound();return <main className="max-w-5xl mx-auto p-4 sm:p-8 space-y-6"><Link href={`/s/${seriesId}`} className="text-amber-400">{series.name}</Link><header><h1 className="text-3xl font-bold">{event.name}</h1><p>{event.local_date} · {event.venue_description}</p></header>{children}</main>;}

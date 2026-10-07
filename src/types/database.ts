@@ -17,7 +17,7 @@ export type Database = {
     Tables: {
       competition_bonuses: AutoTable<{id:string;season_id:string;bonus_type:string;points:number;frequency:string;series_class_id:string|null},'season_id'|'bonus_type'|'points'|'frequency'>
 
-      competition_seasons: AutoTable<Season,'name'|'starts_on'>
+      competition_seasons: AutoTable<Season&{legacy_track_season_id:string|null},'name'|'starts_on'>
       competition_classes: AutoTable<ChampionshipClass,'season_id'|'name'>
       competition_registrations: AutoTable<Registration,'season_id'|'class_id'|'display_name'|'joined_on'>
       competition_points_rules: AutoTable<ChampionshipRule,'season_id'|'rank_start'|'rank_end'|'points'>

@@ -34,14 +34,14 @@ export function LiveLeaderboard({
   initialEntries,
   initialAttempts,
   judgeScores=[],
-  officialResults,officialVersion,
+  officialResults,officialVersion,championship,
 }: {
   event: EventType;
   classes: ClassType[];
   initialEntries: EntryType[];
   initialAttempts: AttemptType[];
   judgeScores?:JudgeInput[];
-  officialResults?: OfficialRow[];officialVersion?:number;
+  officialResults?: OfficialRow[];officialVersion?:number;championship?:import("@/championship/public-race").RaceChampionship;
 }) {
   const [sortOrder,setSortOrder]=useState<ResultOrder>("rank");
   const [reverse,setReverse]=useState(false);
@@ -103,6 +103,8 @@ export function LiveLeaderboard({
 
   }, [activeClass, activeEntries, initialAttempts,officialResults,judgeScores]);
 
+  const eligible=rankedEntries.filter(r=>r.rank!==null&&championship?.eligibleEntryIds.includes(r.entryId)).sort((a,b)=>a.rank!-b.rank!||a.entryId.localeCompare(b.entryId));
+  const pointsRows=eligible.map((r,i)=>{const position=eligible.findIndex(other=>other.rank===r.rank)+1;return {...r,pointsRank:position,points:championship?.rules.find(rule=>position>=rule.rank_start&&position<=rule.rank_end)?.points||0};});
   const sortedRows=sortResults(rankedEntries,sortOrder,reverse);
   const displayRows=sortedRows;
   function exportCSV(){if(!activeClass)return;downloadResults(`${activeClass.name.replace(/[^a-z0-9]/gi,"_").toLowerCase()}_results.csv`,[
@@ -143,12 +145,13 @@ export function LiveLeaderboard({
         ))}
       </div>
 
+      {championship?.classIds.includes(activeClassId)&&<section className="p-4 border rounded space-y-3"><h3 className="text-xl font-bold">{championship.name} · Championship points positions</h3><p className="text-sm text-slate-400">Registered entries only. These placement points are before bonuses and manual amendments; published season totals appear below.</p><div className="overflow-x-auto"><table className="w-full text-left"><thead><tr><th className="p-2">Points position</th><th className="p-2">Registered entry</th><th className="p-2">Race finish</th><th className="p-2">Placement points</th></tr></thead><tbody>{pointsRows.map(r=><tr key={r.entryId}><td className="p-2">{r.pointsRank}</td><td className="p-2">{r.entry.display_name}</td><td className="p-2">{r.rank}</td><td className="p-2">{r.points}</td></tr>)}</tbody></table></div>{!pointsRows.length&&<p>No ranked eligible entries yet.</p>}</section>}
       <ResultSort order={sortOrder} reverse={reverse} passes={passCount(activeClass?.scoring_config,initialAttempts)} onOrder={setSortOrder} onReverse={setReverse}/>
       <p className="px-4 text-xs text-slate-400">Display order: {sortOrder} {reverse ? "(reversed)" : ""}</p>
       {/* Leaderboard */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
         <div className="p-4 border-b border-slate-800 bg-slate-800/30 flex items-center justify-between">
-          <h3 className="font-bold text-white">{activeClass?.name} Leaderboard</h3>
+          <h3 className="font-bold text-white">{activeClass?.name} {championship?'Overall race results':'Leaderboard'}</h3>
           <div className="flex flex-wrap gap-3 print:hidden">
             <button onClick={exportCSV} aria-label="Download results CSV" className="p-2 border rounded">CSV</button>
             <button

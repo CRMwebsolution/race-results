@@ -1,6 +1,5 @@
 import { readAll } from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
-import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import { ArrowLeft, Calendar, Settings, Trophy, Users } from "lucide-react";
 import { notFound } from "next/navigation";
@@ -119,7 +118,7 @@ export default async function SeriesHubPage({ params }: { params: Promise<{ seri
               {events?.map(ev => (
                 <li key={ev.id} className="flex justify-between items-center text-sm bg-slate-950 p-2.5 rounded-lg border border-slate-800">
                   <div>
-                    <div className="font-bold text-slate-200">{ev.name}</div>
+                    <Link href={`/dashboard/series/${seriesId}/events/${ev.id}`} className="font-bold text-amber-400">{ev.name}</Link>
                     <div className="text-xs text-slate-500">{ev.venue_description} • {ev.local_date}</div>
                   </div>
                   <span className="text-[10px] uppercase font-bold text-slate-400 bg-slate-800 px-2 py-1 rounded">{ev.status}</span>
@@ -134,7 +133,7 @@ export default async function SeriesHubPage({ params }: { params: Promise<{ seri
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-bold text-lg text-white flex items-center space-x-2">
               <Trophy className="w-5 h-5 text-emerald-500" />
-              <span>Points System</span>
+              <span>Default Points System</span>
             </h2>
             <Link 
               href={`/dashboard/series/${seriesId}/points`}
@@ -169,14 +168,14 @@ export default async function SeriesHubPage({ params }: { params: Promise<{ seri
             <Users className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="font-bold text-lg text-white">Championship Roster</h2>
-            <p className="text-xs text-slate-400 max-w-xs mx-auto mt-1">Register racers for the tour to automatically propagate them into every individual race event.</p>
+            <h2 className="font-bold text-lg text-white">Season Registrations</h2>
+            <p className="text-xs text-slate-400 max-w-xs mx-auto mt-1">Register each vehicle and class for a season. Import eligible members into each race, and add one-race entrants separately.</p>
           </div>
           <Link 
             href={`/dashboard/series/${seriesId}/seasons`}
             className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-4 py-2 rounded-xl transition border border-slate-700"
           >
-            Manage Roster
+            Manage Seasons
           </Link>
         </div>
 

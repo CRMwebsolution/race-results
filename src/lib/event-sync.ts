@@ -1,7 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
+import {spectatorPointsMode} from '@/lib/spectator-points';
 
-type PublicState = { status: string; published_revision: number | null };
+type PublicState = { status: string; published_revision: number | null; spectator_points_mode?: string };
 
 /** Realtime is a signal, with polling and browser recovery to repair missed delivery. */
 export function watchPublicEvent(
@@ -14,11 +15,15 @@ export function watchPublicEvent(
     if (disposed || checking || document.visibilityState === "hidden") return;
     checking = true;
     try {
-      const { data, error } = await client.from("events").select("status,published_revision").eq("id",eventId).maybeSingle();
+      const { data, error } = await client.from("events").select("status,published_revision,series_id,track_id").eq("id",eventId).maybeSingle();
       if (disposed) return;
       if (error) { connection(false); return; }
       const previous = current();
       if (!data || data.status !== previous.status || data.published_revision !== previous.published_revision) refresh();
+      else if(previous.spectator_points_mode!==undefined){
+        const mode=await spectatorPointsMode(client,{seriesId:data.series_id||undefined,trackId:data.track_id||undefined});
+        if(!disposed&&mode!==previous.spectator_points_mode)refresh();
+      }
     } catch {
       if (!disposed) connection(false);
     } finally { checking = false; }

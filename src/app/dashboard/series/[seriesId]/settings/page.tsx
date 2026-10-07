@@ -1,3 +1,6 @@
+import {SpectatorPointsField} from "@/components/spectator-points-field";
+import {validSpectatorPointsMode} from "@/lib/spectator-points";
+import {ActionFeedback} from "@/components/action-feedback";
 import { readAll } from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
@@ -5,7 +8,7 @@ import Link from "next/link";
 import { ArrowLeft, Save, Trash2 } from "lucide-react";
 import { redirect } from "next/navigation";
 
-export default async function SeriesSettingsPage({ params, searchParams }: { params: Promise<{ seriesId: string }>; searchParams: Promise<{error?: string}> }) {
+export default async function SeriesSettingsPage({ params, searchParams }: { params: Promise<{ seriesId: string }>; searchParams: Promise<{error?: string;message?:string}> }) {
   const { seriesId } = await params;
   const actionParams = await searchParams;
   const supabase = await createClient();
@@ -24,19 +27,23 @@ export default async function SeriesSettingsPage({ params, searchParams }: { par
     const name = formData.get("name") as string;
     const description = formData.get("description") as string;
     const organizationId = formData.get("organization_id") as string;
+    const mode = formData.get("spectator_points_mode");
+    if (!validSpectatorPointsMode(mode)) redirect(`/dashboard/series/${seriesId}/settings?error=Choose a spectator points visibility option`);
     
     const supabase = await createClient();
     
     const { error: mutationError } = await supabase.from("series").update({
       name,
       description,
-      organization_id: organizationId
-    }).eq("id", seriesId);
+      organization_id: organizationId,
+      spectator_points_mode: mode
+    }).eq("id", seriesId).select("id").single();
     if (mutationError) redirect(`/dashboard/series/${seriesId}/settings?error=${encodeURIComponent(mutationError.message)}`);
     
     revalidatePath(`/dashboard/series/${seriesId}`);
     revalidatePath(`/dashboard/series/${seriesId}/settings`);
-    redirect(`/dashboard/series/${seriesId}`);
+    revalidatePath("/s", "layout");
+    redirect(`/dashboard/series/${seriesId}/settings?message=Series settings saved`);
   }
 
   async function deleteSeries() {
@@ -65,6 +72,7 @@ export default async function SeriesSettingsPage({ params, searchParams }: { par
         </div>
       </div>
       
+      <ActionFeedback error={actionParams.error} message={actionParams.message}/>
       <form action={updateSeries} className="bg-slate-900 border border-slate-800 rounded-2xl p-8 space-y-6">
         <div>
           <label className="block text-sm font-semibold text-slate-300 mb-2">Series Name</label>
@@ -103,6 +111,7 @@ export default async function SeriesSettingsPage({ params, searchParams }: { par
           <p className="text-xs text-slate-500 mt-2">Transferring ownership will move this series to another organization you are a member of.</p>
         </div>
         
+        <SpectatorPointsField value={series.spectator_points_mode}/>
         <div className="pt-4 flex justify-end">
           <button type="submit" className="flex items-center space-x-2 bg-amber-500 hover:bg-amber-400 text-amber-950 font-bold px-6 py-3 rounded-xl transition">
             <Save className="w-5 h-5" />
@@ -118,7 +127,7 @@ export default async function SeriesSettingsPage({ params, searchParams }: { par
             <span>Danger Zone</span>
           </h2>
           <p className="text-sm text-slate-400 mt-1">
-            Permanently delete this championship series, including all master classes, points configurations, and rosters.
+            Permanently delete this series, including all master classes, points configurations, and rosters.
           </p>
         </div>
 

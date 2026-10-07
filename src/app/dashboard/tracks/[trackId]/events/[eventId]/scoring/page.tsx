@@ -7,6 +7,8 @@ import { readAll } from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { ScoringWorkspace } from "./scoring-workspace";
+import {SpectatorQR} from '@/components/spectator-qr';
+import {spectatorRacePath} from '@/lib/spectator-path';
 
 export default async function EventScoringPage({
   params,searchParams,
@@ -36,9 +38,10 @@ export default async function EventScoringPage({
 
   const trackSlug = (event.tracks as any)?.slug;
   const eventSlug = event.slug;
+  const spectatorPath = spectatorRacePath({ownerType,ownerId:trackId,trackSlug,eventSlug});
 
 
-  if(event.status==="completed") {const snapshot=await officialResult(supabase,event.id);if(!snapshot)throw new Error("Official snapshot unavailable");const p=snapshot.payload as any;return <div className="p-4 w-full"><ActionFeedback message={message}/><p>Official results · Version {snapshot.version}</p><LiveLeaderboard event={{...p.event,status:"completed"}} classes={p.classes} initialEntries={p.entries} initialAttempts={p.attempts} officialResults={p.results} officialVersion={snapshot.version} judgeScores={judgeInput(p.judge_scores||[])}/></div>;}
+  if(event.status==="completed") {const snapshot=await officialResult(supabase,event.id);if(!snapshot)throw new Error("Official snapshot unavailable");const p=snapshot.payload as any;return <div className="p-4 w-full"><nav aria-label="Scoring actions" className="mb-4 flex flex-wrap gap-3">{spectatorPath&&<SpectatorQR path={spectatorPath} eventName={event.name}/>}</nav><ActionFeedback message={message}/><p>Official results · Version {snapshot.version}</p><LiveLeaderboard event={{...p.event,status:"completed"}} classes={p.classes} initialEntries={p.entries} initialAttempts={p.attempts} officialResults={p.results} officialVersion={snapshot.version} judgeScores={judgeInput(p.judge_scores||[])}/></div>;}
   // Fetch all classes
   const { data: classes } = await readAll(supabase
     .from("event_classes")
@@ -51,6 +54,7 @@ export default async function EventScoringPage({
       <div className="flex-1 flex flex-col items-center justify-center py-12 px-4">
         <h2 className="text-xl font-bold text-white">No classes found</h2>
         <p className="text-slate-400 mt-2">Please create at least one class before scoring.</p>
+        {spectatorPath&&<div className="mt-4"><SpectatorQR path={spectatorPath} eventName={event.name}/></div>}
       </div>
     );
   }

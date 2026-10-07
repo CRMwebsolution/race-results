@@ -12,7 +12,7 @@ import { scoreClass, rankEntries, compareRankedEntries } from "@/scoring";
 import { Loader2, RefreshCw, Printer } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-type EventType = { id: string; name: string; status: string; published_revision: number | null };
+type EventType = { id: string; name: string; status: string; published_revision: number | null; spectator_points_mode?: string };
 type ClassType = { id: string; name: string; scoring_type: string; scoring_version?: number; scoring_config: any; order_num: number };
 type EntryType = { id: string; event_class_id: string; display_name: string; seed: number | null; order_num: number };
 type AttemptType = { id: string; event_class_id: string; entry_id: string; ordinal: number; status: string; elapsed_ms: number | null; distance_mm: number | null; penalty_ms: number; raw_input: string | null };
@@ -145,7 +145,7 @@ export function LiveLeaderboard({
         ))}
       </div>
 
-      {championship?.classIds.includes(activeClassId)&&<section className="p-4 border rounded space-y-3"><h3 className="text-xl font-bold">{championship.name} · Championship points positions</h3><p className="text-sm text-slate-400">Registered entries only. These placement points are before bonuses and manual amendments; published season totals appear below.</p><div className="overflow-x-auto"><table className="w-full text-left"><thead><tr><th className="p-2">Points position</th><th className="p-2">Registered entry</th><th className="p-2">Race finish</th><th className="p-2">Placement points</th></tr></thead><tbody>{pointsRows.map(r=><tr key={r.entryId}><td className="p-2">{r.pointsRank}</td><td className="p-2">{r.entry.display_name}</td><td className="p-2">{r.rank}</td><td className="p-2">{r.points}</td></tr>)}</tbody></table></div>{!pointsRows.length&&<p>No ranked eligible entries yet.</p>}</section>}
+      {championship?.classIds.includes(activeClassId)&&<section className="p-4 border rounded space-y-3"><h3 className="text-xl font-bold">{championship.name} · Series points positions</h3><p className="text-sm text-slate-400">Registered entries only. These placement points are before bonuses and manual amendments.{championship.showSeasonTotals?" Published season totals appear below.":""}</p><div className="overflow-x-auto"><table className="w-full text-left"><thead><tr><th className="p-2">Points position</th><th className="p-2">Registered entry</th><th className="p-2">Race finish</th><th className="p-2">Placement points</th></tr></thead><tbody>{pointsRows.map(r=><tr key={r.entryId}><td className="p-2">{r.pointsRank}</td><td className="p-2">{r.entry.display_name}</td><td className="p-2">{r.rank}</td><td className="p-2">{r.points}</td></tr>)}</tbody></table></div>{!pointsRows.length&&<p>No ranked eligible entries yet.</p>}</section>}
       {/* Leaderboard */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
         <div className="p-4 border-b border-slate-800 bg-slate-800/30 flex items-center justify-between">

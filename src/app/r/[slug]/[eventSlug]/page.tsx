@@ -7,6 +7,7 @@ import { readAll } from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { LiveLeaderboard } from "./live-leaderboard";
+import {spectatorPointsMode} from '@/lib/spectator-points';
 
 export default async function PublicEventPage({
   params,searchParams,
@@ -20,6 +21,7 @@ export default async function PublicEventPage({
   const {data:track}=slug?await supabase.from("tracks").select("id").eq("slug",slug).single():{data:null};
   if(!seriesId&&!track)notFound();
   const {data:event}=await supabase.from("events").select("*").eq(seriesId?'series_id':'track_id',seriesId||track!.id).eq('slug',eventSlug).single();if(!event)notFound();
+  const mode=await spectatorPointsMode(supabase,{seriesId:event.series_id||undefined,trackId:event.track_id||undefined});
   const currentPath=seriesId?`/s/${seriesId}/races/${eventSlug}`:`/r/${slug}/${eventSlug}`;
   const championship=<PublicCompetition trackId={event.track_id||undefined} seriesId={event.series_id||undefined} selected={event.competition_season_id||undefined}/>;
 
@@ -31,7 +33,7 @@ export default async function PublicEventPage({
    if(!snapshot)throw new Error("Official results version is unavailable");
    const payload=snapshot.payload as any;
    const points=await publicRaceChampionship(supabase,payload.event,payload.entries,payload.classes,payload.registrations);
-   return <div className="space-y-4"><p>Official results · Version {snapshot.version}{snapshot.reconstructed ? " · Reconstructed historical ranks" : ` · ${snapshot.finalized_at}`}</p><nav className="flex flex-wrap gap-3">{Array.from({length:snapshot.version},(_,i)=><Link key={i} href={`?version=${i+1}`}>Version {i+1}</Link>)}<Link href={currentPath}>Current results</Link></nav><LiveLeaderboard event={{...payload.event,status:"completed"}} classes={payload.classes} initialEntries={payload.entries} initialAttempts={payload.attempts} officialResults={payload.results as OfficialRow[]} officialVersion={snapshot.version} judgeScores={judgeInput(payload.judge_scores||[])} championship={points}/>{event.competition_season_id&&championship}</div>;
+   return <div className="space-y-4"><p>Official results · Version {snapshot.version}{snapshot.reconstructed ? " · Reconstructed historical ranks" : ` · ${snapshot.finalized_at}`}</p><nav className="flex flex-wrap gap-3">{Array.from({length:snapshot.version},(_,i)=><Link key={i} href={`?version=${i+1}`}>Version {i+1}</Link>)}<Link href={currentPath}>Current results</Link></nav><LiveLeaderboard event={{...payload.event,status:"completed",spectator_points_mode:mode}} classes={payload.classes} initialEntries={payload.entries} initialAttempts={payload.attempts} officialResults={payload.results as OfficialRow[]} officialVersion={snapshot.version} judgeScores={judgeInput(payload.judge_scores||[])} championship={points}/>{event.competition_season_id&&championship}</div>;
   }
   // Fetch all classes
   const { data: classes } = await readAll(supabase
@@ -58,7 +60,7 @@ export default async function PublicEventPage({
   return (
     <div className="space-y-6"><LiveLeaderboard
       key={event.id}
-      event={event}
+      event={{...event,spectator_points_mode:mode}}
       classes={classes}
       initialEntries={entries || []}
       initialAttempts={attempts || []}

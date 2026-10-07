@@ -11,6 +11,8 @@ import {Prepared,getPrepared,subscribePrepared,queueAttempt,localAttempts as dev
 import {prepareEvent} from '@/lib/offline/prepare';
 import {flushPrepared,retryPrepared,resolveConflict} from '@/lib/offline/sync';
 import {SortHeading} from '@/components/sort-heading';
+import {SpectatorQR} from '@/components/spectator-qr';
+import {spectatorRacePath} from '@/lib/spectator-path';
 import {explainError,ActionFeedback} from '@/components/action-feedback';
 import {saveAttempt} from './actions';
 import {finalizeEventStandings} from '../settings/actions';
@@ -22,8 +24,9 @@ export type AttemptType={id:string;event_class_id:string;entry_id:string;ordinal
 export type ScoringPacket={accountId?:string;canComplete?:boolean;trackId:string;ownerType?:'track'|'series';trackSlug?:string;eventSlug?:string;event:EventType;classes:ClassType[];initialEntries:EntryType[];initialAttempts:AttemptType[];judgeScores?:JudgeInput[]};
 
 type Props=ScoringPacket&{offlineOnly?:boolean};
-export function ScoringWorkspace({accountId,canComplete=false,offlineOnly=false,ownerType='track',trackId,event,classes,initialEntries,initialAttempts,judgeScores=[]}:Props){
+export function ScoringWorkspace({accountId,canComplete=false,offlineOnly=false,ownerType='track',trackId,trackSlug,eventSlug,event,classes,initialEntries,initialAttempts,judgeScores=[]}:Props){
  const router=useRouter(),base=`/dashboard/${ownerType==='series'?'series':'tracks'}/${trackId}/events/${event.id}`;
+ const spectatorPath=spectatorRacePath({ownerType,ownerId:trackId,trackSlug,eventSlug});
  const [activeClassId,setActiveClassId]=useState(classes[0]?.id||'');
  const [attempts,setAttempts]=useState(initialAttempts),[prepared,setPrepared]=useState<Prepared|null>(null);
  const [drafts,setDrafts]=useState<Record<string,string>>({}),[errors,setErrors]=useState<Record<string,string>>({});
@@ -123,6 +126,7 @@ export function ScoringWorkspace({accountId,canComplete=false,offlineOnly=false,
   <nav aria-label="Scoring actions" className="flex flex-wrap items-center gap-3 p-4 bg-slate-900 border-b">
    <div className="flex flex-wrap gap-2 flex-1">{classes.map(c=><button key={c.id} disabled={completing} aria-pressed={activeClassId===c.id} onClick={()=>{setActiveClassId(c.id);setFrozen(null);}} className={`p-3 rounded-lg font-semibold ${activeClassId===c.id?'bg-amber-500 text-slate-950':'border border-slate-700 bg-slate-950'}`}>{c.name}</button>)}</div>
    <Link href={`${base}/entries?class=${activeClassId}`} className="p-3 border rounded-lg">Add contestant</Link>
+   {spectatorPath&&<SpectatorQR path={spectatorPath} eventName={event.name}/>}
    {canComplete&&<button onClick={()=>void complete()} onMouseDown={e=>e.preventDefault()} disabled={completing} className="p-3 rounded-lg bg-emerald-600 text-white font-bold">{completing?'Saving and completing…':'Complete race'}</button>}
    <p role="status" className="w-full text-sm text-slate-400">{status}</p>
   </nav>

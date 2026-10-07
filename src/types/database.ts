@@ -1250,6 +1250,7 @@ export type Database = {
       }
       series: {
         Row: {
+          spectator_points_mode: string
           created_at: string
           description: string | null
           id: string
@@ -1259,6 +1260,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          spectator_points_mode?: string
           created_at?: string
           description?: string | null
           id?: string
@@ -1268,6 +1270,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          spectator_points_mode?: string
           created_at?: string
           description?: string | null
           id?: string
@@ -1655,6 +1658,7 @@ export type Database = {
       }
       tracks: {
         Row: {
+          spectator_points_mode: string
           created_at: string
           default_classes: Json
           id: string
@@ -1667,6 +1671,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          spectator_points_mode?: string
           created_at?: string
           default_classes?: Json
           id?: string
@@ -1679,6 +1684,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          spectator_points_mode?: string
           created_at?: string
           default_classes?: Json
           id?: string
@@ -1705,6 +1711,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      spectator_points_for_season: {
+        Args: { p_season_id: string }
+        Returns: string
+      }
       add_series_award: {
         Args: {
           p_class_id: string

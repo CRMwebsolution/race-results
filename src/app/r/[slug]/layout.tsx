@@ -16,7 +16,7 @@ export default async function PublicTrackLayout({
 
   const { data: track } = await supabase
     .from("tracks")
-    .select("id, name, slug, timezone")
+    .select("id, name, slug, timezone, spectator_points_mode")
     .eq("slug", slug)
     .single();
 
@@ -45,7 +45,7 @@ export default async function PublicTrackLayout({
           </Link>
           
           <div className="flex flex-wrap items-center gap-3"><ThemeToggle/>
-{championship&&(            <Link 
+{championship&&track.spectator_points_mode==='race_and_total'&&(            <Link
               href={`/r/${track.slug}/standings`}
               className="text-xs font-bold text-amber-500 hover:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 px-3 py-1.5 rounded-lg transition"
             >

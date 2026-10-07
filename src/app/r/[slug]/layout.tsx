@@ -1,3 +1,4 @@
+import {ThemeToggle} from '@/components/theme-toggle';
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { Flag } from "lucide-react";
@@ -15,7 +16,7 @@ export default async function PublicTrackLayout({
 
   const { data: track } = await supabase
     .from("tracks")
-    .select("name, slug, timezone")
+    .select("id, name, slug, timezone")
     .eq("slug", slug)
     .single();
 
@@ -23,10 +24,12 @@ export default async function PublicTrackLayout({
     notFound();
   }
 
+  const {data:championship}=await supabase.from("competition_seasons").select("id").eq("track_id",track.id).limit(1).maybeSingle();
+
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col font-sans">
       <header className="bg-slate-900 border-b border-slate-800">
-        <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
+        <div className="max-w-4xl mx-auto px-4 py-3 flex flex-wrap gap-3 items-center justify-between">
           <Link href={`/r/${track.slug}`} className="flex items-center space-x-3 group">
             <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 border border-amber-500/20 group-hover:bg-amber-500/20 transition">
               <Flag className="w-5 h-5" />
@@ -41,13 +44,13 @@ export default async function PublicTrackLayout({
             </div>
           </Link>
           
-          <div className="flex items-center space-x-4">
-            <Link 
+          <div className="flex flex-wrap items-center gap-3"><ThemeToggle/>
+{championship&&(            <Link 
               href={`/r/${track.slug}/standings`}
               className="text-xs font-bold text-amber-500 hover:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 px-3 py-1.5 rounded-lg transition"
             >
               Season Standings
-            </Link>
+            </Link>)}
             <div className="text-xs font-mono text-slate-500 hidden sm:block">
               {track.timezone}
             </div>

@@ -1,3 +1,4 @@
+import {RaceNav} from '@/components/race-nav';
 import {createClient} from '@/lib/supabase/server';
 import {raceContext,RaceParams} from '@/lib/race-context';
 import {redirect,notFound} from 'next/navigation';
@@ -9,5 +10,5 @@ export default async function EventLayout({children,params}:{children:React.Reac
  const {data:allowed}=await db.rpc('can_edit_race',{p_event_id:eventId});if(!allowed)redirect('/dashboard');
  const {data:owner}=ownerType==='series'?await db.from('series').select('name').eq('id',ownerId).single():await db.from('tracks').select('name,slug').eq('id',ownerId).single();
  const publicPath=ownerType==='series'?`/s/${ownerId}/races/${event.slug}`:`/r/${(owner as {slug?:string})?.slug}/${event.slug}`;
- return <main className="flex-1 min-w-0 bg-slate-950"><header className="p-4 border-b space-y-3"><Link href={ownerPath} className="text-amber-400">{owner?.name}</Link><h1 className="text-2xl font-bold">{event.name}</h1><p>{event.local_date} · {event.status}{ownerType==='series'&&event.venue_description?` · ${event.venue_description}`:''}</p><nav aria-label="Event setup and race actions" className="flex flex-wrap gap-3">{[['','Classes & rules'],['entries','Race entries'],['settings','Date & status'],['scoring','Run race'],['judging','Judge scores']].map(([path,label])=><Link key={path} href={`${ownerPath}/events/${eventId}/${path}`} className="p-2 border rounded">{label}</Link>)}<Link href={publicPath} className="p-2 border rounded">Results / spectator view</Link></nav></header>{children}</main>;
+ return <main className="flex-1 min-w-0 bg-slate-950"><header className="p-4 border-b space-y-3"><Link href={ownerPath} className="text-amber-400">{owner?.name}</Link><h1 className="text-2xl font-bold">{event.name}</h1><p>{event.local_date} · {event.status}{ownerType==='series'&&event.venue_description?` · ${event.venue_description}`:''}</p><RaceNav base={`${ownerPath}/events/${eventId}`} publicPath={publicPath}/></header>{children}</main>;
 }

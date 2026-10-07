@@ -1,3 +1,4 @@
+import {ActionFeedback} from '@/components/action-feedback';
 import Link from "next/link";
 import {raceContext} from "@/lib/race-context";
 import {readAll} from "@/lib/read-all";
@@ -6,9 +7,9 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { finalizeEventStandings } from "./actions";
 
-export default async function EventSettingsPage({ params, searchParams }: { searchParams: Promise<{ error?: string }>; params: Promise<{ trackId?: string; seriesId?: string; eventId: string }> }) {
+export default async function EventSettingsPage({ params, searchParams }: { searchParams: Promise<{ error?: string;message?:string }>; params: Promise<{ trackId?: string; seriesId?: string; eventId: string }> }) {
   const {ownerId:trackId,ownerType,ownerColumn,ownerPath,eventId}=raceContext(await params);
-  const { error: actionError } = await searchParams;
+  const { error: actionError,message } = await searchParams;
   const supabase = await createClient();
   
   const { data: event } = await supabase.from("events").select("name, local_date, status, working_revision, venue_description, competition_season_id").eq("id", eventId).eq(ownerColumn,trackId).single();
@@ -17,7 +18,7 @@ export default async function EventSettingsPage({ params, searchParams }: { sear
   if (!canPublish) return <p className="p-8 text-slate-400">Only the track or organization owner can publish final results or reopen this event.</p>;
 
   const {data:seasons}=await readAll(supabase.from("competition_seasons").select("*").eq(ownerColumn,trackId).order("starts_on",{ascending:false}));
-  async function setSeason(f:FormData){"use server";const db=await createClient();const {error}=await db.rpc("attach_competition",{p_event_id:eventId,p_season_id:String(f.get("season_id"))});if(error)redirect(`${ownerPath}/events/${eventId}/settings?error=${encodeURIComponent(error.message)}`);revalidatePath("/dashboard","layout");redirect(`${ownerPath}/events/${eventId}/settings`);}
+  async function setSeason(f:FormData){"use server";const db=await createClient();const {error}=await db.rpc("attach_competition",{p_event_id:eventId,p_season_id:String(f.get("season_id"))});if(error)redirect(`${ownerPath}/events/${eventId}/settings?error=${encodeURIComponent(error.message)}`);revalidatePath("/dashboard","layout");redirect(`${ownerPath}/events/${eventId}/settings?message=Changes saved`);}
   async function updateStatus(formData: FormData) {
     "use server";
     const newStatus = formData.get("status") as string;
@@ -32,19 +33,19 @@ export default async function EventSettingsPage({ params, searchParams }: { sear
 
     revalidatePath(`${ownerPath}/events/${eventId}`);
     revalidatePath(`/r/[slug]`, 'layout');
-    redirect(`${ownerPath}/events/${eventId}/settings`);
+    redirect(`${ownerPath}/events/${eventId}/settings?message=Changes saved`);
   }
 
-  async function editEvent(f:FormData) { "use server"; const db=await createClient();const {error}=await db.rpc("edit_race_event",{p_event_id:eventId,p_name:String(f.get("name")),p_date:String(f.get("date")),p_track_id:trackId,p_expected_revision:Number(f.get("revision"))});if(error)redirect(`${ownerPath}/events/${eventId}/settings?error=${encodeURIComponent(error.message)}`);if(ownerType==="series"){const {error:venueError}=await db.rpc("edit_series_venue",{p_event_id:eventId,p_description:String(f.get("venue_description"))});if(venueError)redirect(`${ownerPath}/events/${eventId}/settings?error=${encodeURIComponent(venueError.message)}`);}revalidatePath("/dashboard","layout");redirect(`${ownerPath}/events/${eventId}/settings`); }
+  async function editEvent(f:FormData) { "use server"; const db=await createClient();const {error}=await db.rpc("edit_race_event",{p_event_id:eventId,p_name:String(f.get("name")),p_date:String(f.get("date")),p_track_id:trackId,p_expected_revision:Number(f.get("revision"))});if(error)redirect(`${ownerPath}/events/${eventId}/settings?error=${encodeURIComponent(error.message)}`);if(ownerType==="series"){const {error:venueError}=await db.rpc("edit_series_venue",{p_event_id:eventId,p_description:String(f.get("venue_description"))});if(venueError)redirect(`${ownerPath}/events/${eventId}/settings?error=${encodeURIComponent(venueError.message)}`);}revalidatePath("/dashboard","layout");redirect(`${ownerPath}/events/${eventId}/settings?message=Changes saved`); }
   async function deleteEvent(f:FormData) { "use server"; const db=await createClient();const {error}=await db.rpc("delete_or_withdraw_event",{p_event_id:eventId,p_confirm:f.get("confirm")==="on"});if(error)redirect(`${ownerPath}/events/${eventId}/settings?error=${encodeURIComponent(error.message)}`);revalidatePath("/dashboard","layout");redirect(`${ownerPath}`); }
 
   return (
     <div className="p-4 sm:p-8 max-w-2xl mx-auto w-full">
       <h2 className="text-2xl font-bold text-white mb-6">Event Settings</h2>
       
-      {actionError && <p role="alert" className="mb-4 text-red-400">{actionError}</p>}
+      <ActionFeedback error={actionError} message={message}/>
       <form action={editEvent} className="space-y-4 mb-8"><h2 className="text-xl font-bold">Event details</h2><input type="hidden" name="revision" value={event?.working_revision}/><label className="block">Name<input required name="name" defaultValue={event?.name} className="block w-full min-w-0 p-3 rounded bg-slate-900 border w-full"/></label><label className="block">Race date<input required type="date" name="date" defaultValue={event?.local_date} className="block w-full min-w-0 p-3 rounded bg-slate-900 border w-full"/></label>{ownerType==="series"&&<label className="block">Venue and location<textarea name="venue_description" required defaultValue={event?.venue_description||""} className="block w-full min-w-0 p-3 rounded bg-slate-900 border w-full"/></label>}<button className="p-3 rounded bg-amber-500 text-slate-950">Save details</button></form>
-      <section className="space-y-3 mb-6"><h2 className="font-bold">{ownerType==='series'?'Series season':'Optional track in-house championship'}</h2><p>Current season: {seasons.find(s=>s.id===event?.competition_season_id)?.name||'None'}</p><Link href={`${ownerPath}/seasons`} className="text-amber-400">Manage championship seasons and registrations</Link>{seasons.length>0&&<form action={setSeason} className="space-y-3"><label>Season<select name="season_id" required defaultValue={event?.competition_season_id||''} className="block w-full min-w-0 p-3 bg-slate-900 border rounded"><option value="">Choose season</option>{seasons.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label><button className="p-3 border rounded">Assign championship season</button></form>}</section><form action={deleteEvent} className="space-y-3 mb-8 p-4 border border-red-900 rounded"><h2 className="font-bold">Delete or withdraw event</h2><p>Empty events are deleted. Events with racers or official results are withdrawn; their history is retained.</p><label className="block"><input required type="checkbox" name="confirm"/> I confirm this event should be removed from the schedule.</label><button className="p-3 bg-red-950 rounded">Delete / withdraw event</button></form>
+      <section className="space-y-3 mb-6"><h2 className="font-bold">{ownerType==='series'?'Series season':'Optional track in-house championship'}</h2><p>Current season: {seasons.find(s=>s.id===event?.competition_season_id)?.name||'None'}</p><Link href={`${ownerPath}/seasons`} className="text-amber-400">Manage championship seasons and registrations</Link>{seasons.length>0&&<form action={setSeason} className="space-y-3"><label>Season<select name="season_id" required defaultValue={event?.competition_season_id||''} className="block w-full min-w-0 p-3 bg-slate-900 border rounded"><option value="">Choose season</option>{seasons.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label><button className="p-3 border rounded">Assign championship season</button></form>}</section>
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-6">
         <div>
           <h3 className="font-bold text-lg text-white mb-2">Event Status</h3>
@@ -71,6 +72,7 @@ export default async function EventSettingsPage({ params, searchParams }: { sear
           </form>
         </div>
       </div>
+      <form action={deleteEvent} className="space-y-3 mb-8 p-4 border border-red-900 rounded"><h2 className="font-bold">Delete or withdraw event</h2><p>Empty events are deleted. Events with racers or official results are withdrawn; their history is retained.</p><label className="block"><input required type="checkbox" name="confirm"/> I confirm this event should be removed from the schedule.</label><button className="p-3 bg-red-950 rounded">Delete / withdraw event</button></form>
     </div>
   );
 }

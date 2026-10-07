@@ -14,6 +14,31 @@ body {
   min-height: 100vh;
 }
 
+/* Day colors cover existing dashboard, scorer and spectator surfaces together. */
+html[data-theme="day"] { --background: #f8fafc; --foreground: #0f172a; color-scheme: light; }
+html[data-theme="night"] { color-scheme: dark; }
+html[data-theme="day"] :is(.bg-slate-950, .bg-slate-950\/50) { background-color: #ffffff; }
+html[data-theme="day"] :is(.bg-slate-900, .bg-slate-900\/50) { background-color: #f1f5f9; }
+html[data-theme="day"] :is(.bg-slate-800, .bg-slate-800\/80, .bg-slate-800\/50) { background-color: #e2e8f0; }
+html[data-theme="day"] .bg-slate-700 { background-color: #cbd5e1; }
+html[data-theme="day"] :is(.text-white,.text-slate-100,.text-slate-200) { color: #0f172a; }
+html[data-theme="day"] .text-slate-300 { color: #334155; }
+html[data-theme="day"] :is(.text-slate-400,.text-slate-500,.text-slate-600) { color: #475569; }
+html[data-theme="day"] :is(.border-slate-950,.border-slate-900,.border-slate-800,.border-slate-700,.border-slate-700\/50) { border-color: #cbd5e1; }
+html[data-theme="day"] :is(.text-amber-300,.text-amber-400,.text-amber-500) { color: #92400e; }
+html[data-theme="day"] :is(.text-emerald-300,.text-emerald-400,.text-emerald-500,.text-green-400,.text-green-500) { color: #047857; }
+html[data-theme="day"] :is(.text-red-300,.text-red-400,.text-red-500) { color: #b91c1c; }
+html[data-theme="day"] :is(.text-blue-300,.text-blue-400,.text-blue-500) { color: #1d4ed8; }
+html[data-theme="day"] .bg-red-950 { background-color: #fee2e2; }
+html[data-theme="day"] :is(.bg-blue-600,.bg-green-600,.bg-emerald-600,.bg-red-600) { color: #fff; }
+html[data-theme="day"] :is(.bg-blue-600,.bg-green-600,.bg-emerald-600,.bg-red-600) .text-white { color: #fff; }
+html[data-theme="day"] :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea) { background-color: #fff; color: #0f172a; border-color: #94a3b8; }
+html[data-theme="day"] :is(input,textarea)::placeholder { color: #64748b; }
+html[data-theme="day"] :is(.hover\:bg-slate-800,.hover\:bg-slate-700):hover { background-color: #cbd5e1; }
+summary { cursor: pointer; }
+details > summary { list-style-position: inside; }
+details[open] > summary { margin-bottom: 1rem; }
+
 @layer base {
   button, a, input, select, textarea { @apply focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400 focus-visible:outline-offset-2; }
   button { min-height: 44px; }

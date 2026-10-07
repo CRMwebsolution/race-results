@@ -1,11 +1,15 @@
 'use client';
 import {useState} from 'react';
-const formats=[['fastest_pass','Fastest pass'],['consistency','Consistency'],['combined_time','Combined times'],['stopped_distance','Distance'],['judged_points','Judged points']];
+import {scoringFormats} from '@/scoring/formats';
 const field='block w-full min-w-0 p-3 bg-slate-950 border rounded';
 export function ScoringFields({type='fastest_pass',config={}}:{type?:string;config?:unknown}){
  const [format,setFormat]=useState(type);const c=(config||{}) as Record<string,any>;
+ const formats: ReadonlyArray<readonly [string,string]> = type==='stopped_distance'
+   ? [...scoringFormats,['stopped_distance','Distance only (existing class)']]
+   : scoringFormats;
  return <fieldset className="space-y-4 min-w-0"><legend className="font-bold">Class scoring rules</legend>
  <label className="block">Format<select name="scoring_type" value={format} onChange={e=>setFormat(e.target.value)} className={field}>{formats.map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label>
+ {format==='fastest_pass'&&<p className="text-sm text-slate-400">Completed runs use time; incomplete runs use distance. Every completed run beats every incomplete run. The fastest completed pass wins; if there is no completed pass, the farthest distance wins. No track length is needed.</p>}
  {format!=='judged_points'&&<label className="block">Time precision<select name="decimals" defaultValue={c.decimals??3} className={field}>{[0,1,2,3].map(n=><option key={n} value={n}>{n} decimal places</option>)}</select></label>}
  {format==='combined_time'&&<label className="block">Passes required for combined times<input name="requiredPasses" type="number" min="1" max="100" defaultValue={c.requiredPasses??2} className={field}/></label>}
  {format==='consistency'&&<div className="grid sm:grid-cols-2 gap-3">{[0,1].map(i=><label key={i}>Consistency pass {i+1}<input name={i?'pass2':'pass1'} type="number" min="1" max="100" defaultValue={c.requiredOrdinals?.[i]??i+1} className={field}/></label>)}</div>}

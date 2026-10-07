@@ -1,5 +1,6 @@
 'use client';
 import {useEffect,useMemo,useRef,useState} from 'react';
+import type {KeyboardEvent} from 'react';
 import Link from 'next/link';
 import {useRouter} from 'next/navigation';
 import {scoreClass,rankEntries} from '@/scoring';
@@ -29,6 +30,7 @@ export function ScoringWorkspace({accountId,canComplete=false,offlineOnly=false,
  const [saving,setSaving]=useState<string[]>([]),[completing,setCompleting]=useState(false),[completeError,setCompleteError]=useState('');
  const [connected,setConnected]=useState(true),[order,setOrder]=useState<ResultOrder>('run'),[reverse,setReverse]=useState(false);
  const [frozen,setFrozen]=useState<string[]|null>(null);
+ const [tabStop,setTabStop]=useState<string|null>(null);
  const recordRef=useRef<Prepared|null>(null),confirmed=useRef(initialAttempts),revision=useRef(event.working_revision);
  const draftRef=useRef<Record<string,string>>({}),jobs=useRef(new Map<string,Promise<boolean>>());
  const completingRef=useRef(false),storageReady=useRef(false);
@@ -59,6 +61,23 @@ export function ScoringWorkspace({accountId,canComplete=false,offlineOnly=false,
   }));
  },[activeClass,attempts,initialEntries,judgeScores]);
  const sorted=sortResults(ranked,order,reverse),rows=frozen?[...sorted].sort((a,b)=>frozen.indexOf(a.entryId)-frozen.indexOf(b.entryId)):sorted;
+ const [tabEntry,tabPass]=(tabStop||'').split(':');
+ const gridTabStop=rows.some(row=>row.entryId===tabEntry)&&Number(tabPass)>0&&Number(tabPass)<=columns
+   ? tabStop : rows[0]?`${rows[0].entryId}:1`:null;
+ function handleScoreKeyDown(e:KeyboardEvent<HTMLInputElement>){
+  if(e.key==='Enter'){e.currentTarget.blur();return;}
+  if(e.key!=='Tab'||e.altKey||e.ctrlKey||e.metaKey)return;
+  const table=e.currentTarget.closest('table');
+  if(!table)return;
+  // DOM row order follows the selected sort and stays frozen while entering scores.
+  const fields=Array.from(table.querySelectorAll<HTMLInputElement>('input[data-score-pass]:not(:disabled)'))
+    .sort((a,b)=>Number(a.dataset.scorePass)-Number(b.dataset.scorePass));
+  const index=fields.indexOf(e.currentTarget);
+  if(index<0)return;
+  const next=fields[index+(e.shiftKey?-1:1)];
+  if(next){e.preventDefault();next.focus();next.select();}
+  // Only the current cell is a native Tab stop, so boundaries leave the grid.
+ }
  function saveInput(entryId:string,ordinal:number,raw:string):Promise<boolean>{
   const key=`${entryId}:${ordinal}`,running=jobs.current.get(key);if(running)return running;
   const task=(async()=>{
@@ -112,9 +131,10 @@ export function ScoringWorkspace({accountId,canComplete=false,offlineOnly=false,
   {Object.keys(errors).length>0&&<p role="alert" className="p-4 text-red-400">{[...new Set(Object.values(errors))].join(' ')} Your entries are kept.</p>}
   {activeClass?.scoring_type==='judged_points'&&<Link href={`${base}/judging`} className="inline-block p-4 text-amber-400 underline">Enter scores for this judged class</Link>}
   <div className="overflow-x-auto p-4 min-w-0">
+   <p id="score-entry-help" className="mb-3 text-sm text-slate-400">Tab moves down each pass column, then to the next pass. Shift+Tab moves back.{activeClass?.scoring_type==='fastest_pass'&&' Enter seconds (9.082 s) for a completed run or distance (108.5 ft / 108 ft 6 in) for an incomplete run. Every completed run beats every incomplete run.'} Use - for no pass.</p>
    <table aria-label={`${activeClass?.name||'Class'} scores`} className="w-full min-w-[640px] text-left bg-slate-900 rounded-lg" onFocusCapture={e=>{if(e.target instanceof HTMLInputElement)setFrozen(rows.map(r=>r.entryId));}} onBlurCapture={e=>{if(!(e.relatedTarget instanceof HTMLInputElement)||!e.currentTarget.contains(e.relatedTarget))setFrozen(null);}}>
     <thead className="bg-slate-800"><tr><SortHeading<ResultOrder> label="Rank" value="rank" order={order} reverse={reverse} onOrder={setOrder} onReverse={setReverse}/><SortHeading<ResultOrder> label="Order" value="run" order={order} reverse={reverse} onOrder={setOrder} onReverse={setReverse}/><SortHeading<ResultOrder> label="Racer" value="name" order={order} reverse={reverse} onOrder={setOrder} onReverse={setReverse}/>{Array.from({length:columns},(_,i)=><SortHeading<ResultOrder> key={i} label={`Pass ${i+1}`} value={`pass:${i+1}`} order={order} reverse={reverse} onOrder={setOrder} onReverse={setReverse}/>)}<th scope="col" className="p-3">Result</th></tr></thead>
-    <tbody>{rows.map(row=><tr data-testid="scoring-row" data-entry-id={row.entryId} key={row.entryId} className="border-t border-slate-700"><td className="p-3">{row.rank===null?'—':`${row.tied?'T':''}${row.rank}`}</td><td className="p-3">{row.orderNum}</td><td className="p-3 font-semibold">{row.entry.display_name}</td>{Array.from({length:columns},(_,i)=>{const ordinal=i+1,key=`${row.entryId}:${ordinal}`,attempt=row.attempts.find(a=>a.ordinal===ordinal);return <td key={ordinal} className="p-2"><input type="text" aria-label={`${row.entry.display_name}, pass ${ordinal}`} aria-invalid={Boolean(errors[key])} title={errors[key]} value={drafts[key]??attempt?.rawInput??''} onChange={e=>{const next={...draftRef.current};if(e.target.value===(attempt?.rawInput??''))delete next[key];else next[key]=e.target.value;writeDrafts(next);setErrors(previous=>{const next={...previous};delete next[key];return next;});}} onBlur={e=>{if(e.target.value!==(attempt?.rawInput??''))void saveInput(row.entryId,ordinal,e.target.value);}} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur();}} disabled={completing||saving.includes(key)||event.status==='completed'||activeClass?.scoring_type==='judged_points'} placeholder="-" className={`w-full min-w-[96px] p-3 rounded border bg-slate-950 text-white font-mono ${errors[key]?'border-red-500':'border-slate-700'}`}/></td>;})}<td className="p-3 whitespace-nowrap font-mono">{row.score.label||'No score'}</td></tr>)}{!rows.length&&<tr><td colSpan={columns+4} className="p-6">No contestants in this class yet. Use Add contestant above.</td></tr>}</tbody>
+    <tbody>{rows.map(row=><tr data-testid="scoring-row" data-entry-id={row.entryId} key={row.entryId} className="border-t border-slate-700"><td className="p-3">{row.rank===null?'—':`${row.tied?'T':''}${row.rank}`}</td><td className="p-3">{row.orderNum}</td><td className="p-3 font-semibold">{row.entry.display_name}</td>{Array.from({length:columns},(_,i)=>{const ordinal=i+1,key=`${row.entryId}:${ordinal}`,attempt=row.attempts.find(a=>a.ordinal===ordinal);return <td key={ordinal} className="p-2"><input type="text" data-score-pass={ordinal} tabIndex={key===gridTabStop?0:-1} onFocus={()=>setTabStop(key)} aria-describedby="score-entry-help" aria-label={`${row.entry.display_name}, pass ${ordinal}`} aria-invalid={Boolean(errors[key])} title={errors[key]} value={drafts[key]??attempt?.rawInput??''} onChange={e=>{const next={...draftRef.current};if(e.target.value===(attempt?.rawInput??''))delete next[key];else next[key]=e.target.value;writeDrafts(next);setErrors(previous=>{const next={...previous};delete next[key];return next;});}} onBlur={e=>{if(e.target.value!==(attempt?.rawInput??''))void saveInput(row.entryId,ordinal,e.target.value);}} onKeyDown={handleScoreKeyDown} disabled={completing||saving.includes(key)||event.status==='completed'||activeClass?.scoring_type==='judged_points'} placeholder="-" className={`w-full min-w-[96px] p-3 rounded border bg-slate-950 text-white font-mono ${errors[key]?'border-red-500':'border-slate-700'}`}/></td>;})}<td className="p-3 whitespace-nowrap font-mono">{row.score.label||'No score'}</td></tr>)}{!rows.length&&<tr><td colSpan={columns+4} className="p-6">No contestants in this class yet. Use Add contestant above.</td></tr>}</tbody>
    </table>
   </div>
  </div>;

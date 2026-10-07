@@ -1,6 +1,6 @@
 import {judgeConfig} from "@/scoring/multi-judge";
 import { scoreClass } from '@/scoring';
-export const formats = [['fastest_pass','Fastest pass'],['consistency','Consistency'],['combined_time','Combined times'],['stopped_distance','Distance'],['judged_points','Judged points']] as const;
+export {scoringFormats as formats} from '@/scoring/formats';
 export function scoringFromForm(form: FormData) {
  const type=String(form.get('scoring_type') || 'fastest_pass');
  const config={ decimals:Number(form.get('decimals') ?? 3), requiredPasses:Number(form.get('requiredPasses') || 2), requiredOrdinals:[Number(form.get('pass1') || 1),Number(form.get('pass2') || 2)] };

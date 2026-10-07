@@ -36,6 +36,6 @@ export function calculateCompetition(input:CompetitionInput){
  for(const row of payload.standings)row.total=row.breakdown.reduce((sum,b)=>sum+b.total,0);
  for(const classId of new Set(payload.standings.map(s=>s.classId))){const rows=payload.standings.filter(s=>s.classId===classId).sort((a,b)=>b.total-a.total||a.racerId.localeCompare(b.racerId));rows.forEach((r,i)=>{r.rank=i&&r.total===rows[i-1].total?rows[i-1].rank:i+1;r.tied=(i>0&&r.total===rows[i-1].total)||(i+1<rows.length&&r.total===rows[i+1].total);});}
  payload.standings.sort((a,b)=>a.className.localeCompare(b.className)||a.rank-b.rank||a.racerId.localeCompare(b.racerId));
- payload.policy='Overall race ranks determine prizes. Championship points ranks include only eligible registered entries. Eligibility is retained with official race results. Manual amendments retain explanations and history.';
+ payload.policy='Overall race ranks determine prizes. Series points ranks include only eligible registered entries. Eligibility is retained with official race results. Manual amendments retain explanations and history.';
  return payload;
 }

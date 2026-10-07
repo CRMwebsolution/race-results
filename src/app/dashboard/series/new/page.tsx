@@ -61,7 +61,7 @@ export default async function NewSeriesPage({
         >
           <ArrowLeft className="w-4 h-4" />
         </Link>
-        <h1 className="text-2xl font-bold text-white">Create Championship Series</h1>
+        <h1 className="text-2xl font-bold text-white">Create Series</h1>
       </div>
 
       {error && (

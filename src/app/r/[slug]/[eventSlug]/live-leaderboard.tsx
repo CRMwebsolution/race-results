@@ -2,7 +2,7 @@
 import {downloadResults} from "@/lib/results-csv";
 import type {OfficialRow} from "@/lib/official-results";
 import {JudgeInput,judgeRoundAttempts} from "@/scoring/multi-judge";
-import {ResultSort} from "@/components/result-sort";
+import {SortHeading} from "@/components/sort-heading";
 import {sortResults,passCount,ResultOrder} from "@/lib/race-order";
 
 import { useEffect, useState, useMemo, useRef, useTransition } from "react";
@@ -146,8 +146,6 @@ export function LiveLeaderboard({
       </div>
 
       {championship?.classIds.includes(activeClassId)&&<section className="p-4 border rounded space-y-3"><h3 className="text-xl font-bold">{championship.name} · Championship points positions</h3><p className="text-sm text-slate-400">Registered entries only. These placement points are before bonuses and manual amendments; published season totals appear below.</p><div className="overflow-x-auto"><table className="w-full text-left"><thead><tr><th className="p-2">Points position</th><th className="p-2">Registered entry</th><th className="p-2">Race finish</th><th className="p-2">Placement points</th></tr></thead><tbody>{pointsRows.map(r=><tr key={r.entryId}><td className="p-2">{r.pointsRank}</td><td className="p-2">{r.entry.display_name}</td><td className="p-2">{r.rank}</td><td className="p-2">{r.points}</td></tr>)}</tbody></table></div>{!pointsRows.length&&<p>No ranked eligible entries yet.</p>}</section>}
-      <ResultSort order={sortOrder} reverse={reverse} passes={passCount(activeClass?.scoring_config,initialAttempts)} onOrder={setSortOrder} onReverse={setReverse}/>
-      <p className="px-4 text-xs text-slate-400">Display order: {sortOrder} {reverse ? "(reversed)" : ""}</p>
       {/* Leaderboard */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
         <div className="p-4 border-b border-slate-800 bg-slate-800/30 flex items-center justify-between">
@@ -172,56 +170,7 @@ export function LiveLeaderboard({
           </div>
         </div>
 
-        <div className="divide-y divide-slate-800/50">
-          {rankedEntries.length === 0 ? (
-            <div className="p-8 text-center text-slate-500">
-              No entries to show.
-            </div>
-          ) : (
-            displayRows.map((row) => (
-              <div data-testid="result-row" data-entry-id={row.entryId} key={row.entryId} className="p-4 flex items-center space-x-4 hover:bg-slate-800/30 transition">
-                <div className="w-10 flex-shrink-0 flex justify-center">
-                  <span
-                    className={`inline-flex items-center justify-center min-w-[1.75rem] h-7 px-1.5 rounded-full font-bold text-xs ${
-                      row.rank === 1 && row.score.eligible
-                        ? "bg-amber-500 text-amber-950 shadow-[0_0_10px_rgba(245,158,11,0.5)]"
-                        : row.rank === 2 && row.score.eligible
-                        ? "bg-slate-300 text-slate-800"
-                        : row.rank === 3 && row.score.eligible
-                        ? "bg-amber-700 text-white"
-                        : row.tied
-                        ? "bg-blue-500 text-blue-950"
-                        : "bg-slate-800 text-slate-400"
-                    }`}
-                  >
-                    {row.rank == null ? "-" : row.tied ? `T${row.rank}` : row.rank}
-                  </span>
-                </div>
-                
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-white text-base truncate">
-                    {row.entry.display_name}
-                  </p>
-                  <p className="text-xs text-slate-500 font-mono mt-0.5 truncate">
-                    {row.attempts.map(a => a.rawInput || "-").join(" | ")}
-                  </p>
-                </div>
-
-                <div className="text-right">
-                  {row.score.eligible ? (
-                    <div className="font-mono font-bold text-amber-400 text-lg">
-                      {row.score.label}
-                    </div>
-                  ) : (
-                    <div className="text-slate-500 italic text-sm">
-                      {row.score.label || "No score"}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+        <div className="overflow-x-auto"><table aria-label={`${activeClass?.name||'Race'} results`} className="min-w-[640px] w-full text-left"><thead className="bg-slate-800"><tr><SortHeading<ResultOrder> label="Rank" value="rank" order={sortOrder} reverse={reverse} onOrder={setSortOrder} onReverse={setReverse}/><SortHeading<ResultOrder> label="Order" value="run" order={sortOrder} reverse={reverse} onOrder={setSortOrder} onReverse={setReverse}/><SortHeading<ResultOrder> label="Racer" value="name" order={sortOrder} reverse={reverse} onOrder={setSortOrder} onReverse={setReverse}/>{Array.from({length:passCount(activeClass?.scoring_config,initialAttempts)},(_,i)=><SortHeading<ResultOrder> key={i} label={`Pass ${i+1}`} value={`pass:${i+1}`} order={sortOrder} reverse={reverse} onOrder={setSortOrder} onReverse={setReverse}/>)}<th className="p-3" scope="col">Result</th></tr></thead><tbody>{displayRows.map(row=><tr data-testid="result-row" data-entry-id={row.entryId} key={row.entryId} className="border-t border-slate-700"><td className="p-3">{row.rank==null?'—':`${row.tied?'T':''}${row.rank}`}</td><td className="p-3">{row.orderNum}</td><td className="p-3 font-semibold">{row.entry.display_name}</td>{Array.from({length:passCount(activeClass?.scoring_config,initialAttempts)},(_,i)=><td key={i} className="p-3 font-mono whitespace-nowrap">{row.attempts.find(a=>a.ordinal===i+1)?.rawInput||'—'}</td>)}<td className="p-3 font-mono whitespace-nowrap">{row.score.label||'No score'}</td></tr>)}{!displayRows.length&&<tr><td colSpan={passCount(activeClass?.scoring_config,initialAttempts)+4} className="p-6">No contestants to show.</td></tr>}</tbody></table></div>
       </div>
 
       {/* Print-only Table Sorted by Rank */}

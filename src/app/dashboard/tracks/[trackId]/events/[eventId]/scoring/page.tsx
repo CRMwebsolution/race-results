@@ -1,3 +1,4 @@
+import {ActionFeedback} from '@/components/action-feedback';
 import {raceContext} from "@/lib/race-context";
 import {judgeInput} from "@/scoring/multi-judge";
 import {officialResult} from "@/lib/official-results";
@@ -8,11 +9,13 @@ import { redirect } from "next/navigation";
 import { ScoringWorkspace } from "./scoring-workspace";
 
 export default async function EventScoringPage({
-  params,
+  params,searchParams,
 }: {
+  searchParams:Promise<{message?:string}>;
   params: Promise<{ trackId?: string; seriesId?: string; eventId: string }>;
 }) {
   const {ownerId:trackId,ownerType,ownerColumn,ownerPath,eventId}=raceContext(await params);
+  const {message}=await searchParams;
   const supabase = await createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
@@ -35,7 +38,7 @@ export default async function EventScoringPage({
   const eventSlug = event.slug;
 
 
-  if(event.status==="completed") {const snapshot=await officialResult(supabase,event.id);if(!snapshot)throw new Error("Official snapshot unavailable");const p=snapshot.payload as any;return <div className="p-4 w-full"><p>Official results · Version {snapshot.version}</p><LiveLeaderboard event={{...p.event,status:"completed"}} classes={p.classes} initialEntries={p.entries} initialAttempts={p.attempts} officialResults={p.results} officialVersion={snapshot.version} judgeScores={judgeInput(p.judge_scores||[])}/></div>;}
+  if(event.status==="completed") {const snapshot=await officialResult(supabase,event.id);if(!snapshot)throw new Error("Official snapshot unavailable");const p=snapshot.payload as any;return <div className="p-4 w-full"><ActionFeedback message={message}/><p>Official results · Version {snapshot.version}</p><LiveLeaderboard event={{...p.event,status:"completed"}} classes={p.classes} initialEntries={p.entries} initialAttempts={p.attempts} officialResults={p.results} officialVersion={snapshot.version} judgeScores={judgeInput(p.judge_scores||[])}/></div>;}
   // Fetch all classes
   const { data: classes } = await readAll(supabase
     .from("event_classes")
@@ -63,10 +66,12 @@ export default async function EventScoringPage({
       .in("event_class_id",classIds).order("ordinal",{ascending:true})),
     readAll(supabase.from("judge_scores").select("*").in("event_class_id",classIds)),
   ]);
+  const {data:canComplete}=await supabase.rpc("can_publish_race",{p_event_id:eventId});
   return (
     <ScoringWorkspace
       key={event.id}
       accountId={user.id}
+      canComplete={Boolean(canComplete)}
       trackId={trackId}
       trackSlug={trackSlug}
       ownerType={ownerType}

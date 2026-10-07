@@ -8,9 +8,9 @@ import Link from "next/link";
 import { Timer, Trash2, AlertCircle } from "lucide-react";
 import { InlineOrderInput } from "./InlineOrderInput";
 
-export default async function ManageEntriesPage({ params, searchParams }: { params: Promise<{ trackId?: string; seriesId?: string; eventId: string }>, searchParams: Promise<{ error?: string;message?:string }> }) {
+export default async function ManageEntriesPage({ params, searchParams }: { params: Promise<{ trackId?: string; seriesId?: string; eventId: string }>, searchParams: Promise<{ error?: string;message?:string;class?:string }> }) {
   const {ownerId:trackId,ownerType,ownerColumn,ownerPath,eventId}=raceContext(await params);
-  const { error,message } = await searchParams;
+  const { error,message,class:chosenClass } = await searchParams;
   const supabase = await createClient();
 
   const { data: classes } = await readAll(supabase
@@ -128,7 +128,7 @@ export default async function ManageEntriesPage({ params, searchParams }: { para
             </div>
             <div className="flex-[2]">
               <label htmlFor="race-entry-class" className="block text-xs font-semibold text-slate-400 mb-1">Class</label>
-              <select id="race-entry-class" name="event_class_id" className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-white text-sm">
+              <select id="race-entry-class" name="event_class_id" defaultValue={chosenClass} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-white text-sm">
                 {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>

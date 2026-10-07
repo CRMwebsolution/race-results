@@ -1,3 +1,4 @@
+import {RaceStatusForm} from '@/components/race-status-form';
 import {ActionFeedback} from '@/components/action-feedback';
 import Link from "next/link";
 import {raceContext} from "@/lib/race-context";
@@ -22,6 +23,7 @@ export default async function EventSettingsPage({ params, searchParams }: { sear
   async function updateStatus(formData: FormData) {
     "use server";
     const newStatus = formData.get("status") as string;
+    if(newStatus==="completed")redirect(`${ownerPath}/events/${eventId}/settings?error=Use Complete race on the Enter results screen to finish saving and publish results.`);
     const supabase = await createClient();
     const result = newStatus === "completed" ? await finalizeEventStandings(eventId) : await supabase.rpc("set_race_event_status", {
       p_event_id: eventId, p_status: newStatus, p_expected_revision: Number(formData.get("revision")),
@@ -33,7 +35,7 @@ export default async function EventSettingsPage({ params, searchParams }: { sear
 
     revalidatePath(`${ownerPath}/events/${eventId}`);
     revalidatePath(`/r/[slug]`, 'layout');
-    redirect(`${ownerPath}/events/${eventId}/settings?message=Changes saved`);
+    redirect(`${ownerPath}/events/${eventId}/settings?message=${encodeURIComponent("Race status updated: "+newStatus)}`);
   }
 
   async function editEvent(f:FormData) { "use server"; const db=await createClient();const {error}=await db.rpc("edit_race_event",{p_event_id:eventId,p_name:String(f.get("name")),p_date:String(f.get("date")),p_track_id:trackId,p_expected_revision:Number(f.get("revision"))});if(error)redirect(`${ownerPath}/events/${eventId}/settings?error=${encodeURIComponent(error.message)}`);if(ownerType==="series"){const {error:venueError}=await db.rpc("edit_series_venue",{p_event_id:eventId,p_description:String(f.get("venue_description"))});if(venueError)redirect(`${ownerPath}/events/${eventId}/settings?error=${encodeURIComponent(venueError.message)}`);}revalidatePath("/dashboard","layout");redirect(`${ownerPath}/events/${eventId}/settings?message=Changes saved`); }
@@ -53,23 +55,7 @@ export default async function EventSettingsPage({ params, searchParams }: { sear
             If an event is set to <span className="font-mono text-slate-300">draft</span>, it will not appear on the public spectator view. You must change it to <span className="font-mono text-red-400">live</span> to begin broadcasting times.
           </p>
           
-          <form action={updateStatus} className="grid gap-3 sm:grid-cols-2 items-center">
-            <input type="hidden" name="revision" value={event?.working_revision ?? ""} />
-            <select 
-              name="status" 
-              defaultValue={event?.status}
-              className="w-full min-w-0 bg-slate-950 border border-slate-700 text-white rounded p-2"
-            >
-              <option value="draft">Draft (Hidden)</option>
-              <option value="scheduled">Scheduled (Calendar Preview)</option>
-              <option value="live">Live</option>
-              <option value="cancelled">Cancelled / withdrawn</option>
-              <option value="completed">Completed (Final Results)</option>
-            </select>
-            <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-2 rounded transition">
-              Update Status
-            </button>
-          </form>
+          <RaceStatusForm status={event?.status||"draft"} revision={event?.working_revision||0} action={updateStatus}/><p className="mt-3 text-sm text-slate-400">To finish and publish official results, use Complete race on the Enter results screen.</p>
         </div>
       </div>
       <form action={deleteEvent} className="space-y-3 mb-8 p-4 border border-red-900 rounded"><h2 className="font-bold">Delete or withdraw event</h2><p>Empty events are deleted. Events with racers or official results are withdrawn; their history is retained.</p><label className="block"><input required type="checkbox" name="confirm"/> I confirm this event should be removed from the schedule.</label><button className="p-3 bg-red-950 rounded">Delete / withdraw event</button></form>

@@ -1,5 +1,5 @@
-import {ThemeToggle} from '@/components/theme-toggle';
 'use client';
+import {ThemeToggle} from '@/components/theme-toggle';
 import {useEffect,useState} from 'react';
 import {ScoringWorkspace} from '@/app/dashboard/tracks/[trackId]/events/[eventId]/scoring/scoring-workspace';
 import {Prepared,activeAccount,allPrepared,subscribePrepared} from '@/lib/offline/store';

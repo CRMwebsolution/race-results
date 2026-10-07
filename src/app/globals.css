@@ -45,3 +45,8 @@ details[open] > summary { margin-bottom: 1rem; }
   button:disabled { opacity: .5; cursor: not-allowed; }
   input, select, textarea { font-size: 16px; }
 }
+
+html[data-theme="day"] :is(.bg-slate-900\/60,.bg-slate-900\/30,.bg-slate-950\/40) { background-color: #f1f5f9; }
+html[data-theme="day"] .bg-slate-800\/30 { background-color: #e2e8f0; }
+html[data-theme="day"] .bg-amber-700 { color: #fff; }
+html[data-theme="day"] :focus-visible { outline-color: #92400e; }

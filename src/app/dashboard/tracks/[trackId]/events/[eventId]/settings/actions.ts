@@ -2,6 +2,7 @@
 import {judgeInput} from "@/scoring/multi-judge";
 import { readAll } from "@/lib/read-all";
 
+import {revalidatePath} from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { scoreClass, rankEntries } from "@/scoring";
 
@@ -90,5 +91,7 @@ export async function finalizeEventStandings(eventId: string, scoresConfirmed = 
   const { error } = await supabase.rpc("complete_race_event", {
     p_event_id: eventId, p_expected_revision: event.working_revision, p_ranks: updates as unknown as import("@/types/database").Json,
   });
-  return error ? { error: error.message } : { success: true };
+  if(error)return {error:error.message};
+  revalidatePath("/dashboard","layout");revalidatePath("/r","layout");revalidatePath("/s","layout");
+  return {success:true};
 }

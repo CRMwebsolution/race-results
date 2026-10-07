@@ -1,437 +1,121 @@
-"use client";
-import {JudgeInput,judgeRoundAttempts} from "@/scoring/multi-judge";
-import {Prepared,getPrepared,subscribePrepared,queueAttempt,localAttempts as deviceAttempts,activateAccount} from "@/lib/offline/store";
-import {prepareEvent} from "@/lib/offline/prepare";
-import {flushPrepared,retryPrepared,resolveConflict,isUploading} from "@/lib/offline/sync";
-import {downloadResults} from "@/lib/results-csv";
-import {ResultSort} from "@/components/result-sort";
-import {sortResults,passCount,ResultOrder} from "@/lib/race-order";
+'use client';
+import {useEffect,useMemo,useRef,useState} from 'react';
+import Link from 'next/link';
+import {useRouter} from 'next/navigation';
+import {scoreClass,rankEntries} from '@/scoring';
+import {judgeRoundAttempts,JudgeInput} from '@/scoring/multi-judge';
+import {parseAttemptInput} from '@/scoring/parser';
+import {sortResults,passCount,ResultOrder} from '@/lib/race-order';
+import {Prepared,getPrepared,subscribePrepared,queueAttempt,localAttempts as deviceAttempts,activateAccount,changePrepared} from '@/lib/offline/store';
+import {prepareEvent} from '@/lib/offline/prepare';
+import {flushPrepared,retryPrepared,resolveConflict} from '@/lib/offline/sync';
+import {SortHeading} from '@/components/sort-heading';
+import {explainError,ActionFeedback} from '@/components/action-feedback';
+import {saveAttempt} from './actions';
+import {finalizeEventStandings} from '../settings/actions';
 
-import { useState, useMemo, useEffect, useRef } from "react";
-import { saveAttempt } from "./actions";
-import { parseAttemptInput, ParsedAttempt } from "@/scoring/parser";
-import { scoreClass, rankEntries, compareRankedEntries } from "@/scoring";
-import { CheckCircle2, Loader2, Download, Printer, ExternalLink, Users } from "lucide-react";
-import Link from "next/link";
+export type EventType={id:string;name:string;working_revision:number;status:string};
+export type ClassType={id:string;name:string;scoring_type:string;scoring_version?:number;scoring_config:any;order_num:number};
+export type EntryType={id:string;event_class_id:string;display_name:string;seed:number|null;order_num:number};
+export type AttemptType={id:string;event_class_id:string;entry_id:string;ordinal:number;status:string;elapsed_ms:number|null;distance_mm:number|null;penalty_ms:number;raw_input:string|null;save_version:number};
+export type ScoringPacket={accountId?:string;canComplete?:boolean;trackId:string;ownerType?:'track'|'series';trackSlug?:string;eventSlug?:string;event:EventType;classes:ClassType[];initialEntries:EntryType[];initialAttempts:AttemptType[];judgeScores?:JudgeInput[]};
 
-export type EventType = { id: string; name: string; working_revision: number; status: string };
-export type ClassType = { id: string; name: string; scoring_type: string; scoring_version?: number; scoring_config: any; order_num: number };
-export type EntryType = { id: string; event_class_id: string; display_name: string; seed: number | null; order_num: number };
-export type AttemptType = { id: string; event_class_id: string; entry_id: string; ordinal: number; status: string; elapsed_ms: number | null; distance_mm: number | null; penalty_ms: number; raw_input: string | null; save_version: number };
-
-export type ScoringPacket={accountId?:string;trackId:string;ownerType?:'track'|'series';trackSlug?:string;eventSlug?:string;event:EventType;classes:ClassType[];initialEntries:EntryType[];initialAttempts:AttemptType[];judgeScores?:JudgeInput[]};
-
-// We want to map DB types to the Scoring Engine types
-type ScoreEngineAttempt = {
-  id: string;
-  entryId: string;
-  ordinal: number;
-  status: "valid" | "dq" | "dnf" | "dns" | "no_time";
-  elapsedMs: number | null;
-  distanceMm: number | null;
-  penaltyMs: number;
-  rawInput?: string | null;
-};
-
-export function ScoringWorkspace({
-  accountId,offlineOnly=false,ownerType='track',
-  trackId,
-  trackSlug,
-  eventSlug,
-  event,
-  classes,
-  initialEntries,
-  initialAttempts,
-  judgeScores=[],
-}: {
-  accountId?:string;offlineOnly?:boolean;ownerType?:'track'|'series';
-  trackId: string;
-  trackSlug?: string;
-  eventSlug?: string;
-  event: EventType;
-  classes: ClassType[];
-  initialEntries: EntryType[];
-  initialAttempts: AttemptType[];
-  judgeScores?:JudgeInput[];
-}) {
-  const [sortOrder,setSortOrder]=useState<ResultOrder>("run");
-  const [reverse,setReverse]=useState(false);
-  const [frozenOrder,setFrozenOrder]=useState<string[]|null>(null);
-  const [prepared,setPrepared]=useState<Prepared|null>(null);
-  const [offlineMessage,setOfflineMessage]=useState("");
-  const preparedRef=useRef<Prepared|null>(null);
-  preparedRef.current=prepared;
-  const [activeClassId, setActiveClassId] = useState<string>(classes[0]?.id || "");
-  const [localAttempts, setLocalAttempts] = useState<AttemptType[]>(initialAttempts);
-  const [pendingSaves, setPendingSaves] = useState(0);
-  const [cellErrors, setCellErrors] = useState<Record<string,string>>({});
-  const [drafts, setDrafts] = useState<Record<string,string>>({});
-  const [draftStorageReady, setDraftStorageReady] = useState(false);
-  const [savingCells, setSavingCells] = useState<Set<string>>(new Set());
-  const busyCells = useRef(new Set<string>());
-  const acknowledgedRevision = useRef(event.working_revision);
-  const confirmedAttempts = useRef(initialAttempts);
-  const [visibleColumns, setVisibleColumns] = useState(2);
-
-
-  useEffect(()=>{
-    if(!accountId)return;
-    let mounted=true;
-    try{activateAccount(accountId);}catch{return;}
-    async function load(){
-      try{
-        const r=await getPrepared(accountId!,event.id);
-        if(!mounted)return;
-        setPrepared(r);
-        if(r && (r.outbox.length || r.packet.event.working_revision>=acknowledgedRevision.current)){
-          confirmedAttempts.current=r.packet.initialAttempts;
-          setLocalAttempts(deviceAttempts(r));
-          acknowledgedRevision.current=Math.max(acknowledgedRevision.current,r.packet.event.working_revision);
-        }
-      }catch{/* Online scoring remains available if device storage is unavailable. */}
+type Props=ScoringPacket&{offlineOnly?:boolean};
+export function ScoringWorkspace({accountId,canComplete=false,offlineOnly=false,ownerType='track',trackId,event,classes,initialEntries,initialAttempts,judgeScores=[]}:Props){
+ const router=useRouter(),base=`/dashboard/${ownerType==='series'?'series':'tracks'}/${trackId}/events/${event.id}`;
+ const [activeClassId,setActiveClassId]=useState(classes[0]?.id||'');
+ const [attempts,setAttempts]=useState(initialAttempts),[prepared,setPrepared]=useState<Prepared|null>(null);
+ const [drafts,setDrafts]=useState<Record<string,string>>({}),[errors,setErrors]=useState<Record<string,string>>({});
+ const [saving,setSaving]=useState<string[]>([]),[completing,setCompleting]=useState(false),[completeError,setCompleteError]=useState('');
+ const [connected,setConnected]=useState(true),[order,setOrder]=useState<ResultOrder>('run'),[reverse,setReverse]=useState(false);
+ const [frozen,setFrozen]=useState<string[]|null>(null);
+ const recordRef=useRef<Prepared|null>(null),confirmed=useRef(initialAttempts),revision=useRef(event.working_revision);
+ const draftRef=useRef<Record<string,string>>({}),jobs=useRef(new Map<string,Promise<boolean>>());
+ const completingRef=useRef(false),storageReady=useRef(false);
+ const storageKey=`raceholler:drafts:${accountId??'unknown'}:${trackId}:${event.id}`;
+ recordRef.current=prepared;
+ function writeDrafts(next:Record<string,string>){draftRef.current=next;setDrafts(next);if(storageReady.current)try{if(Object.keys(next).length)sessionStorage.setItem(storageKey,JSON.stringify(next));else sessionStorage.removeItem(storageKey);}catch{/* Input stays in memory. */}}
+ function clearDraft(key:string){const next={...draftRef.current};delete next[key];writeDrafts(next);setErrors(previous=>{const next={...previous};delete next[key];return next;});}
+ useEffect(()=>{try{const stored=JSON.parse(sessionStorage.getItem(storageKey)||'{}');if(stored&&typeof stored==='object'&&!Array.isArray(stored))writeDrafts({...(Object.fromEntries(Object.entries(stored).filter(([,v])=>typeof v==='string')) as Record<string,string>),...draftRef.current});}catch{/* Use the current draft. */}storageReady.current=true;},[storageKey]); // eslint-disable-line react-hooks/exhaustive-deps
+ useEffect(()=>{if(!recordRef.current&&!jobs.current.size&&event.working_revision>=revision.current){confirmed.current=initialAttempts;revision.current=event.working_revision;setAttempts(initialAttempts);}},[initialAttempts,event.working_revision]);
+ useEffect(()=>{if(!classes.some(c=>c.id===activeClassId))setActiveClassId(classes[0]?.id||'');},[classes,activeClassId]);
+ useEffect(()=>{
+  if(!accountId)return;let mounted=true;try{activateAccount(accountId);}catch{return;}
+  async function load(){try{let r=await getPrepared(accountId!,event.id);if(!mounted)return;if(r&&!r.outbox.length&&r.packet.event.working_revision<revision.current){r=await changePrepared(accountId!,event.id,current=>({...current!,packet:{...current!.packet,event:{...current!.packet.event,working_revision:revision.current},initialAttempts:confirmed.current}}));}recordRef.current=r;setPrepared(r);if(r&&(r.outbox.length||r.packet.event.working_revision>=revision.current)){confirmed.current=r.packet.initialAttempts;revision.current=Math.max(revision.current,r.packet.event.working_revision);setAttempts(deviceAttempts(r));}}catch{/* Online saving does not require device storage. */}}
+  async function ready(){setConnected(navigator.onLine);await load();if(navigator.onLine&&!offlineOnly&&event.status!=='completed'&&!completingRef.current){try{await prepareEvent(accountId!,event.id);await load();}catch{/* Keep online scoring and retained drafts available. */}}const r=await getPrepared(accountId!,event.id).catch(()=>null);if(r&&!r.closed)await retryPrepared(accountId!,event.id).catch(()=>{});}
+  void ready();const unsubscribe=subscribePrepared(()=>void load());const online=()=>void ready(),offline=()=>setConnected(false);window.addEventListener('online',online);window.addEventListener('offline',offline);
+  const timer=window.setInterval(()=>{if(recordRef.current?.outbox.some(o=>o.state==='queued'))void flushPrepared(accountId!,event.id).catch(()=>{});},5000);
+  return()=>{mounted=false;unsubscribe();window.removeEventListener('online',online);window.removeEventListener('offline',offline);window.clearInterval(timer);};
+ },[accountId,event.id,event.status,offlineOnly]);
+ const activeClass=classes.find(c=>c.id===activeClassId);
+ const columns=passCount(activeClass?.scoring_config,attempts.filter(a=>a.event_class_id===activeClassId));
+ const ranked=useMemo(()=>{
+  if(!activeClass)return [];
+  const grouped=new Map<string,AttemptType[]>();for(const a of attempts){if(a.event_class_id===activeClass.id)grouped.set(a.entry_id,[...(grouped.get(a.entry_id)||[]),a]);}
+  return rankEntries(initialEntries.filter(e=>e.event_class_id===activeClass.id).map(entry=>{
+   const judges=judgeScores.filter(s=>s.entryId===entry.id);
+   const values=activeClass.scoring_type==='judged_points'?judgeRoundAttempts(entry.id,judges,activeClass.scoring_config):(grouped.get(entry.id)||[]).map(a=>({id:a.id,entryId:a.entry_id,ordinal:a.ordinal,status:a.status as 'valid'|'dq'|'dnf'|'dns'|'no_time',elapsedMs:a.elapsed_ms,distanceMm:a.distance_mm,penaltyMs:a.penalty_ms,rawInput:a.raw_input}));
+   return {entry,entryId:entry.id,seed:entry.seed,orderNum:entry.order_num,attempts:values,score:scoreClass(activeClass.scoring_type,values,activeClass.scoring_config,activeClass.scoring_version,judges)};
+  }));
+ },[activeClass,attempts,initialEntries,judgeScores]);
+ const sorted=sortResults(ranked,order,reverse),rows=frozen?[...sorted].sort((a,b)=>frozen.indexOf(a.entryId)-frozen.indexOf(b.entryId)):sorted;
+ function saveInput(entryId:string,ordinal:number,raw:string):Promise<boolean>{
+  const key=`${entryId}:${ordinal}`,running=jobs.current.get(key);if(running)return running;
+  const task=(async()=>{
+   try{
+    const entry=initialEntries.find(e=>e.id===entryId);if(!entry)throw new Error('This contestant is no longer in this race.');
+    const previous=confirmed.current.find(a=>a.entry_id===entryId&&a.ordinal===ordinal),parsed=parseAttemptInput(raw,previous?.penalty_ms??0);if(parsed.error)throw new Error(parsed.error);
+    const cached=recordRef.current;
+    if(accountId&&cached&&!cached.closed&&!cached.closing){const r=await queueAttempt(accountId,event.id,entry.event_class_id,entryId,ordinal,raw,parsed.penaltyMs);recordRef.current=r;setPrepared(r);setAttempts(deviceAttempts(r));clearDraft(key);void flushPrepared(accountId,event.id).catch(()=>{});return true;}
+    if(offlineOnly||!navigator.onLine)throw new Error('Reconnect to save this score. Your input is kept on this page.');
+    const result=await saveAttempt(trackId,event.id,entry.event_class_id,entryId,ordinal,raw,parsed.penaltyMs,previous?.save_version??0);if(!result.success)throw new Error(result.error);
+    confirmed.current=[...confirmed.current.filter(a=>!(a.entry_id===entryId&&a.ordinal===ordinal)),result.attempt];revision.current=Math.max(revision.current,result.working_revision);setAttempts(confirmed.current);clearDraft(key);return true;
+   }catch(e){setErrors(previous=>({...previous,[key]:explainError((e as Error).message)}));return false;}
+  })();
+  jobs.current.set(key,task);setSaving([...jobs.current.keys()]);void task.finally(()=>{jobs.current.delete(key);setSaving([...jobs.current.keys()]);});return task;
+ }
+ async function complete(){
+  if(completingRef.current||!canComplete)return;
+  if(!confirm('Complete this race and publish the final results? Make sure all scorekeepers have saved their results.'))return;
+  completingRef.current=true;setCompleting(true);setCompleteError('');
+  try{
+   const pending=await Promise.all([...jobs.current.values()]);if(pending.some(ok=>!ok))throw new Error('Correct the highlighted scores before completing the race.');
+   for(const [key,raw] of Object.entries(draftRef.current)){const [entry,pass]=key.split(':');if(!await saveInput(entry,Number(pass),raw))throw new Error('Correct the highlighted scores before completing the race.');}
+   if(!navigator.onLine)throw new Error('Your scores are kept on this device. Reconnect to complete the race.');
+   if(accountId){
+    const deadline=Date.now()+15000;
+    for(;;){
+     const r=await getPrepared(accountId,event.id).catch(()=>null);if(!r||!r.outbox.length)break;
+     if(r.outbox.some(o=>o.state==='conflict'))throw new Error('Choose which score to keep before completing the race.');
+     await retryPrepared(accountId,event.id);
+     const next=await getPrepared(accountId,event.id);if(!next?.outbox.length)break;
+     if(Date.now()>deadline)throw new Error('Some scores are still waiting to save. Reconnect and try again.');
+     await new Promise(resolve=>setTimeout(resolve,250));
     }
-    async function ready(){
-      await load();
-      if(navigator.onLine && !offlineOnly && event.status!=='completed'){
-        try{await prepareEvent(accountId!,event.id);await load();if(mounted)setOfflineMessage('');}
-        catch{/* Cached scores and online saving remain usable. */}
-      }
-      const r=await getPrepared(accountId!,event.id).catch(()=>null);
-      if(r && !r.closed)await retryPrepared(accountId!,event.id).catch(()=>{});
-    }
-    void ready();
-    const unsubscribe=subscribePrepared(()=>void load());
-    const sync=()=>void ready();
-    window.addEventListener('online',sync);
-    const timer=window.setInterval(()=>{if(preparedRef.current?.outbox.some(o=>o.state==='queued'))void flushPrepared(accountId!,event.id).catch(()=>{});},5000);
-    return()=>{mounted=false;unsubscribe();window.removeEventListener('online',sync);window.clearInterval(timer);};
-  },[accountId,event.id,event.status,offlineOnly]);
-  async function resolve(entryId:string,ordinal:number,keep:boolean){if(!accountId)return;try{await resolveConflict(accountId,event.id,entryId,ordinal,keep);}catch(e){setOfflineMessage((e as Error).message);}}
-  const draftStorageKey = `raceholler:drafts:${accountId ?? "unknown"}:${trackId}:${event.id}`;
-  useEffect(() => {
-    try {
-      const stored = JSON.parse(sessionStorage.getItem(draftStorageKey) ?? "{}");
-      if (stored && typeof stored === "object" && !Array.isArray(stored)) {
-        setDrafts(Object.fromEntries(Object.entries(stored).filter(([, value]) => typeof value === "string")) as Record<string,string>);
-      }
-    } catch { /* Storage may be unavailable; keep the in-memory draft. */ }
-    setDraftStorageReady(true);
-  }, [draftStorageKey]);
-  useEffect(() => {
-    if (!draftStorageReady) return;
-    try {
-      if (Object.keys(drafts).length) sessionStorage.setItem(draftStorageKey,JSON.stringify(drafts));
-      else sessionStorage.removeItem(draftStorageKey);
-    } catch { /* The scoring grid still retains draft input. */ }
-  }, [draftStorageReady, draftStorageKey, drafts]);
-
-  // Sync when initial data changes from server revalidation
-  useEffect(() => {
-    if (!preparedRef.current && pendingSaves === 0 && event.working_revision >= acknowledgedRevision.current) {
-      setLocalAttempts(initialAttempts);
-      confirmedAttempts.current = initialAttempts;
-      acknowledgedRevision.current = event.working_revision;
-    }
-  }, [initialAttempts, event.working_revision, pendingSaves]);
-
-  useEffect(() => {
-    if (!classes.some(c => c.id === activeClassId)) setActiveClassId(classes[0]?.id ?? "");
-  }, [classes, activeClassId]);
-
-  const activeClass = classes.find((c) => c.id === activeClassId);
-  const requiredColumns=passCount(activeClass?.scoring_config,localAttempts.filter(a=>a.event_class_id===activeClassId));
-  useEffect(()=>{setVisibleColumns(requiredColumns);},[activeClassId,requiredColumns]);
-  const activeEntries = initialEntries.filter((e) => e.event_class_id === activeClassId);
-
-  // Compute ranks and scores for the active class
-  const rankedEntries = useMemo(() => {
-    if (!activeClass) return [];
-
-    const attemptsForClass = localAttempts.filter((a) => a.event_class_id === activeClass.id);
-
-    const entriesWithScore = activeEntries.map((entry) => {
-      const judges=judgeScores.filter(s=>s.entryId===entry.id);
-      const entryAttempts: ScoreEngineAttempt[] = activeClass.scoring_type==="judged_points" ? judgeRoundAttempts(entry.id,judges,activeClass.scoring_config) : attemptsForClass
-        .filter((a) => a.entry_id === entry.id)
-        .map((a) => ({
-          id: a.id,
-          entryId: a.entry_id,
-          ordinal: a.ordinal,
-          status: a.status as "valid" | "dq" | "dnf" | "dns" | "no_time",
-          elapsedMs: a.elapsed_ms,
-          distanceMm: a.distance_mm,
-          penaltyMs: a.penalty_ms,
-          rawInput: a.raw_input,
-        }));
-
-      const score = scoreClass(activeClass.scoring_type, entryAttempts, activeClass.scoring_config, activeClass.scoring_version,judges);
-
-      return {
-        entry,
-        score,
-        seed: entry.seed,
-        orderNum: entry.order_num || 999, // default if missing
-        entryId: entry.id,
-        attempts: entryAttempts,
-      };
-    });
-
-    return rankEntries(entriesWithScore);
-
-  }, [activeClass, activeEntries, localAttempts,judgeScores]);
-
-  const sortedRows=sortResults(rankedEntries,sortOrder,reverse);
-  const displayRows=frozenOrder ? [...sortedRows].sort((a,b)=>frozenOrder.indexOf(a.entryId)-frozenOrder.indexOf(b.entryId)) : sortedRows;
-  const handleInputBlur = async (entryId: string, ordinal: number, rawInput: string) => {
-    if (!activeClass || event.status === "completed") return;
-    const classId = activeClass.id;
-    const key = `${entryId}:${ordinal}`;
-    if (busyCells.current.has(key)) return;
-    const previous = confirmedAttempts.current.find(a => a.entry_id === entryId && a.ordinal === ordinal);
-    const parsed: ParsedAttempt = parseAttemptInput(rawInput, previous?.penalty_ms ?? 0);
-    if (parsed.error) {
-      setCellErrors(prev => ({ ...prev, [key]: parsed.error! }));
-      return;
-    }
-    if(accountId&&preparedRef.current&&!preparedRef.current.closed&&!preparedRef.current.closing){try{await queueAttempt(accountId,event.id,classId,entryId,ordinal,rawInput,parsed.penaltyMs);setDrafts(prev=>{const next={...prev};delete next[key];return next;});setCellErrors(prev=>{const next={...prev};delete next[key];return next;});void flushPrepared(accountId,event.id).catch(()=>{});}catch(e){setCellErrors(prev=>({...prev,[key]:(e as Error).message}));}return;}
-    if(offlineOnly){setCellErrors(prev=>({...prev,[key]:"Prepare this race online before offline edits"}));return;}
-    busyCells.current.add(key);
-    setSavingCells(new Set(busyCells.current));
-    setPendingSaves(s => s + 1);
-    try {
-      const result = await saveAttempt(trackId, event.id, classId, entryId, ordinal,
-        rawInput, parsed.penaltyMs, previous?.save_version ?? 0);
-      if (!result.success) throw new Error(result.error);
-      const saved = result.attempt;
-      const next = confirmedAttempts.current.filter(a => !(a.entry_id === entryId && a.ordinal === ordinal));
-      next.push(saved);
-      confirmedAttempts.current = next;
-      acknowledgedRevision.current = Math.max(acknowledgedRevision.current, result.working_revision);
-      setLocalAttempts(next);
-      setDrafts(prev => { const next = { ...prev }; delete next[key]; return next; });
-      setCellErrors(prev => { const next = { ...prev }; delete next[key]; return next; });
-    } catch (error) {
-      setCellErrors(prev => ({ ...prev, [key]: error instanceof Error ? error.message : "Save failed. Try again." }));
-    } finally {
-      busyCells.current.delete(key);
-      setSavingCells(new Set(busyCells.current));
-      setPendingSaves(s => s - 1);
-    }
-  };
-
-  const handleExportCSV = () => {
-    if (!activeClass) return;
-    downloadResults(`${activeClass.name.replace(/[^a-z0-9]/gi,"_").toLowerCase()}_results.csv`,[
-      ["Rank","Draw #","Racer","Score","Ties","Display order","Publication"],
-      ...displayRows.map(r=>[r.rank==null ? "-" : r.tied ? `T${r.rank}` : r.rank,r.orderNum,r.entry.display_name,r.score.label,r.score.tieBreakers.join(", "),`${sortOrder}${reverse ? " reversed" : ""}`,prepared?.outbox.length ? "Provisional device results" : "Working results"]),
-    ]);
-
-  };
-
-  return (
-    <div className="flex flex-col w-full h-full">
-      {(offlineMessage || prepared?.outbox.some(o=>o.state!=='queued'||o.error))&&<section className="p-4 border-b space-y-3 print:hidden">{offlineMessage&&<p role="status">{offlineMessage}</p>}{prepared?.outbox.filter((o,i,a)=>(o.state!=="queued"||o.error)&&a.findIndex(x=>x.entryId===o.entryId&&x.ordinal===o.ordinal)===i).map(o=><div key={o.id} role="alert" className="p-3 border rounded"><p>{initialEntries.find(e=>e.id===o.entryId)?.display_name} · Pass {o.ordinal}: {o.state==='conflict'?'Another scorekeeper changed this result. Choose which score to keep.':'This score is still saved on your device. Reconnect to upload it.'} Your entry: {o.raw}</p>{o.state==='conflict'?<div className="flex flex-wrap gap-3"><button onClick={()=>resolve(o.entryId,o.ordinal,false)}>Keep the other saved score</button><button onClick={()=>void resolve(o.entryId,o.ordinal,true)}>Keep my score</button></div>:<button onClick={()=>accountId&&void retryPrepared(accountId,event.id).catch(()=>{})}>Try saving again</button>}</div>)}</section>}
-      {/* Top action bar */}
-      <div className="bg-slate-900 border-b border-slate-800 p-4 flex flex-wrap gap-4 items-center justify-between print:hidden">
-        <div className="flex flex-wrap gap-4">
-          <select
-            value={activeClassId}
-            onChange={(e) => setActiveClassId(e.target.value)}
-            className="bg-slate-800 border border-slate-700 text-white rounded-lg py-2 px-3 text-sm focus:ring-amber-500 focus:border-amber-500"
-          >
-            {classes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name} ({c.scoring_type.replace(/_/g, " ")})
-              </option>
-            ))}
-          </select>
-          <span className="text-sm font-medium text-slate-400">
-            {pendingSaves > 0 ? (
-              <span className="flex items-center space-x-1.5 text-amber-500">
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>Saving...</span>
-              </span>
-            ) : prepared?.outbox.length ? (
-              <span className="text-amber-400">{accountId&&isUploading(accountId,event.id)?'Saving…':'Saved on this device — waiting to upload'}</span>
-            ) : Object.keys(cellErrors).length ? (
-              <span className="text-red-400">Unsaved changes</span>
-            ) : Object.keys(drafts).length ? (
-              <span className="text-amber-400">Editing — not saved yet</span>
-            ) : (
-              <span className="flex items-center space-x-1.5 text-emerald-500">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>{event.status === "live" ? "Saved · live event" : event.status === "completed" ? "Final results · locked" : "Saved · unpublished"}</span>
-              </span>
-            )}
-          </span>
-        </div>
-
-        <div className="flex flex-wrap gap-4">
-          <div className="flex flex-wrap gap-2">
-            <Link 
-              href={`/dashboard/${ownerType==='series'?'series':'tracks'}/${trackId}/events/${event.id}/entries`} 
-              className="flex items-center space-x-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition text-sm mr-2"
-            >
-              <Users className="w-4 h-4" />
-              <span>Manage Roster</span>
-            </Link>
-            {(trackSlug || ownerType==='series') && eventSlug && (
-              <a href={ownerType==='series'?`/s/${trackId}/races/${eventSlug}`:`/r/${trackSlug}/${eventSlug}`} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-2 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 rounded-lg border border-amber-500/20 transition text-sm font-bold mr-2">
-                <ExternalLink className="w-4 h-4" />
-                <span>Live Site</span>
-              </a>
-            )}
-            <button onClick={handleExportCSV} className="flex items-center space-x-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition text-sm">
-              <Download className="w-4 h-4" />
-              <span>CSV</span>
-            </button>
-            <button onClick={() => window.print()} className="flex items-center space-x-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition text-sm">
-              <Printer className="w-4 h-4" />
-              <span>Print</span>
-            </button>
-          </div>
-          
-          <div className="flex items-center space-x-2 bg-slate-800 rounded-lg p-1 border border-slate-700">
-            <button onClick={() => setVisibleColumns(Math.max(1, visibleColumns - 1))} className="px-2 py-1 hover:bg-slate-700 rounded text-slate-300">- Col</button>
-            <span className="text-sm text-slate-400 font-mono px-2">{visibleColumns}</span>
-            <button onClick={() => setVisibleColumns(Math.min(100, visibleColumns + 1))} className="px-2 py-1 hover:bg-slate-700 rounded text-slate-300">+ Col</button>
-          </div>
-        </div>
-      </div>
-
-      <ResultSort order={sortOrder} reverse={reverse} passes={passCount(activeClass?.scoring_config,localAttempts)} onOrder={setSortOrder} onReverse={setReverse}/>
-      <p className="px-4 text-xs text-slate-400">Display order: {sortOrder} {reverse ? "(reversed)" : ""}</p>
-      {activeClass?.scoring_type==="judged_points" && <Link className="p-4 text-amber-400 underline" href={`/dashboard/${ownerType==='series'?'series':'tracks'}/${trackId}/events/${event.id}/judging`}>Enter independent judge scores (online)</Link>}
-      {/* Grid */}
-      {Object.keys(cellErrors).length > 0 && <p role="alert" className="p-4 text-red-400">{[...new Set(Object.values(cellErrors))].join(" · ")} Your input is retained; retry the highlighted pass or refresh after a conflict.</p>}
-      <div className="flex-1 overflow-auto bg-[#0B1120] p-4 print:hidden">
-        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg">
-          <table onFocusCapture={()=>setFrozenOrder(displayRows.map(r=>r.entryId))} onBlurCapture={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node))setFrozenOrder(null);}} className="min-w-[640px] w-full text-left text-sm text-slate-300">
-            <thead className="bg-slate-800/80 text-xs uppercase font-semibold text-slate-400 border-b border-slate-700">
-              <tr>
-                <th className="px-4 py-3 w-16 text-center">Rank</th>
-                <th className="px-4 py-3 w-16 text-center">Order</th>
-                <th className="px-4 py-3">Racer / Entry</th>
-                {Array.from({ length: visibleColumns }).map((_, i) => (
-                  <th key={i} className="px-4 py-3 w-32">Pass {i + 1}</th>
-                ))}
-                <th className="px-4 py-3 w-40 text-right">Score</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/50">
-              {rankedEntries.length === 0 ? (
-                <tr>
-                  <td colSpan={visibleColumns + 4} className="px-4 py-8 text-center text-slate-500">
-                    No entries in this class yet.
-                  </td>
-                </tr>
-              ) : (
-                displayRows.map((row) => (
-                  <tr data-testid="scoring-row" data-entry-id={row.entryId} key={row.entryId} className="hover:bg-slate-800/30 transition group">
-                    <td className="px-4 py-3 text-center">
-                      <span
-                        className={`inline-flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 rounded-full font-bold text-xs ${
-                          row.rank === 1 && row.score.eligible
-                            ? "bg-amber-500 text-amber-950"
-                            : row.rank === 2 && row.score.eligible
-                            ? "bg-slate-300 text-slate-800"
-                            : row.rank === 3 && row.score.eligible
-                            ? "bg-amber-700 text-white"
-                            : row.tied
-                            ? "bg-blue-500 text-blue-950"
-                            : "bg-slate-800 text-slate-400"
-                        }`}
-                      >
-                        {row.rank == null ? "-" : row.tied ? `T${row.rank}` : row.rank}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center text-slate-500 font-mono text-xs">
-                       {row.orderNum !== 999 ? row.orderNum : "-"}
-                    </td>
-                    <td className="px-4 py-3 font-medium text-white">
-                      {row.entry.display_name}
-                    </td>
-                    {Array.from({ length: visibleColumns }).map((_, i) => {
-                      const ordinal = i + 1;
-                      const attempt = row.attempts.find((a) => a.ordinal === ordinal);
-                      const key = `${row.entryId}:${ordinal}`;
-                      return (
-                        <td key={ordinal} className="px-2 py-2">
-                          <input
-                            type="text"
-                            value={drafts[key] ?? attempt?.rawInput ?? ""}
-                            onChange={e => {
-                              const value = e.target.value;
-                              setDrafts(prev => { const next = { ...prev }; if (value === (attempt?.rawInput ?? "")) delete next[key]; else next[key] = value; return next; });
-                              if (value === (attempt?.rawInput ?? "")) setCellErrors(prev => { const next = { ...prev }; delete next[key]; return next; });
-                            }}
-                            disabled={savingCells.has(key) || event.status === "completed" || activeClass?.scoring_type === "judged_points"}
-                            aria-label={`${row.entry.display_name}, pass ${ordinal}`}
-                            aria-invalid={Boolean(cellErrors[key])}
-                            title={cellErrors[key]}
-                            onBlur={(e) => {
-                              if (e.target.value !== (attempt?.rawInput || "")) {
-                                handleInputBlur(row.entryId, ordinal, e.target.value);
-                              }
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.currentTarget.blur();
-                              }
-                            }}
-                            placeholder="-"
-                            className={`w-full bg-slate-950/50 border ${cellErrors[key] ? "border-red-500" : "border-slate-700/50"} rounded px-2 py-1.5 text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition font-mono text-sm text-center disabled:opacity-50`}
-                          />
-                        </td>
-                      );
-                    })}
-                    <td className="px-4 py-3 text-right">
-                      {row.score.eligible ? (
-                        <span className="font-mono font-bold text-amber-400">
-                          {row.score.label}
-                        </span>
-                      ) : (
-                        <span className="text-slate-500 italic text-xs">
-                          {row.score.label || "No score"}
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Print-only Table Sorted by Rank */}
-      <div className="hidden print:block p-8 bg-white text-black w-full">
-        <h1 className="text-2xl font-bold mb-1">{event.name}</h1>
-        <h2 className="text-lg font-semibold text-gray-700 mb-6">{activeClass?.name} {prepared?.outbox.length ? "Provisional device results" : "Results"} · Order: {sortOrder} {reverse ? "reversed" : ""}</h2>
-        <table className="w-full text-left text-sm border-collapse">
-          <thead>
-            <tr className="border-b-2 border-gray-900 uppercase text-xs font-bold text-gray-600">
-              <th className="py-2 pr-4 w-16">Rank</th>
-              <th className="py-2 pr-4 w-16">Draw</th>
-              <th className="py-2 pr-4">Racer</th>
-              <th className="py-2 text-right">Score</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-300">
-            {displayRows
-              .map((row) => (
-              <tr key={row.entryId}>
-                <td className="py-2 pr-4 font-bold">{row.rank == null ? "-" : row.tied ? `T${row.rank}` : row.rank}</td>
-                <td className="py-2 pr-4 text-gray-500">{row.orderNum !== 999 ? row.orderNum : "-"}</td>
-                <td className="py-2 pr-4 font-medium">{row.entry.display_name}</td>
-                <td className="py-2 text-right font-mono font-bold">
-                  {row.score.eligible ? row.score.label : <span className="text-gray-400 font-normal italic">{row.score.label || "No score"}</span>}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+   }
+   const result=await finalizeEventStandings(event.id,true);if(result.error)throw new Error(explainError(result.error));
+   if(accountId)await changePrepared(accountId,event.id,r=>({...r!,closed:true,closing:false,packet:{...r!.packet,event:{...r!.packet.event,status:'completed'}}})).catch(()=>{});
+   router.replace(`${base}/scoring?message=${encodeURIComponent('Race completed — results saved.')}`);router.refresh();
+  }catch(e){setCompleteError((e as Error).message);}finally{completingRef.current=false;setCompleting(false);}
+ }
+ const pending=prepared?.outbox.length||0;
+ const status=saving.length?'Saving…':pending?connected?'Saving…':'Saved on this device — waiting for signal':Object.keys(errors).length?'Some scores need attention':Object.keys(drafts).length?'Editing — not saved yet':connected?'Saved':'Saved on this device';
+ return <div className="w-full min-w-0 space-y-3">
+  <nav aria-label="Scoring actions" className="flex flex-wrap items-center gap-3 p-4 bg-slate-900 border-b">
+   <div className="flex flex-wrap gap-2 flex-1">{classes.map(c=><button key={c.id} disabled={completing} aria-pressed={activeClassId===c.id} onClick={()=>{setActiveClassId(c.id);setFrozen(null);}} className={`p-3 rounded-lg font-semibold ${activeClassId===c.id?'bg-amber-500 text-slate-950':'border border-slate-700 bg-slate-950'}`}>{c.name}</button>)}</div>
+   <Link href={`${base}/entries?class=${activeClassId}`} className="p-3 border rounded-lg">Add contestant</Link>
+   {canComplete&&<button onClick={()=>void complete()} onMouseDown={e=>e.preventDefault()} disabled={completing} className="p-3 rounded-lg bg-emerald-600 text-white font-bold">{completing?'Saving and completing…':'Complete race'}</button>}
+   <p role="status" className="w-full text-sm text-slate-400">{status}</p>
+  </nav>
+  <div className="px-4"><ActionFeedback error={completeError}/></div>
+  {prepared?.outbox.filter((o,i,a)=>(o.state!=='queued'||o.error)&&a.findIndex(x=>x.entryId===o.entryId&&x.ordinal===o.ordinal)===i).map(o=><div key={o.id} role="alert" className="mx-4 p-3 border rounded space-y-2"><p>{initialEntries.find(e=>e.id===o.entryId)?.display_name}, pass {o.ordinal}: {o.state==='conflict'?'Another scorekeeper changed this result. Choose which score to keep.':`This score is saved on your device. ${explainError(o.error||'Reconnect and try saving again.')}`} Your entry: {o.raw}</p>{o.state==='conflict'?<div className="flex flex-wrap gap-3"><button className="p-3 border rounded" onClick={()=>accountId&&void resolveConflict(accountId,event.id,o.entryId,o.ordinal,false).catch(e=>setCompleteError(explainError(e.message)))}>Keep the other saved score</button><button className="p-3 border rounded" onClick={()=>accountId&&void resolveConflict(accountId,event.id,o.entryId,o.ordinal,true).catch(e=>setCompleteError(explainError(e.message)))}>Keep my score</button></div>:<button className="p-3 border rounded" onClick={()=>accountId&&void retryPrepared(accountId,event.id).catch(()=>{})}>Try saving again</button>}</div>)}
+  {Object.keys(errors).length>0&&<p role="alert" className="p-4 text-red-400">{[...new Set(Object.values(errors))].join(' ')} Your entries are kept.</p>}
+  {activeClass?.scoring_type==='judged_points'&&<Link href={`${base}/judging`} className="inline-block p-4 text-amber-400 underline">Enter scores for this judged class</Link>}
+  <div className="overflow-x-auto p-4 min-w-0">
+   <table aria-label={`${activeClass?.name||'Class'} scores`} className="w-full min-w-[640px] text-left bg-slate-900 rounded-lg" onFocusCapture={()=>setFrozen(rows.map(r=>r.entryId))} onBlurCapture={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node))setFrozen(null);}}>
+    <thead className="bg-slate-800"><tr><SortHeading<ResultOrder> label="Rank" value="rank" order={order} reverse={reverse} onOrder={setOrder} onReverse={setReverse}/><SortHeading<ResultOrder> label="Order" value="run" order={order} reverse={reverse} onOrder={setOrder} onReverse={setReverse}/><SortHeading<ResultOrder> label="Racer" value="name" order={order} reverse={reverse} onOrder={setOrder} onReverse={setReverse}/>{Array.from({length:columns},(_,i)=><SortHeading<ResultOrder> key={i} label={`Pass ${i+1}`} value={`pass:${i+1}`} order={order} reverse={reverse} onOrder={setOrder} onReverse={setReverse}/>)}<th scope="col" className="p-3">Result</th></tr></thead>
+    <tbody>{rows.map(row=><tr data-testid="scoring-row" data-entry-id={row.entryId} key={row.entryId} className="border-t border-slate-700"><td className="p-3">{row.rank===null?'—':`${row.tied?'T':''}${row.rank}`}</td><td className="p-3">{row.orderNum}</td><td className="p-3 font-semibold">{row.entry.display_name}</td>{Array.from({length:columns},(_,i)=>{const ordinal=i+1,key=`${row.entryId}:${ordinal}`,attempt=row.attempts.find(a=>a.ordinal===ordinal);return <td key={ordinal} className="p-2"><input type="text" aria-label={`${row.entry.display_name}, pass ${ordinal}`} aria-invalid={Boolean(errors[key])} title={errors[key]} value={drafts[key]??attempt?.rawInput??''} onChange={e=>{const next={...draftRef.current};if(e.target.value===(attempt?.rawInput??''))delete next[key];else next[key]=e.target.value;writeDrafts(next);setErrors(previous=>{const next={...previous};delete next[key];return next;});}} onBlur={e=>{if(e.target.value!==(attempt?.rawInput??''))void saveInput(row.entryId,ordinal,e.target.value);}} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur();}} disabled={completing||saving.includes(key)||event.status==='completed'||activeClass?.scoring_type==='judged_points'} placeholder="-" className={`w-full min-w-[96px] p-3 rounded border bg-slate-950 text-white font-mono ${errors[key]?'border-red-500':'border-slate-700'}`}/></td>;})}<td className="p-3 whitespace-nowrap font-mono">{row.score.label||'No score'}</td></tr>)}{!rows.length&&<tr><td colSpan={columns+4} className="p-6">No contestants in this class yet. Use Add contestant above.</td></tr>}</tbody>
+   </table>
+  </div>
+ </div>;
 }

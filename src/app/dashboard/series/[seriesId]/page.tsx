@@ -68,7 +68,7 @@ export default async function SeriesHubPage({ params }: { params: Promise<{ seri
         </div>
       </div>
 
-      <Link href={`/dashboard/series/${seriesId}/seasons`} className="inline-block p-4 bg-amber-500 text-slate-950 rounded font-bold">Seasons & registrations</Link>
+      <Link href={`/dashboard/series/${seriesId}/seasons`} className="inline-block p-4 bg-amber-500 text-slate-950 rounded font-bold">Series seasons & registrations</Link>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
         {/* Master Classes */}
@@ -169,14 +169,14 @@ export default async function SeriesHubPage({ params }: { params: Promise<{ seri
             <Users className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="font-bold text-lg text-white">Season Registrations</h2>
-            <p className="text-xs text-slate-400 max-w-xs mx-auto mt-1">Register each vehicle and class for a season. Import eligible members into each race, and add one-race entrants separately.</p>
+            <h2 className="font-bold text-lg text-white">Season Management</h2>
+            <p className="text-xs text-slate-400 max-w-xs mx-auto mt-1">Manage series registrations, classes, races, points rules, explained points edits, and standings for each year. Contestants sign up separately at every race.</p>
           </div>
           <Link 
             href={seasons.length===1?`/dashboard/series/${seriesId}/seasons/${seasons[0].id}`:`/dashboard/series/${seriesId}/seasons`}
             className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-4 py-2 rounded-xl transition border border-slate-700"
           >
-            {seasons.length?"Register contestants":"Create season to add contestants"}
+            {seasons.length?"Manage season":"Create series season"}
           </Link>
         </div>
 

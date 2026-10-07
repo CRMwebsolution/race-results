@@ -17,7 +17,7 @@ test('six racers keep overall prizes and compressed member points in touring and
   {base:`/dashboard/tracks/${f.fixture.trackId}`,event:f.trackSeasonEventId,season:f.trackSeasonId,public:`/r/${f.trackSlug}/in-house-example`},
  ]){
   await page.goto(`${x.base}/events/${x.event}/settings`);await page.locator('select[name="status"]').selectOption('completed');await submit(page,'Update Status');await expect(page.locator('select[name="status"]')).toHaveValue('completed');
-  await page.goto(`${x.base}/seasons/${x.season}`);await submit(page,'Publish championship standings');await expect(page.getByRole('status')).toContainText('Standings published');
+  await page.goto(`${x.base}/seasons/${x.season}`);await submit(page,'Publish series standings');await expect(page.getByRole('status')).toContainText('Standings published');
   const {data:v,error}=await db.from('competition_result_versions').select('payload').eq('season_id',x.season).eq('is_current',true).single();if(error)throw error;
   expect((v!.payload as any).standings.filter((r:any)=>['Jay','Michael','Grumpy'].includes(r.name)).map((r:any)=>[r.name,r.total])).toEqual([['Jay',100],['Michael',90],['Grumpy',80]]);
   await page.goto(x.public);await expect(page.getByTestId('result-row')).toHaveCount(6);expect(await page.getByTestId('result-row').locator('p.font-bold').allTextContents()).toEqual(['Jeremy','Jay','Michael','Scotty','Ronnie','Grumpy']);
@@ -39,11 +39,11 @@ test('signup awards, late membership, withdrawal, vehicles, and explained overri
  const {data:late,error}=await db.from('competition_registrations').insert({season_id:season,class_id:cc!.id,display_name:'Jay',vehicle_name:'Second vehicle',joined_on:'2026-10-08'}).select().single();if(error)throw error;
  await page.goto(path);const form=page.locator('form').filter({has:page.getByRole('button',{name:'Record explained change'})});
  await form.getByLabel('Registered entry').selectOption(late!.id);await form.getByLabel('Points',{exact:true}).fill('5');await form.getByLabel('Explanation').fill('Early signup for second vehicle');await submit(page,'Record explained change');
- await submit(page,'Publish championship standings');
+ await submit(page,'Publish series standings');
  const {data:first}=await db.from('competition_result_versions').select('*').eq('season_id',season).eq('is_current',true).single();const firstPayload=first!.payload as any;
  expect(firstPayload.standings.find((r:any)=>r.racerId===jay.id).total).toBe(100);expect(firstPayload.standings.find((r:any)=>r.racerId===late!.id).total).toBe(5);expect(firstPayload.standings.find((r:any)=>r.racerId===late!.id).breakdown).toHaveLength(1);
  const before=await db.from('competition_seasons').select('rules_revision').eq('id',season).single();const empty=await db.rpc('record_competition_points',{p_season_id:season,p_registration_id:late!.id,p_event_id:f.sixEventId,p_mode:'override',p_points:7,p_reason:' ',p_expected_revision:before.data!.rules_revision});expect(empty.error).not.toBeNull();
- await form.getByLabel('Registered entry').selectOption(late!.id);await form.getByLabel('Competition',{exact:true}).selectOption(f.sixEventId);await form.getByLabel('Change type').selectOption('override');await form.getByLabel('Points',{exact:true}).fill('7');await form.getByLabel('Explanation').fill('Approved retrospective exception');await submit(page,'Record explained change');await submit(page,'Publish championship standings');
+ await form.getByLabel('Registered entry').selectOption(late!.id);await form.getByLabel('Competition',{exact:true}).selectOption(f.sixEventId);await form.getByLabel('Change type').selectOption('override');await form.getByLabel('Points',{exact:true}).fill('7');await form.getByLabel('Explanation').fill('Approved retrospective exception');await submit(page,'Record explained change');await submit(page,'Publish series standings');
  const {data:current}=await db.from('competition_result_versions').select('payload').eq('season_id',season).eq('is_current',true).single();expect((current!.payload as any).standings.find((r:any)=>r.racerId===late!.id).total).toBe(12);
  const {data:history}=await db.from('competition_result_versions').select('payload').eq('id',first!.id).single();expect(history!.payload).toEqual(first!.payload);
  const {data:changes}=await db.from('competition_points_changes').select('*').eq('registration_id',late!.id).order('created_at');expect(changes).toHaveLength(2);expect(changes!.every(c=>c.previous_points===0&&c.reason.trim()&&c.actor_id===f.users[0].id)).toBe(true);

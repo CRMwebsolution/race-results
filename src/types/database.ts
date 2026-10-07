@@ -1811,6 +1811,26 @@ export type Database = {
         }
         Returns: Json
       }
+      register_race_contestant: {
+        Args: {
+          p_owner_id: string
+          p_event_id: string
+          p_class_id: string
+          p_display_name: string
+          p_order_num?: number | null
+          p_registration_id?: string | null
+        }
+        Returns: string
+      }
+      schedule_track_calendar_event: {
+        Args: {
+          p_track_id: string
+          p_name: string
+          p_local_date: string
+          p_slug: string
+        }
+        Returns: string
+      }
       create_race_entry: {
         Args: {
           p_class_id: string

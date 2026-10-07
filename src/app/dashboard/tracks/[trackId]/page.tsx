@@ -31,7 +31,7 @@ export default async function TrackDashboardPage({ params }: { params: Promise<{
     <div className="flex-1 flex flex-col">
       <header className="border-b border-slate-800 bg-slate-900/60 backdrop-blur sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex flex-wrap gap-3"><Link href={`/dashboard/tracks/${track.id}/seasons`} className="p-3 border rounded">Optional in-house championship</Link>
+          <div className="flex flex-wrap gap-3"><Link href={`/dashboard/tracks/${track.id}/seasons`} className="p-3 border rounded">Optional track series</Link>
             <Link href="/dashboard" className="text-slate-400 hover:text-white transition font-medium text-sm">
               Dashboard
             </Link>

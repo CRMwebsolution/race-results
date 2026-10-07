@@ -21,14 +21,11 @@ export async function createEvent(trackId: string, formData: FormData) {
 
   const slug = generateTrackSlug(name); // Basic slugification works for events too
 
-  // We use the RPC create_track_event
-  const { data: eventId, error } = await supabase.rpc("create_track_event", {
-    p_track_id: trackId,
-    p_name: name,
-    p_local_date: localDate,
-    p_slug: slug,
-    p_template_ids: [], // No templates yet
-  });
+  const calendarOnly = formData.get("purpose") === "calendar";
+  const args = {p_track_id: trackId, p_name: name, p_local_date: localDate, p_slug: slug};
+  const { data: eventId, error } = calendarOnly
+    ? await supabase.rpc("schedule_track_calendar_event", args)
+    : await supabase.rpc("create_track_event", {...args, p_template_ids: []});
 
   if (error) {
     if (error.message.includes("An event with this URL slug already exists")) {
@@ -39,5 +36,5 @@ export async function createEvent(trackId: string, formData: FormData) {
   }
 
   revalidatePath(`/dashboard/tracks/${trackId}`);
-  redirect(`/dashboard/tracks/${trackId}/events/${eventId}`);
+  redirect(calendarOnly ? `/dashboard/tracks/${trackId}` : `/dashboard/tracks/${trackId}/events/${eventId}`);
 }

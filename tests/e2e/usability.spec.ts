@@ -56,8 +56,8 @@ test('appearance: clear navigation and readable Day/Night at desktop, tablet and
 
 test('registration: season prerequisite, top form, current date, accordions and sortable membership',async({page})=>{
  await signIn(page);await page.goto(`/dashboard/series/${fixture.emptySeriesId}`);
- await page.getByRole('link',{name:'Create season to add contestants',exact:true}).click();
- await expect(page.getByText(/Create a season before registering contestants/)).toBeVisible();
+ await page.getByRole('link',{name:'Create series season',exact:true}).click();
+ await expect(page.getByText(/Create a series season before registering contestants/)).toBeVisible();
  await page.goto(series+`/seasons/${fixture.seasonId}`);
  const sections=page.locator('main > details');
  await expect(sections.first().locator('summary')).toHaveText('Add contestant');

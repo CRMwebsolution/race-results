@@ -140,6 +140,8 @@ export default async function DashboardPage() {
 
         {/* Register New Track Form */}
         {!user.user_metadata.operating_mode && <p className="p-4 border border-amber-500 rounded">Tailor your dashboard: <Link href="/dashboard/settings" className="text-amber-400">choose how you run races</Link>.</p>}
+        {(() => {
+          const trackSection = <>
         {features.tracks && validMemberships.length === 0 && <CreateTrackForm />}
 
         {/* Tracks & Venues Section */}
@@ -223,12 +225,14 @@ export default async function DashboardPage() {
         </div>
 
         }
-        {/* Championship Series Section */}
+</>;
+          const seriesSection = <>
+        {/* Your Series Section */}
         {(features.series || (mySeries?.length ?? 0) > 0) && <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
             <div className="flex items-center space-x-2.5">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path></svg>
-              <h2 className="text-lg font-bold text-white">Championship Series</h2>
+              <h2 className="text-lg font-bold text-white">Your Series</h2>
             </div>
             <Link 
               href="/dashboard/series/new"
@@ -243,7 +247,7 @@ export default async function DashboardPage() {
               <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-600 mx-auto mb-3"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path></svg>
               <h3 className="text-sm font-semibold text-slate-300">No series created yet</h3>
               <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                Create a Championship Series to manage classes, points, and rules across multiple race dates or venues.
+                Create a series to manage classes, points, and rules across multiple race dates or venues.
               </p>
             </div>
           ) : (
@@ -274,6 +278,11 @@ export default async function DashboardPage() {
           )}
         </div>
         }
+</>;
+          return validMemberships.length === 0 && (mySeries?.length ?? 0) > 0
+            ? <>{seriesSection}{trackSection}</>
+            : <>{trackSection}{seriesSection}</>;
+        })()}
       </main>
     </div>
   );

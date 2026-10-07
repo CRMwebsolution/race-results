@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useState } from "react";
 import { createEvent } from "./actions";
 import { Loader2, Calendar as CalendarIcon, Flag } from "lucide-react";
 
@@ -32,6 +32,13 @@ export function CreateEventForm({ trackId }: { trackId: string }) {
       )}
 
       <div className="space-y-4">
+        <label className="block text-sm font-medium text-slate-300">What would you like to do?
+          <select name="purpose" defaultValue="calendar" className="block w-full mt-2 p-3 bg-slate-950 border border-slate-800 rounded-lg text-white">
+            <option value="calendar">Add a public calendar date</option>
+            <option value="setup">Set up a race now (draft)</option>
+          </select>
+        </label>
+        <p className="text-sm text-slate-400">Add dates now without entering any contestants. You can open registration and enter results later.</p>
         <div>
           <label htmlFor="name" className="block text-sm font-medium text-slate-300 mb-1.5">
             Event Name
@@ -85,7 +92,7 @@ export function CreateEventForm({ trackId }: { trackId: string }) {
               <span>Creating Event...</span>
             </span>
           ) : (
-            "Create Event"
+            "Save event"
           )}
         </button>
       </div>

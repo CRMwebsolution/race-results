@@ -29,7 +29,10 @@ try {
   }
   console.log(`PASS: replayed ${files.length} migrations into empty Postgres`);
   const tests = new URL("../supabase/tests/", import.meta.url);
-  for (const file of (await readdir(tests)).filter(f => f.endsWith(".sql")).sort()) {
+  const requested = process.argv.slice(2);
+  const testFiles = (await readdir(tests)).filter(f => f.endsWith(".sql")).sort();
+  if (requested.some(file => !testFiles.includes(file))) throw new Error("Unknown database test file");
+  for (const file of testFiles.filter(file => !requested.length || requested.includes(file))) {
     let results;
     try { results = await db.exec(await readFile(new URL(file, tests), "utf8")); }
     catch (error) { throw new Error(`Test ${file}: ${error.message} (${error.code}, ${error.where ?? ""})`); }

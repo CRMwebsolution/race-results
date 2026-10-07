@@ -16,5 +16,6 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run test:db
+      - run: node scripts/rehearse-competition-migration.mjs
       - run: npm run typecheck
       - run: npm run build

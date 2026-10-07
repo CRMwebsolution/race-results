@@ -1,24 +1,24 @@
 -- Track in-house championships remain tracks. Preserve bookmarked season IDs and rules.
 alter table public.competition_seasons add column legacy_track_season_id uuid references public.seasons(id);
+alter table public.events disable trigger guard_completed_metadata;
+alter table public.event_classes disable trigger guard_race_data_change;
 do $$declare old_season record;c record;cc uuid;begin
  for old_season in select * from public.seasons loop
  insert into public.competition_seasons(id,track_id,name,starts_on,ends_on,legacy_track_season_id)
  values(old_season.id,old_season.track_id,old_season.name,coalesce(old_season.start_date,(select min(e.local_date) from public.season_events se join public.events e on e.id=se.event_id where se.season_id=old_season.id),current_date),old_season.end_date,old_season.id);
  insert into public.competition_points_rules(season_id,rank_start,rank_end,points) select old_season.id,rank,rank,points from public.season_points_allocations where season_id=old_season.id;
- alter table public.events disable trigger guard_completed_metadata;
  update public.events e set competition_season_id=old_season.id from public.season_events se where se.season_id=old_season.id and se.event_id=e.id and e.track_id=old_season.track_id and e.series_id is null and e.competition_season_id is null;
- alter table public.events enable trigger guard_completed_metadata;
  -- Use explicit template identity when available. Otherwise leave later class mapping to the organizer.
  insert into public.competition_classes(season_id,name,template_id) select old_season.id,name,id from public.class_templates where track_id=old_season.track_id and active;
  for c in select ec.* from public.event_classes ec where ec.event_id=(select e.id from public.events e where e.competition_season_id=old_season.id order by e.local_date,e.id limit 1) loop
   select id into cc from public.competition_classes where season_id=old_season.id and template_id=c.template_id;
   if cc is null then insert into public.competition_classes(season_id,name,template_id) values(old_season.id,c.name,c.template_id) returning id into cc;end if;
-  alter table public.event_classes disable trigger guard_race_data_change;
   update public.event_classes set competition_class_id=cc where id=c.id;
-  alter table public.event_classes enable trigger guard_race_data_change;
  end loop;
  -- Existing entrants are not automatically championship members.
  end loop;end $$;
+alter table public.events enable trigger guard_completed_metadata;
+alter table public.event_classes enable trigger guard_race_data_change;
 
 create or replace function public.guard_championship_class_owner() returns trigger language plpgsql set search_path='' as $$
 declare s public.competition_seasons;begin select * into s from public.competition_seasons where id=new.season_id;

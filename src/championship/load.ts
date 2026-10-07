@@ -1,6 +1,7 @@
 import type {SupabaseClient} from '@supabase/supabase-js';
 import type {Database} from '@/types/database';
 import {readAll} from '@/lib/read-all';
+import type {PointsChange} from '@/types/competitions';
 import {calculateCompetition} from './competition';
 import type {Snapshot,Bonus} from './calculate';
 export async function loadCompetition(db:SupabaseClient<Database>,seasonId:string){
@@ -18,6 +19,6 @@ export async function loadCompetition(db:SupabaseClient<Database>,seasonId:strin
  const ids=events.filter(e=>e.status==='completed').map(e=>e.id);
  const {data:history,error:historyError}=ids.length?await readAll(db.from('event_result_versions').select('*').in('event_id',ids).order('version',{ascending:false})):{data:[],error:null};if(historyError)throw new Error(historyError.message);
  const snapshots=history.filter((v,i,a)=>a.findIndex(x=>x.event_id===v.event_id)===i) as unknown as Snapshot[];
- const input={events,registrations,classes,rules,bonuses:bonuses as Bonus[],changes,snapshots};
+ const input={events,registrations,classes,rules,bonuses:bonuses as Bonus[],changes:changes as PointsChange[],snapshots};
  return {season,input,payload:calculateCompetition(input)};
 }

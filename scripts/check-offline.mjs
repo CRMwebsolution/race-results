@@ -5,6 +5,8 @@ const config=JSON.parse(fs.readFileSync(process.env.RACEHOLLER_FIXTURE_FILE,'utf
 if(process.env.RACEHOLLER_BASE_URL)throw new Error('This disconnect test starts and stops a local production server. Use test:e2e for a deployed site.');
 if(!config.trackSlug.startsWith('raceholler-test-')||!config.users[0].email.endsWith('@test.invalid'))throw new Error('Use an isolated acceptance fixture');
 const base='http://127.0.0.1:3000';
+const series=process.env.RACEHOLLER_OFFLINE_OWNER==='series';
+const scoringPath=series?`/dashboard/series/${config.fixture.seriesId}/events/${config.offlineSeriesEventId}/scoring`:`/dashboard/tracks/${config.fixture.trackId}/events/${config.fixture.eventId}/scoring`;
 let server;
 if(!process.env.RACEHOLLER_BASE_URL){
  server=spawn(process.execPath,['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port','3000'],{stdio:['ignore','inherit','inherit'],env:{...process.env,NODE_USE_ENV_PROXY:'1'}});
@@ -27,7 +29,7 @@ try{
  await page.getByRole('button',{name:'Sign In',exact:true}).click();
  await page.waitForURL('**/dashboard');
  console.log('Signed in');
- await page.goto(`${base}/dashboard/tracks/${config.fixture.trackId}/events/${config.fixture.eventId}/scoring`);
+ await page.goto(`${base}${scoringPath}`);
  console.log('Scoring loaded');
  await page.getByRole('button',{name:'Prepare for offline',exact:true}).click();
  console.log('Prepare clicked');
@@ -58,6 +60,6 @@ try{
  await page.getByRole('button',{name:'Finish offline session',exact:true}).click();
  await page.getByText('Device session closed · cached view only',{exact:true}).waitFor();
  fs.mkdirSync('test-results',{recursive:true});
- await page.screenshot({path:'test-results/offline-mobile.png',fullPage:true});
+ await page.screenshot({path:series?'test-results/offline-series-mobile.png':'test-results/offline-mobile.png',fullPage:true});
  console.log('Closed session PASS');
 }catch(e){console.log('Failure page',page.url(),(await page.locator('body').innerText()).slice(0,2200));throw e;}finally{await browser.close();server?.kill();}

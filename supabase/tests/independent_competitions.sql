@@ -1,7 +1,7 @@
 begin;
-insert into auth.users(id,email) values('f9000000-0000-4000-8000-000000000001','independent-owner@test.invalid'),('f9000000-0000-4000-8000-000000000002','independent-host@test.invalid');
+insert into auth.users(id,email) values('f9000000-0000-4000-8000-000000000001','independent-owner@test.invalid'),('f9000000-0000-4000-8000-000000000002','independent-host@test.invalid'),('f9000000-0000-4000-8000-000000000003','independent-judge@test.invalid');
 set local role authenticated;set local request.jwt.claim.sub='f9000000-0000-4000-8000-000000000001';
-do $$declare s jsonb;c uuid;se uuid;se2 uuid;e uuid;ec uuid;r uuid;r2 uuid;v bigint;snapshot jsonb;begin
+do $$declare s jsonb;c uuid;se uuid;se2 uuid;e uuid;ec uuid;r uuid;r2 uuid;v bigint;snapshot jsonb;je uuid;jc uuid;en uuid;j uuid;begin
  s:=public.create_series_with_organization('Independent touring series','',null,'Independent organizer');
  insert into public.series_classes(series_id,name) values((s->>'series_id')::uuid,'Class') returning id into c;
  se:=public.create_competition_season(null,(s->>'series_id')::uuid,'Season One',current_date-10,null);
@@ -26,6 +26,23 @@ do $$declare s jsonb;c uuid;se uuid;se2 uuid;e uuid;ec uuid;r uuid;r2 uuid;v big
  if not exists(select 1 from jsonb_array_elements(snapshot->'registrations') rr where rr->>'id'=r::text and (rr->>'eligible')::boolean) then raise exception 'Official eligibility not frozen';end if;
  update public.competition_registrations set left_on=current_date+1 where id=r;
  if (select payload from public.event_result_versions where event_id=e) is distinct from snapshot then raise exception 'Withdrawal rewrote official history';end if;
+ -- A series member may score only their assigned judged class, without becoming a publisher.
+ insert into public.organization_memberships(organization_id,user_id,role) values((s->>'organization_id')::uuid,'f9000000-0000-4000-8000-000000000003','member');
+ insert into public.events(series_id,name,slug,local_date,status,venue_description) values((s->>'series_id')::uuid,'Judged race','independent-judged',current_date,'draft','Unregistered venue') returning id into je;
+ jc:=public.create_event_class(je,'Judged','judged_points','{"judgeCount":1,"rubric":[{"key":"total","label":"Total","max":10}]}');
+ en:=public.create_race_entry((s->>'series_id')::uuid,je,jc,'Judge fixture',null);
+ perform public.set_class_judge(jc,'f9000000-0000-4000-8000-000000000003','Independent judge',true);
+ select id into j from public.judge_assignments where event_class_id=jc;
+ perform set_config('request.jwt.claim.sub','f9000000-0000-4000-8000-000000000003',true);
+ if public.can_publish_race(je) then raise exception 'Judge received publication rights';end if;
+ perform public.save_judge_score(j,en,1,'{"total":10}',0);
+ perform set_config('request.jwt.claim.sub','f9000000-0000-4000-8000-000000000001',true);
+ -- Deleting a scheduled race must invalidate published season totals.
+ insert into public.events(series_id,competition_season_id,name,slug,local_date,status) values((s->>'series_id')::uuid,se,'Delete fixture','independent-delete',current_date,'draft') returning id into je;
+ select rules_revision into v from public.competition_seasons where id=se;
+ perform public.publish_competition_standings(se,v,array[(select id from public.event_result_versions where event_id=e)],'{"standings":[]}');
+ perform public.delete_or_withdraw_event(je,true);
+ if exists(select 1 from public.competition_result_versions where season_id=se and is_current) then raise exception 'Deleted schedule did not invalidate standings';end if;
  perform set_config('test.independent.event',e::text,true);perform set_config('test.independent.season',se::text,true);
 end $$;
 set local request.jwt.claim.sub='f9000000-0000-4000-8000-000000000002';

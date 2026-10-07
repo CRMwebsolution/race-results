@@ -1,4 +1,3 @@
-import type {AutoTable,Season,ChampionshipClass,Registration,ChampionshipRule,PointsChange,ChampionshipVersion} from "./competitions";
 export type Json =
   | string
   | number
@@ -15,15 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      competition_bonuses: AutoTable<{id:string;season_id:string;bonus_type:string;points:number;frequency:string;series_class_id:string|null},'season_id'|'bonus_type'|'points'|'frequency'>
-
-      competition_seasons: AutoTable<Season&{legacy_track_season_id:string|null},'name'|'starts_on'>
-      competition_classes: AutoTable<ChampionshipClass,'season_id'|'name'>
-      competition_registrations: AutoTable<Registration,'season_id'|'class_id'|'display_name'|'joined_on'>
-      competition_points_rules: AutoTable<ChampionshipRule,'season_id'|'rank_start'|'rank_end'|'points'>
-      competition_points_changes: AutoTable<PointsChange>
-      competition_result_versions: AutoTable<ChampionshipVersion>
-
       attempts: {
         Row: {
           distance_mm: number | null
@@ -175,6 +165,347 @@ export type Database = {
           },
         ]
       }
+      competition_bonuses: {
+        Row: {
+          bonus_type: string
+          frequency: string
+          id: string
+          points: number
+          season_id: string
+          series_class_id: string | null
+        }
+        Insert: {
+          bonus_type: string
+          frequency: string
+          id?: string
+          points: number
+          season_id: string
+          series_class_id?: string | null
+        }
+        Update: {
+          bonus_type?: string
+          frequency?: string
+          id?: string
+          points?: number
+          season_id?: string
+          series_class_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competition_bonuses_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "competition_seasons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competition_bonuses_series_class_id_fkey"
+            columns: ["series_class_id"]
+            isOneToOne: false
+            referencedRelation: "competition_classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competition_classes: {
+        Row: {
+          id: string
+          name: string
+          season_id: string
+          series_class_id: string | null
+          template_id: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          season_id: string
+          series_class_id?: string | null
+          template_id?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          season_id?: string
+          series_class_id?: string | null
+          template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competition_classes_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "competition_seasons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competition_classes_series_class_id_fkey"
+            columns: ["series_class_id"]
+            isOneToOne: false
+            referencedRelation: "series_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competition_classes_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "class_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competition_points_changes: {
+        Row: {
+          actor_id: string
+          created_at: string
+          event_id: string | null
+          id: string
+          mode: string
+          points: number
+          previous_points: number | null
+          reason: string
+          registration_id: string
+          season_id: string
+        }
+        Insert: {
+          actor_id: string
+          created_at?: string
+          event_id?: string | null
+          id?: string
+          mode: string
+          points: number
+          previous_points?: number | null
+          reason: string
+          registration_id: string
+          season_id: string
+        }
+        Update: {
+          actor_id?: string
+          created_at?: string
+          event_id?: string | null
+          id?: string
+          mode?: string
+          points?: number
+          previous_points?: number | null
+          reason?: string
+          registration_id?: string
+          season_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competition_points_changes_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competition_points_changes_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "competition_seasons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competition_points_changes_season_id_registration_id_fkey"
+            columns: ["season_id", "registration_id"]
+            isOneToOne: false
+            referencedRelation: "competition_registrations"
+            referencedColumns: ["season_id", "id"]
+          },
+        ]
+      }
+      competition_points_rules: {
+        Row: {
+          id: string
+          points: number
+          rank_end: number
+          rank_start: number
+          season_id: string
+        }
+        Insert: {
+          id?: string
+          points: number
+          rank_end: number
+          rank_start: number
+          season_id: string
+        }
+        Update: {
+          id?: string
+          points?: number
+          rank_end?: number
+          rank_start?: number
+          season_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competition_points_rules_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "competition_seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competition_registrations: {
+        Row: {
+          class_id: string
+          created_at: string
+          display_name: string
+          id: string
+          joined_on: string
+          left_on: string | null
+          legacy_roster_id: string | null
+          season_id: string
+          vehicle_name: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          display_name: string
+          id?: string
+          joined_on: string
+          left_on?: string | null
+          legacy_roster_id?: string | null
+          season_id: string
+          vehicle_name?: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          display_name?: string
+          id?: string
+          joined_on?: string
+          left_on?: string | null
+          legacy_roster_id?: string | null
+          season_id?: string
+          vehicle_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competition_registrations_legacy_roster_id_fkey"
+            columns: ["legacy_roster_id"]
+            isOneToOne: false
+            referencedRelation: "series_rosters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competition_registrations_season_id_class_id_fkey"
+            columns: ["season_id", "class_id"]
+            isOneToOne: false
+            referencedRelation: "competition_classes"
+            referencedColumns: ["season_id", "id"]
+          },
+          {
+            foreignKeyName: "competition_registrations_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "competition_seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competition_result_versions: {
+        Row: {
+          actor_id: string
+          id: string
+          is_current: boolean
+          payload: Json
+          published_at: string
+          season_id: string
+          source_revision: number
+          source_version_ids: string[]
+          version: number
+        }
+        Insert: {
+          actor_id: string
+          id?: string
+          is_current?: boolean
+          payload: Json
+          published_at?: string
+          season_id: string
+          source_revision: number
+          source_version_ids: string[]
+          version: number
+        }
+        Update: {
+          actor_id?: string
+          id?: string
+          is_current?: boolean
+          payload?: Json
+          published_at?: string
+          season_id?: string
+          source_revision?: number
+          source_version_ids?: string[]
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competition_result_versions_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "competition_seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competition_seasons: {
+        Row: {
+          created_at: string
+          ends_on: string | null
+          id: string
+          legacy_track_season_id: string | null
+          name: string
+          rules_revision: number
+          series_id: string | null
+          starts_on: string
+          track_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          ends_on?: string | null
+          id?: string
+          legacy_track_season_id?: string | null
+          name: string
+          rules_revision?: number
+          series_id?: string | null
+          starts_on: string
+          track_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          ends_on?: string | null
+          id?: string
+          legacy_track_season_id?: string | null
+          name?: string
+          rules_revision?: number
+          series_id?: string | null
+          starts_on?: string
+          track_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competition_seasons_legacy_track_season_id_fkey"
+            columns: ["legacy_track_season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competition_seasons_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "series"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competition_seasons_track_id_fkey"
+            columns: ["track_id"]
+            isOneToOne: false
+            referencedRelation: "tracks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       competitors: {
         Row: {
           created_at: string
@@ -209,13 +540,13 @@ export type Database = {
       }
       entries: {
         Row: {
-          registration_id: string | null
           competitor_id: string | null
           display_name: string
           event_class_id: string
           final_rank: number | null
           id: string
           order_num: number
+          registration_id: string | null
           seed: number | null
           series_racer_id: string | null
           series_roster_id: string | null
@@ -223,13 +554,13 @@ export type Database = {
           team_id: string | null
         }
         Insert: {
-          registration_id?: string | null
           competitor_id?: string | null
           display_name: string
           event_class_id: string
           final_rank?: number | null
           id?: string
           order_num: number
+          registration_id?: string | null
           seed?: number | null
           series_racer_id?: string | null
           series_roster_id?: string | null
@@ -237,13 +568,13 @@ export type Database = {
           team_id?: string | null
         }
         Update: {
-          registration_id?: string | null
           competitor_id?: string | null
           display_name?: string
           event_class_id?: string
           final_rank?: number | null
           id?: string
           order_num?: number
+          registration_id?: string | null
           seed?: number | null
           series_racer_id?: string | null
           series_roster_id?: string | null
@@ -263,6 +594,13 @@ export type Database = {
             columns: ["event_class_id"]
             isOneToOne: false
             referencedRelation: "event_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entries_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "competition_registrations"
             referencedColumns: ["id"]
           },
           {
@@ -310,7 +648,7 @@ export type Database = {
           scoring_version?: number
           series_class_id?: string | null
           template_id?: string | null
-          track_id: string | null
+          track_id?: string | null
         }
         Update: {
           competition_class_id?: string | null
@@ -329,7 +667,21 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "event_classes_competition_class_id_fkey"
+            columns: ["competition_class_id"]
+            isOneToOne: false
+            referencedRelation: "competition_classes"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "event_classes_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_classes_parent_fkey"
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
@@ -380,7 +732,7 @@ export type Database = {
           reconstructed?: boolean
           recorded_at?: string
           source_revision: number
-          track_id: string | null
+          track_id?: string | null
           version: number
         }
         Update: {
@@ -415,7 +767,6 @@ export type Database = {
       events: {
         Row: {
           competition_season_id: string | null
-          venue_description: string | null
           completed_at: string | null
           created_at: string
           defaults_initialized: boolean
@@ -430,11 +781,11 @@ export type Database = {
           status: string
           track_id: string | null
           updated_at: string
+          venue_description: string | null
           working_revision: number
         }
         Insert: {
           competition_season_id?: string | null
-          venue_description?: string | null
           completed_at?: string | null
           created_at?: string
           defaults_initialized?: boolean
@@ -447,13 +798,13 @@ export type Database = {
           slug: string
           starts_at?: string | null
           status: string
-          track_id: string | null
+          track_id?: string | null
           updated_at?: string
+          venue_description?: string | null
           working_revision?: number
         }
         Update: {
           competition_season_id?: string | null
-          venue_description?: string | null
           completed_at?: string | null
           created_at?: string
           defaults_initialized?: boolean
@@ -468,9 +819,17 @@ export type Database = {
           status?: string
           track_id?: string | null
           updated_at?: string
+          venue_description?: string | null
           working_revision?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "events_competition_season_id_fkey"
+            columns: ["competition_season_id"]
+            isOneToOne: false
+            referencedRelation: "competition_seasons"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "events_series_id_fkey"
             columns: ["series_id"]
@@ -1346,20 +1705,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      record_competition_points: {Args:{p_season_id:string;p_registration_id:string;p_event_id:string|null;p_mode:string;p_points:number;p_reason:string;p_expected_revision:number};Returns:string}
-      publish_competition_standings: {Args:{p_season_id:string;p_expected_revision:number;p_source_ids:string[];p_payload:Json};Returns:string}
-      import_competition_registrations: {Args:{p_event_id:string};Returns:number}
-
-      create_competition_season: {Args:{p_track_id:string|null;p_series_id:string|null;p_name:string;p_starts_on:string;p_ends_on?:string|null};Returns:string}
-      can_manage_competition: {Args:{p_season_id:string};Returns:boolean}
-      attach_competition: {Args:{p_event_id:string;p_season_id:string};Returns:undefined}
-
-      can_edit_race: {Args:{p_event_id:string};Returns:boolean}
-      can_manage_race: {Args:{p_event_id:string};Returns:boolean}
-      can_publish_race: {Args:{p_event_id:string};Returns:boolean}
-      race_judge_candidates: {Args:{p_event_id:string};Returns:{user_id:string;label:string}[]}
-      edit_series_venue: {Args:{p_event_id:string;p_description:string};Returns:undefined}
-
       add_series_award: {
         Args: {
           p_class_id: string
@@ -1381,9 +1726,26 @@ export type Database = {
         Returns: Json
       }
       archive_event_secure: { Args: { p_event_id: string }; Returns: Json }
+      attach_competition: {
+        Args: { p_event_id: string; p_season_id: string }
+        Returns: undefined
+      }
+      can_edit_race: { Args: { p_event_id: string }; Returns: boolean }
       can_edit_track: { Args: { p_track_id: string }; Returns: boolean }
+      can_judge_race: { Args: { p_event_id: string }; Returns: boolean }
+      can_manage_competition: {
+        Args: { p_season_id: string }
+        Returns: boolean
+      }
+      can_manage_race: { Args: { p_event_id: string }; Returns: boolean }
       can_manage_track: { Args: { p_track_id: string }; Returns: boolean }
+      can_publish_race: { Args: { p_event_id: string }; Returns: boolean }
       can_publish_track: { Args: { p_track_id: string }; Returns: boolean }
+      can_view_race: { Args: { p_event_id: string }; Returns: boolean }
+      can_view_series_account: {
+        Args: { p_series_id: string }
+        Returns: boolean
+      }
       can_view_track: { Args: { p_track_id: string }; Returns: boolean }
       cancel_rsvp: { Args: { p_rsvp_id: string }; Returns: Json }
       capture_official_result: {
@@ -1402,6 +1764,16 @@ export type Database = {
       complete_race_event: {
         Args: { p_event_id: string; p_expected_revision: number; p_ranks: Json }
         Returns: Json
+      }
+      create_competition_season: {
+        Args: {
+          p_ends_on?: string | null
+          p_name: string
+          p_series_id: string | null
+          p_starts_on: string
+          p_track_id: string | null
+        }
+        Returns: string
       }
       create_event_class: {
         Args: {
@@ -1486,7 +1858,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      edit_series_venue: {
+        Args: { p_description: string; p_event_id: string }
+        Returns: undefined
+      }
       get_event_capacity_status: { Args: { p_event_id: string }; Returns: Json }
+      import_competition_registrations: {
+        Args: { p_event_id: string }
+        Returns: number
+      }
       import_series_roster: { Args: { p_event_id: string }; Returns: number }
       initialize_series_event: { Args: { p_event_id: string }; Returns: number }
       is_admin: { Args: { uid: string }; Returns: boolean }
@@ -1508,12 +1888,41 @@ export type Database = {
         Args: { p_series_id: string }
         Returns: string
       }
+      publish_competition_standings: {
+        Args: {
+          p_expected_revision: number
+          p_payload: Json
+          p_season_id: string
+          p_source_ids: string[]
+        }
+        Returns: string
+      }
       publish_series_standings: {
         Args: {
           p_expected_revision: number
           p_payload: Json
           p_series_id: string
           p_source_ids: string[]
+        }
+        Returns: string
+      }
+      race_judge_candidates: {
+        Args: { p_event_id: string }
+        Returns: {
+          label: string
+          user_id: string
+        }[]
+      }
+      record_competition_points: {
+        Args: {
+          p_previous_points?: number | null
+          p_event_id: string | null
+          p_expected_revision: number
+          p_mode: string
+          p_points: number
+          p_reason: string
+          p_registration_id: string
+          p_season_id: string
         }
         Returns: string
       }

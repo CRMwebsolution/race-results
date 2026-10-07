@@ -33,16 +33,20 @@ test('five account modes stay discoverable on mobile and can be changed',async({
  }
 });
 
-test('series bonus and roster changes appear immediately and after reload',async({page})=>{
+test('series defaults and explicit registrations appear immediately and after reload',async({page})=>{
  await signIn(page);await page.goto(`/dashboard/series/${fixture.fixture.seriesId}/points`);
  const add=page.getByRole('form',{name:'Add bonus',exact:true});await add.getByLabel('Bonus condition').selectOption('custom');await add.getByLabel('Points',{exact:true}).fill('17');await add.getByRole('button',{name:'Add bonus',exact:true}).click();
  await expect(page.getByText(/^custom · 17 points$/i)).toBeVisible();await page.reload();await expect(page.getByText(/^custom · 17 points$/i)).toBeVisible();
  const card=page.locator('article').filter({has:page.getByText(/^custom · 17 points$/i)});await card.getByText('Edit bonus',{exact:true}).click();await card.getByLabel('Points',{exact:true}).fill('19');await card.getByRole('button',{name:'Save bonus'}).click();await expect(page.getByText(/^custom · 19 points$/i)).toBeVisible();
  await page.getByRole('button',{name:'Remove custom bonus'}).click();await expect(page.getByText(/^custom · 19 points$/i)).toHaveCount(0);
- await page.goto(`/dashboard/series/${fixture.fixture.seriesId}/roster`);
- const racer=`Browser racer ${test.info().project.name}`;await page.locator('input[name="display_name"]').fill(racer);await page.getByRole('button',{name:'Add to Roster',exact:true}).click();await expect(page.locator('p').filter({hasText:new RegExp(`^${racer}$`)})).toBeVisible();await page.reload();await expect(page.locator('p').filter({hasText:new RegExp(`^${racer}$`)})).toBeVisible();
- const row=page.locator('div').filter({has:page.locator('p').filter({hasText:new RegExp(`^${racer}$`)})}).filter({has:page.getByTitle('Edit Racer')}).last();await row.getByTitle('Edit Racer').click();await page.locator('input[name="display_name"]').fill(`${racer} edited`);await page.getByRole('button',{name:'Save Changes',exact:true}).click();await expect(page.locator('p').filter({hasText:new RegExp(`^${racer} edited$`)})).toBeVisible();
- const edited=page.locator('div').filter({has:page.locator('p').filter({hasText:new RegExp(`^${racer} edited$`)})}).filter({has:page.getByTitle('Remove Racer')}).last();await edited.getByTitle('Remove Racer').click();await expect(page.locator('p').filter({hasText:new RegExp(`^${racer} edited$`)})).toHaveCount(0);
+ await page.goto(`/dashboard/series/${fixture.fixture.seriesId}/seasons/${fixture.seasonId}`);
+ const racer=`Browser racer ${test.info().project.name}`;
+ const registration=page.locator('form').filter({has:page.getByRole('button',{name:'Register entry',exact:true})});
+ await registration.getByLabel('Racer name').fill(racer);await registration.getByLabel('Vehicle / number').fill('One');await registration.getByLabel('Membership starts').fill('2026-10-07');await registration.getByRole('button',{name:'Register entry',exact:true}).click();
+ await expect(page.locator('article').filter({has:page.locator('strong').filter({hasText:`${racer} · One`})})).toBeVisible();await page.reload();
+ const registrationCard=page.locator('article').filter({has:page.locator('strong').filter({hasText:`${racer} · One`})});await registrationCard.getByText('Edit registration',{exact:true}).click();await registrationCard.getByLabel('Racer name').fill(`${racer} edited`);await registrationCard.getByRole('button',{name:'Save registration'}).click();
+ const edited=page.locator('article').filter({has:page.locator('strong').filter({hasText:`${racer} edited · One`})});await expect(edited).toBeVisible();await edited.getByLabel('Withdrawal date').fill('2026-10-08');await edited.getByRole('button',{name:'End membership; keep earned points'}).click();await expect(page.getByRole('status')).toContainText('earned points retained');
+
 });
 
 test('series defaults can be reordered without altering another race',async({page})=>{

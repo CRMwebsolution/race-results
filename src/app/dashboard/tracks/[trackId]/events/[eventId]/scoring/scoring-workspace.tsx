@@ -1,7 +1,7 @@
 "use client";
 import {JudgeInput,judgeRoundAttempts} from "@/scoring/multi-judge";
 import {Prepared,getPrepared,subscribePrepared,queueAttempt,localAttempts as deviceAttempts,activateAccount} from "@/lib/offline/store";
-import {prepareEvent,finishPrepared} from "@/lib/offline/prepare";
+import {prepareEvent} from "@/lib/offline/prepare";
 import {flushPrepared,retryPrepared,resolveConflict,isUploading} from "@/lib/offline/sync";
 import {downloadResults} from "@/lib/results-csv";
 import {ResultSort} from "@/components/result-sort";
@@ -59,7 +59,6 @@ export function ScoringWorkspace({
   const [frozenOrder,setFrozenOrder]=useState<string[]|null>(null);
   const [prepared,setPrepared]=useState<Prepared|null>(null);
   const [offlineMessage,setOfflineMessage]=useState("");
-  const [offlineBusy,setOfflineBusy]=useState(false);
   const preparedRef=useRef<Prepared|null>(null);
   preparedRef.current=prepared;
   const [activeClassId, setActiveClassId] = useState<string>(classes[0]?.id || "");
@@ -75,9 +74,38 @@ export function ScoringWorkspace({
   const [visibleColumns, setVisibleColumns] = useState(2);
 
 
-  useEffect(()=>{if(!accountId)return;try{activateAccount(accountId);}catch{setOfflineMessage("Device storage is unavailable. Online scoring is available; offline preparation requires storage.");return;}async function load(){try{const r=await getPrepared(accountId!,event.id);setPrepared(r);if(r){confirmedAttempts.current=r.packet.initialAttempts;setLocalAttempts(deviceAttempts(r));acknowledgedRevision.current=Math.max(acknowledgedRevision.current,r.packet.event.working_revision);}}catch(e){setOfflineMessage((e as Error).message);}}void load();const unsubscribe=subscribePrepared(()=>void load());const sync=()=>void retryPrepared(accountId!,event.id).catch(e=>setOfflineMessage((e as Error).message));window.addEventListener('online',sync);const timer=window.setInterval(()=>{if(preparedRef.current?.outbox.some(o=>o.state==='queued'))void flushPrepared(accountId!,event.id).catch(e=>setOfflineMessage((e as Error).message));},5000);return()=>{unsubscribe();window.removeEventListener('online',sync);window.clearInterval(timer);};},[accountId,event.id]);
-  async function prepare(){if(!accountId)return;setOfflineBusy(true);try{await prepareEvent(accountId,event.id);setOfflineMessage('Offline ready. Device saves upload while this app is open after reconnection.');}catch(e){setOfflineMessage((e as Error).message);}finally{setOfflineBusy(false);}}
-  async function finish(){if(!accountId)return;setOfflineBusy(true);try{await retryPrepared(accountId,event.id);await finishPrepared(accountId,event.id);setOfflineMessage('Offline session closed. Prepare again before recording more device saves.');}catch(e){setOfflineMessage((e as Error).message);}finally{setOfflineBusy(false);}}
+  useEffect(()=>{
+    if(!accountId)return;
+    let mounted=true;
+    try{activateAccount(accountId);}catch{return;}
+    async function load(){
+      try{
+        const r=await getPrepared(accountId!,event.id);
+        if(!mounted)return;
+        setPrepared(r);
+        if(r && (r.outbox.length || r.packet.event.working_revision>=acknowledgedRevision.current)){
+          confirmedAttempts.current=r.packet.initialAttempts;
+          setLocalAttempts(deviceAttempts(r));
+          acknowledgedRevision.current=Math.max(acknowledgedRevision.current,r.packet.event.working_revision);
+        }
+      }catch{/* Online scoring remains available if device storage is unavailable. */}
+    }
+    async function ready(){
+      await load();
+      if(navigator.onLine && !offlineOnly && event.status!=='completed'){
+        try{await prepareEvent(accountId!,event.id);await load();if(mounted)setOfflineMessage('');}
+        catch{/* Cached scores and online saving remain usable. */}
+      }
+      const r=await getPrepared(accountId!,event.id).catch(()=>null);
+      if(r && !r.closed)await retryPrepared(accountId!,event.id).catch(()=>{});
+    }
+    void ready();
+    const unsubscribe=subscribePrepared(()=>void load());
+    const sync=()=>void ready();
+    window.addEventListener('online',sync);
+    const timer=window.setInterval(()=>{if(preparedRef.current?.outbox.some(o=>o.state==='queued'))void flushPrepared(accountId!,event.id).catch(()=>{});},5000);
+    return()=>{mounted=false;unsubscribe();window.removeEventListener('online',sync);window.clearInterval(timer);};
+  },[accountId,event.id,event.status,offlineOnly]);
   async function resolve(entryId:string,ordinal:number,keep:boolean){if(!accountId)return;try{await resolveConflict(accountId,event.id,entryId,ordinal,keep);}catch(e){setOfflineMessage((e as Error).message);}}
   const draftStorageKey = `raceholler:drafts:${accountId ?? "unknown"}:${trackId}:${event.id}`;
   useEffect(() => {
@@ -165,7 +193,7 @@ export function ScoringWorkspace({
       setCellErrors(prev => ({ ...prev, [key]: parsed.error! }));
       return;
     }
-    if(accountId&&preparedRef.current){try{await queueAttempt(accountId,event.id,classId,entryId,ordinal,rawInput,parsed.penaltyMs);setDrafts(prev=>{const next={...prev};delete next[key];return next;});setCellErrors(prev=>{const next={...prev};delete next[key];return next;});void flushPrepared(accountId,event.id).catch(e=>setOfflineMessage((e as Error).message));}catch(e){setCellErrors(prev=>({...prev,[key]:(e as Error).message}));}return;}
+    if(accountId&&preparedRef.current&&!preparedRef.current.closed&&!preparedRef.current.closing){try{await queueAttempt(accountId,event.id,classId,entryId,ordinal,rawInput,parsed.penaltyMs);setDrafts(prev=>{const next={...prev};delete next[key];return next;});setCellErrors(prev=>{const next={...prev};delete next[key];return next;});void flushPrepared(accountId,event.id).catch(()=>{});}catch(e){setCellErrors(prev=>({...prev,[key]:(e as Error).message}));}return;}
     if(offlineOnly){setCellErrors(prev=>({...prev,[key]:"Prepare this race online before offline edits"}));return;}
     busyCells.current.add(key);
     setSavingCells(new Set(busyCells.current));
@@ -202,7 +230,7 @@ export function ScoringWorkspace({
 
   return (
     <div className="flex flex-col w-full h-full">
-      <section className="p-4 border-b border-slate-700 space-y-3 print:hidden"><div className="flex flex-wrap gap-3"><button disabled={offlineBusy} onClick={prepare} className="p-3 border rounded">Prepare for offline</button><button disabled={offlineBusy||!prepared} onClick={()=>accountId&&void retryPrepared(accountId,event.id).catch(e=>setOfflineMessage(e.message))} className="p-3 border rounded">Retry uploads</button><button disabled={offlineBusy||!prepared||prepared.closed} onClick={finish} className="p-3 border rounded">Finish offline session</button><a href="/offline" className="p-3 border rounded">Open saved races</a></div><p role="status">{prepared ? prepared.closed ? "Device session closed · cached view only" : prepared.outbox.length ? `${accountId&&isUploading(accountId,event.id) ? "Uploading" : "Saved on device"} · ${prepared.outbox.length} waiting to upload · local provisional results` : "Synced · offline session open" : "Online scoring · prepare before losing signal"}</p>{offlineMessage&&<p role="status" className="text-amber-300">{offlineMessage}</p>}{prepared?.outbox.filter((o,i,a)=>(o.state!=="queued"||o.error)&&a.findIndex(x=>x.entryId===o.entryId&&x.ordinal===o.ordinal)===i).map(o=><div key={o.id} role="alert" className="p-3 border border-red-700 rounded"><p>{o.state==="conflict"?"Conflict":o.state==="queued"?"Waiting for confirmation":"Upload blocked"}: {initialEntries.find(e=>e.id===o.entryId)?.display_name} · Pass {o.ordinal} · Device value: {o.raw} · {o.error}</p>{o.state==="conflict"&&<div className="flex flex-wrap gap-3"><button onClick={()=>resolve(o.entryId,o.ordinal,false)}>Use latest server value</button><button onClick={()=>{if(confirm("Replace this pass with your latest device value after checking the other scorer's change?"))void resolve(o.entryId,o.ordinal,true);}}>Reapply my device value</button></div>}</div>)}</section>
+      {(offlineMessage || prepared?.outbox.some(o=>o.state!=='queued'||o.error))&&<section className="p-4 border-b space-y-3 print:hidden">{offlineMessage&&<p role="status">{offlineMessage}</p>}{prepared?.outbox.filter((o,i,a)=>(o.state!=="queued"||o.error)&&a.findIndex(x=>x.entryId===o.entryId&&x.ordinal===o.ordinal)===i).map(o=><div key={o.id} role="alert" className="p-3 border rounded"><p>{initialEntries.find(e=>e.id===o.entryId)?.display_name} · Pass {o.ordinal}: {o.state==='conflict'?'Another scorekeeper changed this result. Choose which score to keep.':'This score is still saved on your device. Reconnect to upload it.'} Your entry: {o.raw}</p>{o.state==='conflict'?<div className="flex flex-wrap gap-3"><button onClick={()=>resolve(o.entryId,o.ordinal,false)}>Keep the other saved score</button><button onClick={()=>void resolve(o.entryId,o.ordinal,true)}>Keep my score</button></div>:<button onClick={()=>accountId&&void retryPrepared(accountId,event.id).catch(()=>{})}>Try saving again</button>}</div>)}</section>}
       {/* Top action bar */}
       <div className="bg-slate-900 border-b border-slate-800 p-4 flex flex-wrap gap-4 items-center justify-between print:hidden">
         <div className="flex flex-wrap gap-4">
@@ -224,7 +252,7 @@ export function ScoringWorkspace({
                 <span>Saving...</span>
               </span>
             ) : prepared?.outbox.length ? (
-              <span className="text-amber-400">Device edits pending · provisional</span>
+              <span className="text-amber-400">{accountId&&isUploading(accountId,event.id)?'Saving…':'Saved on this device — waiting to upload'}</span>
             ) : Object.keys(cellErrors).length ? (
               <span className="text-red-400">Unsaved changes</span>
             ) : Object.keys(drafts).length ? (
@@ -337,7 +365,7 @@ export function ScoringWorkspace({
                               setDrafts(prev => { const next = { ...prev }; if (value === (attempt?.rawInput ?? "")) delete next[key]; else next[key] = value; return next; });
                               if (value === (attempt?.rawInput ?? "")) setCellErrors(prev => { const next = { ...prev }; delete next[key]; return next; });
                             }}
-                            disabled={savingCells.has(key) || event.status === "completed" || Boolean(prepared?.closed||prepared?.closing) || activeClass?.scoring_type === "judged_points"}
+                            disabled={savingCells.has(key) || event.status === "completed" || activeClass?.scoring_type === "judged_points"}
                             aria-label={`${row.entry.display_name}, pass ${ordinal}`}
                             aria-invalid={Boolean(cellErrors[key])}
                             title={cellErrors[key]}

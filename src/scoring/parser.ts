@@ -22,6 +22,7 @@ export function parseAttemptInput(raw: string | null | undefined, penaltyMs = 0)
   if (!Number.isInteger(penaltyMs) || penaltyMs < 0 || penaltyMs > MAX_INT) return fail("Invalid penalty");
   if (!trimmed) return empty;
   const markers: Record<string, AttemptStatus> = {
+    "-": "no_time", "NO PASS": "no_time",
     DQ: "dq", DISQUALIFIED: "dq", DNF: "dnf", "DID NOT FINISH": "dnf",
     DNS: "dns", "DID NOT START": "dns", NT: "no_time", "NO TIME": "no_time", NO_TIME: "no_time",
   };
@@ -51,7 +52,7 @@ export function parseAttemptInput(raw: string | null | undefined, penaltyMs = 0)
     if (!Number.isSafeInteger(elapsedMs) || elapsedMs < 1 || elapsedMs > MAX_INT) return fail("Time must be positive and within range");
     return { status: "valid", elapsedMs, distanceMm: null, penaltyMs, rawInput };
   }
-  return fail("Enter seconds, a distance, DQ, DNF, DNS, or NT");
+  return fail("Enter a time, distance, - for no pass, DQ, DNF, or DNS");
 }
 
 export function formatSeconds(ms: number | null | undefined, decimals = 3): string {

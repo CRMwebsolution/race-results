@@ -76,6 +76,17 @@ describe("Scoring Engine: Input Parser", () => {
     const nil = parseAttemptInput(null);
     expect(nil.status).toBe("no_time");
   });
+
+  it("retains a dash as an explicit no-pass result without assigning a time or distance", () => {
+    const attempt = parseAttemptInput(" - ");
+    expect(attempt.error).toBeUndefined();
+    expect(attempt.status).toBe("no_time");
+    expect(attempt.elapsedMs).toBeNull();
+    expect(attempt.distanceMm).toBeNull();
+    expect(attempt.rawInput).toBe(" - ");
+    const score = scoreFastestPass([{id:"no-pass",entryId:"racer",ordinal:1,...attempt}]);
+    expect(score.eligible).toBe(false);
+  });
 });
 
 describe("Scoring Engine: Fastest Pass & Blueprint Regression", () => {

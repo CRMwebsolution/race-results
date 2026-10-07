@@ -5,7 +5,7 @@ import { readAll } from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
 import { scoreClass, rankEntries } from "@/scoring";
 
-export async function finalizeEventStandings(eventId: string) {
+export async function finalizeEventStandings(eventId: string, scoresConfirmed = false) {
   const supabase = await createClient();
 
   const { data: event, error: eventError } = await supabase.from("events").select("working_revision").eq("id",eventId).single();
@@ -35,7 +35,8 @@ export async function finalizeEventStandings(eventId: string) {
 
   if (entriesError || attemptsError) return { error: entriesError?.message ?? attemptsError?.message };
 
-  const {data:judgeScores}=classes.length ? await readAll(supabase.from("judge_scores").select("*").in("event_class_id",classes.map(c=>c.id))) : {data:[]};
+  const {data:judgeScores,error:judgeError}=classes.length ? await readAll(supabase.from("judge_scores").select("*").in("event_class_id",classes.map(c=>c.id))) : {data:[],error:null};
+  if(judgeError)return {error:judgeError.message};
   const updates: { id: string, final_rank: number | null; score: import("@/scoring").Score; tied: boolean }[] = [];
 
   // 4. Compute for each class
@@ -76,6 +77,16 @@ export async function finalizeEventStandings(eventId: string) {
     rankEntries(entriesWithScore).forEach(e => updates.push({ id: e.entryId, final_rank: e.rank, score:e.score, tied:e.tied }));
   }
 
+  // Completion confirmation replaces manual device administration. Unuploaded edits
+  // stay on their device; finalized races cannot silently accept late uploads.
+  if(scoresConfirmed){
+    const {data:sessions,error:sessionError}=await readAll(supabase.from('offline_scoring_sessions').select('id').eq('event_id',eventId).is('closed_at',null));
+    if(sessionError)return {error:sessionError.message};
+    for(const session of sessions){
+      const {error}=await supabase.rpc('release_offline_session',{p_session_id:session.id,p_reason:'Organizer confirmed all scorekeepers have saved their results before completing the race.'});
+      if(error)return {error:error.message};
+    }
+  }
   const { error } = await supabase.rpc("complete_race_event", {
     p_event_id: eventId, p_expected_revision: event.working_revision, p_ranks: updates as unknown as import("@/types/database").Json,
   });

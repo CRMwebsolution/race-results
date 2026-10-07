@@ -19,7 +19,7 @@ export type ClassType = { id: string; name: string; scoring_type: string; scorin
 export type EntryType = { id: string; event_class_id: string; display_name: string; seed: number | null; order_num: number };
 export type AttemptType = { id: string; event_class_id: string; entry_id: string; ordinal: number; status: string; elapsed_ms: number | null; distance_mm: number | null; penalty_ms: number; raw_input: string | null; save_version: number };
 
-export type ScoringPacket={accountId?:string;trackId:string;trackSlug?:string;eventSlug?:string;event:EventType;classes:ClassType[];initialEntries:EntryType[];initialAttempts:AttemptType[];judgeScores?:JudgeInput[]};
+export type ScoringPacket={accountId?:string;trackId:string;ownerType?:'track'|'series';trackSlug?:string;eventSlug?:string;event:EventType;classes:ClassType[];initialEntries:EntryType[];initialAttempts:AttemptType[];judgeScores?:JudgeInput[]};
 
 // We want to map DB types to the Scoring Engine types
 type ScoreEngineAttempt = {
@@ -34,7 +34,7 @@ type ScoreEngineAttempt = {
 };
 
 export function ScoringWorkspace({
-  accountId,offlineOnly=false,
+  accountId,offlineOnly=false,ownerType='track',
   trackId,
   trackSlug,
   eventSlug,
@@ -44,7 +44,7 @@ export function ScoringWorkspace({
   initialAttempts,
   judgeScores=[],
 }: {
-  accountId?:string;offlineOnly?:boolean;
+  accountId?:string;offlineOnly?:boolean;ownerType?:'track'|'series';
   trackId: string;
   trackSlug?: string;
   eventSlug?: string;
@@ -241,14 +241,14 @@ export function ScoringWorkspace({
         <div className="flex flex-wrap gap-4">
           <div className="flex flex-wrap gap-2">
             <Link 
-              href={`/dashboard/tracks/${trackId}/events/${event.id}/entries`} 
+              href={`/dashboard/${ownerType==='series'?'series':'tracks'}/${trackId}/events/${event.id}/entries`} 
               className="flex items-center space-x-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition text-sm mr-2"
             >
               <Users className="w-4 h-4" />
               <span>Manage Roster</span>
             </Link>
-            {trackSlug && eventSlug && (
-              <a href={`/r/${trackSlug}/${eventSlug}`} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-2 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 rounded-lg border border-amber-500/20 transition text-sm font-bold mr-2">
+            {(trackSlug || ownerType==='series') && eventSlug && (
+              <a href={ownerType==='series'?`/s/${trackId}/races/${eventSlug}`:`/r/${trackSlug}/${eventSlug}`} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-2 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 rounded-lg border border-amber-500/20 transition text-sm font-bold mr-2">
                 <ExternalLink className="w-4 h-4" />
                 <span>Live Site</span>
               </a>
@@ -273,7 +273,7 @@ export function ScoringWorkspace({
 
       <ResultSort order={sortOrder} reverse={reverse} passes={passCount(activeClass?.scoring_config,localAttempts)} onOrder={setSortOrder} onReverse={setReverse}/>
       <p className="px-4 text-xs text-slate-400">Display order: {sortOrder} {reverse ? "(reversed)" : ""}</p>
-      {activeClass?.scoring_type==="judged_points" && <Link className="p-4 text-amber-400 underline" href={`/dashboard/tracks/${trackId}/events/${event.id}/judging`}>Enter independent judge scores (online)</Link>}
+      {activeClass?.scoring_type==="judged_points" && <Link className="p-4 text-amber-400 underline" href={`/dashboard/${ownerType==='series'?'series':'tracks'}/${trackId}/events/${event.id}/judging`}>Enter independent judge scores (online)</Link>}
       {/* Grid */}
       {Object.keys(cellErrors).length > 0 && <p role="alert" className="p-4 text-red-400">{[...new Set(Object.values(cellErrors))].join(" · ")} Your input is retained; retry the highlighted pass or refresh after a conflict.</p>}
       <div className="flex-1 overflow-auto bg-[#0B1120] p-4 print:hidden">

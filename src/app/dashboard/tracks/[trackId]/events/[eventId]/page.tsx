@@ -1,3 +1,4 @@
+import {raceContext} from "@/lib/race-context";
 import { EventClassList } from "@/components/event-class-list";
 import { readAll } from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
@@ -8,9 +9,9 @@ import { redirect } from "next/navigation";
 export default async function EventOverviewPage({
   params,
 }: {
-  params: Promise<{ trackId: string; eventId: string }>;
+  params: Promise<{ trackId?: string; seriesId?: string; eventId: string }>;
 }) {
-  const { trackId, eventId } = await params;
+  const {ownerId:trackId,ownerType,ownerColumn,ownerPath,eventId}=raceContext(await params);
   const supabase = await createClient();
 
   const { data: classes } = await readAll(supabase
@@ -33,7 +34,7 @@ export default async function EventOverviewPage({
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Link
-            href={`/dashboard/tracks/${trackId}/events/${eventId}/scoring`}
+            href={`${ownerPath}/events/${eventId}/scoring`}
             className="flex items-center space-x-4 p-6 rounded-2xl bg-gradient-to-br from-amber-500/10 to-amber-900/20 border border-amber-500/30 hover:border-amber-500/60 transition group"
           >
             <div className="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
@@ -51,7 +52,7 @@ export default async function EventOverviewPage({
 
           <div className="flex flex-col sm:flex-row gap-4">
             <Link
-              href={`/dashboard/tracks/${trackId}/events/${eventId}/entries`}
+              href={`${ownerPath}/events/${eventId}/entries`}
               className="flex-1 flex items-center space-x-4 p-6 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 transition group"
             >
               <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
@@ -64,7 +65,7 @@ export default async function EventOverviewPage({
             </Link>
 
             <Link
-              href={`/dashboard/tracks/${trackId}/events/${eventId}/settings`}
+              href={`${ownerPath}/events/${eventId}/settings`}
               className="flex-1 flex items-center space-x-4 p-6 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 transition group"
             >
                <div className="w-10 h-10 rounded-xl bg-slate-500/10 flex items-center justify-center text-slate-400 group-hover:scale-110 transition-transform">
@@ -86,7 +87,7 @@ export default async function EventOverviewPage({
               <p className="text-sm text-slate-400 mt-1">Configure the racing categories and their scoring rules.</p>
             </div>
             <Link
-              href={`/dashboard/tracks/${trackId}/events/${eventId}/classes/new`}
+              href={`${ownerPath}/events/${eventId}/classes/new`}
               className="bg-slate-800 hover:bg-slate-700 text-white font-semibold py-2 px-4 rounded-xl flex items-center space-x-2 transition border border-slate-700"
             >
               <Plus className="w-4 h-4" />
@@ -103,7 +104,7 @@ export default async function EventOverviewPage({
               </p>
             </div>
           ) : (
-            <EventClassList key={classes.map(c=>c.id+":"+c.order_num).join(",")} trackId={trackId} eventId={eventId} classes={classes} />
+            <EventClassList key={classes.map(c=>c.id+":"+c.order_num).join(",")} trackId={trackId} ownerType={ownerType} eventId={eventId} classes={classes} />
           )}
         </div>
       </div>

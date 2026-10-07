@@ -7,7 +7,7 @@ do $$declare t jsonb;s jsonb;c uuid;r uuid;person uuid;e uuid;v bigint;result_id
  delete from public.series_points_rules where series_id=(s->>'series_id')::uuid;
  insert into public.series_points_rules(series_id,rank_start,rank_end,points) values((s->>'series_id')::uuid,1,1,10);
  begin insert into public.series_points_rules(series_id,rank_start,rank_end,points) values((s->>'series_id')::uuid,1,2,5);raise exception 'Overlapping band accepted' using errcode='XX000';exception when raise_exception then null;end;
- insert into public.events(track_id,series_id,name,slug,local_date,status) values((t->>'track_id')::uuid,(s->>'series_id')::uuid,'Round','championship-race',current_date,'scheduled') returning id into e;
+ insert into public.events(track_id,series_id,name,slug,local_date,status) values(null,(s->>'series_id')::uuid,'Round','championship-race',current_date,'scheduled') returning id into e;
  if public.import_series_roster(e)<>1 or public.import_series_roster(e)<>0 then raise exception 'Roster import not idempotent';end if;
  if not exists(select 1 from public.entries en join public.event_classes ec on ec.id=en.event_class_id where ec.event_id=e and en.series_roster_id=r and en.series_racer_id=person) then raise exception 'Stable racer mapping missing';end if;
  select working_revision into v from public.events where id=e;perform public.complete_race_event(e,v,(select jsonb_agg(jsonb_build_object('id',en.id,'final_rank',1)) from public.entries en join public.event_classes ec on ec.id=en.event_class_id where ec.event_id=e));

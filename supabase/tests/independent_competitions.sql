@@ -1,0 +1,38 @@
+begin;
+insert into auth.users(id,email) values('f9000000-0000-4000-8000-000000000001','independent-owner@test.invalid'),('f9000000-0000-4000-8000-000000000002','independent-host@test.invalid');
+set local role authenticated;set local request.jwt.claim.sub='f9000000-0000-4000-8000-000000000001';
+do $$declare s jsonb;c uuid;se uuid;se2 uuid;e uuid;ec uuid;r uuid;r2 uuid;v bigint;snapshot jsonb;begin
+ s:=public.create_series_with_organization('Independent touring series','',null,'Independent organizer');
+ insert into public.series_classes(series_id,name) values((s->>'series_id')::uuid,'Class') returning id into c;
+ se:=public.create_competition_season(null,(s->>'series_id')::uuid,'Season One',current_date-10,null);
+ se2:=public.create_competition_season(null,(s->>'series_id')::uuid,'Season Two',current_date+100,null);
+ select id into c from public.competition_classes where season_id=se;
+ insert into public.competition_registrations(season_id,class_id,display_name,vehicle_name,joined_on) values(se,c,'Jay','Truck One',current_date-1) returning id into r;
+ insert into public.competition_registrations(season_id,class_id,display_name,vehicle_name,joined_on) values(se,c,'Jay','Truck Two',current_date-1) returning id into r2;
+ if (select count(*) from public.competition_registrations where season_id=se2)<>0 then raise exception 'New season reused registrations';end if;
+ select rules_revision into v from public.competition_seasons where id=se;
+ perform public.record_competition_points(se,r,null,'adjustment',3,'Early signup',v);
+ select rules_revision into v from public.competition_seasons where id=se;
+ begin perform public.record_competition_points(se,r,null,'adjustment',3,' ',v);raise exception 'Missing explanation accepted' using errcode='XX000';exception when raise_exception then null;end;
+ insert into public.events(series_id,competition_season_id,name,slug,local_date,status,venue_description) values((s->>'series_id')::uuid,se,'Race','independent-race',current_date,'draft','LDMB, venue description only') returning id into e;
+ if (select track_id from public.events where id=e) is not null then raise exception 'Series linked to a track';end if;
+ select id into ec from public.event_classes where event_id=e;
+ if public.import_competition_registrations(e)<>2 or public.import_competition_registrations(e)<>0 then raise exception 'Entry import not idempotent';end if;
+ perform public.create_race_entry((s->>'series_id')::uuid,e,ec,'Jeremy local',null);
+ if (select count(*) from public.competition_registrations where season_id=se)<>2 then raise exception 'Local auto registered';end if;
+ select working_revision into v from public.events where id=e;
+ perform public.complete_race_event(e,v,(select jsonb_agg(jsonb_build_object('id',en.id,'final_rank',en.order_num)) from public.entries en where event_class_id=ec));
+ select payload into snapshot from public.event_result_versions where event_id=e;
+ if not exists(select 1 from jsonb_array_elements(snapshot->'registrations') rr where rr->>'id'=r::text and (rr->>'eligible')::boolean) then raise exception 'Official eligibility not frozen';end if;
+ update public.competition_registrations set left_on=current_date+1 where id=r;
+ if (select payload from public.event_result_versions where event_id=e) is distinct from snapshot then raise exception 'Withdrawal rewrote official history';end if;
+ perform set_config('test.independent.event',e::text,true);perform set_config('test.independent.season',se::text,true);
+end $$;
+set local request.jwt.claim.sub='f9000000-0000-4000-8000-000000000002';
+do $$declare t jsonb;v uuid;begin
+ t:=public.register_track_with_state('LDMB',null,'America/New_York','independent-host','NC');
+ if public.can_edit_race(current_setting('test.independent.event')::uuid) then raise exception 'Hosting track owner received series access';end if;
+ begin perform public.set_race_event_status(current_setting('test.independent.event')::uuid,'live',1);raise exception 'Host edited series results' using errcode='XX000';exception when insufficient_privilege then null;end;
+ v:=public.create_competition_season((t->>'track_id')::uuid,null,'Track in-house season',current_date,null);
+end $$;
+reset role;select 'independent competitions: PASS' result;rollback;

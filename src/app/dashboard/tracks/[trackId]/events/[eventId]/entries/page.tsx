@@ -1,3 +1,4 @@
+import {raceContext} from "@/lib/race-context";
 import { readAll } from "@/lib/read-all";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -6,8 +7,8 @@ import Link from "next/link";
 import { Timer, Trash2, AlertCircle } from "lucide-react";
 import { InlineOrderInput } from "./InlineOrderInput";
 
-export default async function ManageEntriesPage({ params, searchParams }: { params: Promise<{ trackId: string; eventId: string }>, searchParams: Promise<{ error?: string }> }) {
-  const { trackId, eventId } = await params;
+export default async function ManageEntriesPage({ params, searchParams }: { params: Promise<{ trackId?: string; seriesId?: string; eventId: string }>, searchParams: Promise<{ error?: string }> }) {
+  const {ownerId:trackId,ownerType,ownerColumn,ownerPath,eventId}=raceContext(await params);
   const { error } = await searchParams;
   const supabase = await createClient();
 
@@ -26,7 +27,7 @@ export default async function ManageEntriesPage({ params, searchParams }: { para
         <div className="p-8 text-center bg-slate-900 border border-slate-800 rounded-xl space-y-4">
           <p className="text-slate-400">You need to add at least one class to this event before you can add contestants.</p>
           <Link 
-            href={`/dashboard/tracks/${trackId}/events/${eventId}/classes/new`}
+            href={`${ownerPath}/events/${eventId}/classes/new`}
             className="inline-block px-4 py-2 bg-amber-500 hover:bg-amber-400 text-amber-950 font-bold rounded-lg transition"
           >
             Add First Class
@@ -37,10 +38,10 @@ export default async function ManageEntriesPage({ params, searchParams }: { para
   }
 
 
-  const {data:event}=await supabase.from("events").select("series_id").eq("id",eventId).single();
-  const {data:rosters}=event?.series_id ? await readAll(supabase.from("series_rosters").select("*").eq("series_id",event.series_id)) : {data:[]};
-  async function importRoster(){"use server";const db=await createClient();const {error}=await db.rpc("import_series_roster",{p_event_id:eventId});if(error)redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries?error=${encodeURIComponent(error.message)}`);revalidatePath("/dashboard/tracks","layout");redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries`);}
-  async function linkIdentity(f:FormData){"use server";const db=await createClient();const {error}=await db.from("entries").update({series_roster_id:String(f.get("roster_id"))}).eq("id",String(f.get("entry_id"))).in("event_class_id",classes!.map(c=>c.id)).select("id").single();if(error)redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries?error=${encodeURIComponent(error.message)}`);revalidatePath("/dashboard/tracks","layout");redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries`);}
+  const {data:event}=await supabase.from("events").select("competition_season_id").eq("id",eventId).single();
+  const {data:rosters}=event?.competition_season_id ? await readAll(supabase.from("competition_registrations").select("*").eq("season_id",event.competition_season_id)) : {data:[]};
+  async function importRoster(){"use server";const db=await createClient();const {error}=await db.rpc("import_competition_registrations",{p_event_id:eventId});if(error)redirect(`${ownerPath}/events/${eventId}/entries?error=${encodeURIComponent(error.message)}`);revalidatePath("/dashboard","layout");redirect(`${ownerPath}/events/${eventId}/entries`);}
+  async function linkIdentity(f:FormData){"use server";const db=await createClient();const {error}=await db.from("entries").update({registration_id:String(f.get("roster_id"))||null}).eq("id",String(f.get("entry_id"))).in("event_class_id",classes!.map(c=>c.id)).select("id").single();if(error)redirect(`${ownerPath}/events/${eventId}/entries?error=${encodeURIComponent(error.message)}`);revalidatePath("/dashboard","layout");redirect(`${ownerPath}/events/${eventId}/entries`);}
   async function addEntry(formData: FormData) {
     "use server";
     const displayName = formData.get("display_name") as string;
@@ -51,7 +52,7 @@ export default async function ManageEntriesPage({ params, searchParams }: { para
 
     const orderNum = drawNumber ? Number(drawNumber) : null;
     if (orderNum !== null && (!Number.isInteger(orderNum) || orderNum < 1)) {
-      redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries?error=${encodeURIComponent("Draw number must be a positive integer")}`);
+      redirect(`${ownerPath}/events/${eventId}/entries?error=${encodeURIComponent("Draw number must be a positive integer")}`);
     }
     const { error: dbError } = await supabase.rpc("create_race_entry", {
       p_track_id: trackId, p_event_id: eventId, p_class_id: classId, p_display_name: displayName,
@@ -60,12 +61,12 @@ export default async function ManageEntriesPage({ params, searchParams }: { para
 
     
     if (dbError && dbError.code === '23505') {
-       redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries?error=duplicate_order`);
+       redirect(`${ownerPath}/events/${eventId}/entries?error=duplicate_order`);
     } else if (dbError) {
-       redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries?error=${encodeURIComponent(dbError.message)}`);
+       redirect(`${ownerPath}/events/${eventId}/entries?error=${encodeURIComponent(dbError.message)}`);
     }
 
-    redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries`);
+    redirect(`${ownerPath}/events/${eventId}/entries`);
   }
 
   async function updateOrderAction(formData: FormData) {
@@ -74,16 +75,16 @@ export default async function ManageEntriesPage({ params, searchParams }: { para
     const orderNum = Number(formData.get("order_num"));
     
     const supabase = await createClient();
-    if (!Number.isInteger(orderNum) || orderNum < 1) redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries?error=${encodeURIComponent("Draw number must be a positive integer")}`);
+    if (!Number.isInteger(orderNum) || orderNum < 1) redirect(`${ownerPath}/events/${eventId}/entries?error=${encodeURIComponent("Draw number must be a positive integer")}`);
     const { error: dbError } = await supabase.from("entries").update({ order_num: orderNum }).eq("id", entryId)
       .in("event_class_id",classes!.map(c => c.id)).select("id").single();
     
     if (dbError && dbError.code === '23505') {
-       redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries?error=duplicate_order`);
+       redirect(`${ownerPath}/events/${eventId}/entries?error=duplicate_order`);
     }
-    if (dbError) redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries?error=${encodeURIComponent(dbError.message)}`);
-    revalidatePath(`/dashboard/tracks/${trackId}/events/${eventId}/entries`);
-    redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries`);
+    if (dbError) redirect(`${ownerPath}/events/${eventId}/entries?error=${encodeURIComponent(dbError.message)}`);
+    revalidatePath(`${ownerPath}/events/${eventId}/entries`);
+    redirect(`${ownerPath}/events/${eventId}/entries`);
   }
 
   async function deleteEntry(formData: FormData) {
@@ -92,9 +93,9 @@ export default async function ManageEntriesPage({ params, searchParams }: { para
     const supabase = await createClient();
     const { error: dbError } = await supabase.from("entries").delete().eq("id", entryId)
       .in("event_class_id",classes!.map(c => c.id)).select("id").single();
-    if (dbError) redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries?error=${encodeURIComponent(dbError.message)}`);
-    revalidatePath(`/dashboard/tracks/${trackId}/events/${eventId}/entries`);
-    redirect(`/dashboard/tracks/${trackId}/events/${eventId}/entries`);
+    if (dbError) redirect(`${ownerPath}/events/${eventId}/entries?error=${encodeURIComponent(dbError.message)}`);
+    revalidatePath(`${ownerPath}/events/${eventId}/entries`);
+    redirect(`${ownerPath}/events/${eventId}/entries`);
   }
 
   const { data: entries } = await readAll(supabase
@@ -111,19 +112,19 @@ export default async function ManageEntriesPage({ params, searchParams }: { para
 
   return (
     <div className="p-8 max-w-3xl mx-auto w-full space-y-8">
-      {event?.series_id&&<form action={importRoster}><button className="p-3 rounded bg-amber-500 text-slate-950">Import series roster (keeps existing entries)</button></form>}
-      {event?.series_id && <details className="p-4 border rounded"><summary>Link existing racers to series identities</summary><p>Choose matching class/roster records deliberately. The database rejects cross-class links.</p><form action={linkIdentity} className="space-y-3"><label>Event racer<select name="entry_id" className="block p-3 bg-slate-900 border rounded">{entries.map(e=><option key={e.id} value={e.id}>{e.display_name} · {classes.find(c=>c.id===e.event_class_id)?.name}</option>)}</select></label><label>Series roster identity<select name="roster_id" className="block p-3 bg-slate-900 border rounded">{rosters.map(r=><option key={r.id} value={r.id}>{r.display_name} · {r.series_class_id}</option>)}</select></label><button className="p-3 border rounded">Link identity</button></form></details>}
+      {event?.competition_season_id&&<form action={importRoster}><button className="p-3 rounded bg-amber-500 text-slate-950">Import eligible season entries (keeps existing race entries)</button></form>}
+      {event?.competition_season_id && <details className="p-4 border rounded"><summary>Choose championship registration for a race entry</summary><p>Choose matching class/roster records deliberately. The database rejects cross-class links.</p><form action={linkIdentity} className="space-y-3"><label>Event racer<select name="entry_id" className="block p-3 bg-slate-900 border rounded">{entries.map(e=><option key={e.id} value={e.id}>{e.display_name} · {classes.find(c=>c.id===e.event_class_id)?.name}</option>)}</select></label><label>Season registration<select name="roster_id" className="block p-3 bg-slate-900 border rounded"><option value="">One-race entrant (no championship registration)</option>{rosters.map(r=><option key={r.id} value={r.id}>{r.display_name} · {r.vehicle_name||"Entry"} · {r.class_id}</option>)}</select></label><button className="p-3 border rounded">Link identity</button></form></details>}
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-white">Manage Roster</h2>
         <div className="flex items-center space-x-3">
           <Link 
-            href={`/dashboard/tracks/${trackId}/events/${eventId}/classes/new`}
+            href={`${ownerPath}/events/${eventId}/classes/new`}
             className="flex items-center space-x-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold px-4 py-2 rounded-lg transition"
           >
             <span>Add Class</span>
           </Link>
           <Link 
-            href={`/dashboard/tracks/${trackId}/events/${eventId}/scoring`}
+            href={`${ownerPath}/events/${eventId}/scoring`}
             className="flex items-center space-x-2 bg-amber-500 hover:bg-amber-400 text-amber-950 font-bold px-4 py-2 rounded-lg transition"
           >
             <Timer className="w-4 h-4" />

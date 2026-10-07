@@ -1,3 +1,4 @@
+import {raceContext} from "@/lib/race-context";
 import {judgeInput} from "@/scoring/multi-judge";
 import {officialResult} from "@/lib/official-results";
 import {LiveLeaderboard} from "@/app/r/[slug]/[eventSlug]/live-leaderboard";
@@ -9,23 +10,23 @@ import { ScoringWorkspace } from "./scoring-workspace";
 export default async function EventScoringPage({
   params,
 }: {
-  params: Promise<{ trackId: string; eventId: string }>;
+  params: Promise<{ trackId?: string; seriesId?: string; eventId: string }>;
 }) {
-  const { trackId, eventId } = await params;
+  const {ownerId:trackId,ownerType,ownerColumn,ownerPath,eventId}=raceContext(await params);
   const supabase = await createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: canEdit } = await supabase.rpc("can_edit_track",{p_track_id:trackId});
-  if (!canEdit) redirect(`/dashboard/tracks/${trackId}/events/${eventId}`);
+  const { data: canEdit } = await supabase.rpc("can_edit_race",{p_event_id:eventId});
+  if (!canEdit) redirect(`${ownerPath}/events/${eventId}`);
 
   // Fetch event and track details
   const { data: event } = await supabase
     .from("events")
     .select("id, name, working_revision, status, slug, tracks(slug)")
     .eq("id", eventId)
-    .eq("track_id", trackId)
+    .eq(ownerColumn, trackId)
     .single();
 
   if (!event) redirect("/dashboard");
@@ -68,6 +69,7 @@ export default async function EventScoringPage({
       accountId={user.id}
       trackId={trackId}
       trackSlug={trackSlug}
+      ownerType={ownerType}
       eventSlug={eventSlug}
       event={event}
       classes={classes}

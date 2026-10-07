@@ -1,3 +1,4 @@
+import type {AutoTable,Season,ChampionshipClass,Registration,ChampionshipRule,PointsChange,ChampionshipVersion} from "./competitions";
 export type Json =
   | string
   | number
@@ -14,6 +15,15 @@ export type Database = {
   }
   public: {
     Tables: {
+      competition_bonuses: AutoTable<{id:string;season_id:string;bonus_type:string;points:number;frequency:string;series_class_id:string|null},'season_id'|'bonus_type'|'points'|'frequency'>
+
+      competition_seasons: AutoTable<Season,'name'|'starts_on'>
+      competition_classes: AutoTable<ChampionshipClass,'season_id'|'name'>
+      competition_registrations: AutoTable<Registration,'season_id'|'class_id'|'display_name'|'joined_on'>
+      competition_points_rules: AutoTable<ChampionshipRule,'season_id'|'rank_start'|'rank_end'|'points'>
+      competition_points_changes: AutoTable<PointsChange>
+      competition_result_versions: AutoTable<ChampionshipVersion>
+
       attempts: {
         Row: {
           distance_mm: number | null
@@ -199,6 +209,7 @@ export type Database = {
       }
       entries: {
         Row: {
+          registration_id: string | null
           competitor_id: string | null
           display_name: string
           event_class_id: string
@@ -212,6 +223,7 @@ export type Database = {
           team_id: string | null
         }
         Insert: {
+          registration_id?: string | null
           competitor_id?: string | null
           display_name: string
           event_class_id: string
@@ -225,6 +237,7 @@ export type Database = {
           team_id?: string | null
         }
         Update: {
+          registration_id?: string | null
           competitor_id?: string | null
           display_name?: string
           event_class_id?: string
@@ -270,6 +283,7 @@ export type Database = {
       }
       event_classes: {
         Row: {
+          competition_class_id: string | null
           entry_fee_text: string | null
           event_id: string
           id: string
@@ -281,9 +295,10 @@ export type Database = {
           scoring_version: number
           series_class_id: string | null
           template_id: string | null
-          track_id: string
+          track_id: string | null
         }
         Insert: {
+          competition_class_id?: string | null
           entry_fee_text?: string | null
           event_id: string
           id?: string
@@ -295,9 +310,10 @@ export type Database = {
           scoring_version?: number
           series_class_id?: string | null
           template_id?: string | null
-          track_id: string
+          track_id: string | null
         }
         Update: {
+          competition_class_id?: string | null
           entry_fee_text?: string | null
           event_id?: string
           id?: string
@@ -309,7 +325,7 @@ export type Database = {
           scoring_version?: number
           series_class_id?: string | null
           template_id?: string | null
-          track_id?: string
+          track_id?: string | null
         }
         Relationships: [
           {
@@ -352,7 +368,7 @@ export type Database = {
           reconstructed: boolean
           recorded_at: string
           source_revision: number
-          track_id: string
+          track_id: string | null
           version: number
         }
         Insert: {
@@ -364,7 +380,7 @@ export type Database = {
           reconstructed?: boolean
           recorded_at?: string
           source_revision: number
-          track_id: string
+          track_id: string | null
           version: number
         }
         Update: {
@@ -376,7 +392,7 @@ export type Database = {
           reconstructed?: boolean
           recorded_at?: string
           source_revision?: number
-          track_id?: string
+          track_id?: string | null
           version?: number
         }
         Relationships: [
@@ -398,6 +414,8 @@ export type Database = {
       }
       events: {
         Row: {
+          competition_season_id: string | null
+          venue_description: string | null
           completed_at: string | null
           created_at: string
           defaults_initialized: boolean
@@ -410,11 +428,13 @@ export type Database = {
           slug: string
           starts_at: string | null
           status: string
-          track_id: string
+          track_id: string | null
           updated_at: string
           working_revision: number
         }
         Insert: {
+          competition_season_id?: string | null
+          venue_description?: string | null
           completed_at?: string | null
           created_at?: string
           defaults_initialized?: boolean
@@ -427,11 +447,13 @@ export type Database = {
           slug: string
           starts_at?: string | null
           status: string
-          track_id: string
+          track_id: string | null
           updated_at?: string
           working_revision?: number
         }
         Update: {
+          competition_season_id?: string | null
+          venue_description?: string | null
           completed_at?: string | null
           created_at?: string
           defaults_initialized?: boolean
@@ -444,7 +466,7 @@ export type Database = {
           slug?: string
           starts_at?: string | null
           status?: string
-          track_id?: string
+          track_id?: string | null
           updated_at?: string
           working_revision?: number
         }
@@ -1324,6 +1346,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      record_competition_points: {Args:{p_season_id:string;p_registration_id:string;p_event_id:string|null;p_mode:string;p_points:number;p_reason:string;p_expected_revision:number};Returns:string}
+      publish_competition_standings: {Args:{p_season_id:string;p_expected_revision:number;p_source_ids:string[];p_payload:Json};Returns:string}
+      import_competition_registrations: {Args:{p_event_id:string};Returns:number}
+
+      create_competition_season: {Args:{p_track_id:string|null;p_series_id:string|null;p_name:string;p_starts_on:string;p_ends_on?:string|null};Returns:string}
+      can_manage_competition: {Args:{p_season_id:string};Returns:boolean}
+      attach_competition: {Args:{p_event_id:string;p_season_id:string};Returns:undefined}
+
+      can_edit_race: {Args:{p_event_id:string};Returns:boolean}
+      can_manage_race: {Args:{p_event_id:string};Returns:boolean}
+      can_publish_race: {Args:{p_event_id:string};Returns:boolean}
+      race_judge_candidates: {Args:{p_event_id:string};Returns:{user_id:string;label:string}[]}
+      edit_series_venue: {Args:{p_event_id:string;p_description:string};Returns:undefined}
+
       add_series_award: {
         Args: {
           p_class_id: string

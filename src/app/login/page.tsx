@@ -1,7 +1,6 @@
-import {accountModes} from "@/lib/account-mode";
 import Link from "next/link";
 import { Flag, ShieldCheck } from "lucide-react";
-import { login, signup } from "./actions";
+import { login } from "./actions";
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
@@ -43,7 +42,7 @@ export default async function LoginPage(props: { searchParams: SearchParams }) {
             </div>
           )}
 
-          <form className="space-y-4">
+          <form action={login} className="space-y-4">
             <div>
               <label
                 htmlFor="email"
@@ -80,24 +79,16 @@ export default async function LoginPage(props: { searchParams: SearchParams }) {
               />
             </div>
 
-            <label className="block text-sm">New account: how do you run races?<select name="operating_mode" defaultValue="single_track" className="block w-full p-3 mt-2 bg-slate-950 border rounded">{accountModes.map(([id,label])=><option key={id} value={id}>{label}</option>)}</select><span className="text-slate-400 text-xs">Change this later in account settings.</span></label>
             <div className="pt-2 flex flex-col sm:flex-row gap-3">
               <button
                 type="submit"
-                formAction={login}
                 className="flex-1 py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm transition shadow-md shadow-amber-500/20"
               >
                 Sign In
               </button>
-              <button
-                type="submit"
-                formAction={signup}
-                className="flex-1 py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-semibold text-sm transition"
-              >
-                Register
-              </button>
             </div>
           </form>
+          <p className="mt-5 text-center text-sm text-slate-400">New here? <Link href="/register" className="font-semibold text-amber-400 underline">Create an account</Link></p>
 
           <div className="mt-6 pt-6 border-t border-slate-800/80 text-center">
             <div className="inline-flex items-center text-xs text-slate-500 space-x-1.5">

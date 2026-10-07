@@ -1,4 +1,5 @@
 import {AccountSafety} from "@/components/account-safety";
+import {BackNavigation} from "@/components/back-navigation";
 import type { Metadata } from "next";
 import "./globals.css";
 
@@ -17,6 +18,7 @@ export default function RootLayout({
       <head><script dangerouslySetInnerHTML={{__html:"try{var t=localStorage.getItem('raceholler:theme');if(t==='day'){document.documentElement.dataset.theme='day';document.documentElement.classList.remove('dark');}}catch(e){}"}}/></head>
       <body className="bg-slate-950 text-slate-100 antialiased selection:bg-amber-500 selection:text-slate-950 min-h-screen flex flex-col">
         <AccountSafety/>
+        <BackNavigation/>
         {children}
       </body>
     </html>

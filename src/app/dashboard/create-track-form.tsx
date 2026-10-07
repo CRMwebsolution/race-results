@@ -5,7 +5,7 @@ import { PlusCircle, Loader2, CheckCircle2, Globe } from "lucide-react";
 import { registerTrackAction, type ActionState } from "./actions";
 import { generateTrackSlug } from "@/lib/slug";
 
-export function CreateTrackForm() {
+export function CreateTrackForm({ compact = false }: { compact?: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
   const [trackName, setTrackName] = useState("");
   const [shorthand, setShorthand] = useState("");
@@ -26,20 +26,23 @@ export function CreateTrackForm() {
   const previewSlug = generateTrackSlug(trackName, shorthand);
 
   return (
-    <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
-      <div className="flex items-center justify-between mb-4">
-        <div>
+    <div className={compact ? "space-y-3" : "bg-slate-900/60 border border-slate-800 rounded-2xl p-6"}>
+      <div className={compact ? "flex justify-end" : "flex flex-wrap items-center justify-between gap-3 mb-4"}>
+        {!compact && <div>
           <h3 className="text-lg font-bold text-white">Register New Track</h3>
           <p className="text-sm text-slate-400">
             Configure your race venue, public link, and timezone.
           </p>
-        </div>
+        </div>}
         <button
+          type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-sm transition flex items-center space-x-1.5"
+          aria-expanded={isOpen}
+          aria-controls="create-track-fields"
+          className={`px-4 py-2 font-semibold rounded-xl text-sm transition flex items-center space-x-1.5 ${compact ? "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700" : "bg-amber-500 hover:bg-amber-400 text-slate-950"}`}
         >
           <PlusCircle className="w-4 h-4" />
-          <span>{isOpen ? "Close Form" : "New Track"}</span>
+          <span>{isOpen ? "Close Form" : compact ? "Create another track" : "New Track"}</span>
         </button>
       </div>
 
@@ -57,7 +60,8 @@ export function CreateTrackForm() {
       )}
 
       {isOpen && (
-        <form action={formAction} className="mt-4 pt-4 border-t border-slate-800 space-y-4">
+        <form id="create-track-fields" action={formAction} className={compact ? "p-5 bg-slate-900 border border-slate-800 rounded-xl space-y-4" : "mt-4 pt-4 border-t border-slate-800 space-y-4"}>
+          {compact && <h3 className="text-lg font-bold">Create another track</h3>}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">

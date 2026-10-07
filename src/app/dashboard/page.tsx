@@ -140,10 +140,10 @@ export default async function DashboardPage() {
 
         {/* Register New Track Form */}
         {!user.user_metadata.operating_mode && <p className="p-4 border border-amber-500 rounded">Tailor your dashboard: <Link href="/dashboard/settings" className="text-amber-400">choose how you run races</Link>.</p>}
-        {features.tracks && <CreateTrackForm />}
+        {features.tracks && validMemberships.length === 0 && <CreateTrackForm />}
 
         {/* Tracks & Venues Section */}
-        {features.tracks && <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
+        {(features.tracks || validMemberships.length > 0) && <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-2.5">
               <MapPin className="w-5 h-5 text-amber-500" />
@@ -163,7 +163,7 @@ export default async function DashboardPage() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className={`grid grid-cols-1 gap-4 ${validMemberships.length > 1 ? "md:grid-cols-2" : ""}`}>
               {validMemberships.map((membership) => {
                 const track = membership.tracks;
                 return (
@@ -174,7 +174,7 @@ export default async function DashboardPage() {
                     <div className="space-y-2">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center space-x-2 flex-wrap gap-y-1">
-                          <h4 className="font-bold text-white text-base">{track.name}</h4>
+                          <h4 className="font-bold text-white text-xl">{track.name}</h4>
                           {track.shorthand && (
                             <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-400">
                               {track.shorthand}
@@ -208,7 +208,7 @@ export default async function DashboardPage() {
                         </Link>
                         <Link
                           href={`/dashboard/tracks/${track.id}`}
-                          className="text-xs font-bold px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-amber-950 transition"
+                          className="text-sm font-bold px-4 py-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 transition"
                         >
                           Manage Track
                         </Link>
@@ -219,21 +219,22 @@ export default async function DashboardPage() {
               })}
             </div>
           )}
+          {validMemberships.length > 0 && <div className="mt-4"><CreateTrackForm compact /></div>}
         </div>
 
         }
         {/* Championship Series Section */}
-        {features.series && <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-6">
+        {(features.series || (mySeries?.length ?? 0) > 0) && <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
             <div className="flex items-center space-x-2.5">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path></svg>
               <h2 className="text-lg font-bold text-white">Championship Series</h2>
             </div>
             <Link 
               href="/dashboard/series/new"
-              className="text-xs font-bold px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-amber-950 transition flex items-center space-x-1"
+              className={`text-xs font-semibold px-3 py-2 rounded-lg transition flex items-center gap-1 ${(mySeries?.length ?? 0) > 0 ? "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700" : "bg-amber-500 hover:bg-amber-400 text-slate-950"}`}
             >
-              <span>Create Series</span>
+              <span>{(mySeries?.length ?? 0) > 0 ? "+ Create another series" : "Create Series"}</span>
             </Link>
           </div>
 
@@ -246,14 +247,14 @@ export default async function DashboardPage() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className={`grid grid-cols-1 gap-4 ${mySeries.length > 1 ? "md:grid-cols-2" : ""}`}>
               {mySeries.map((series) => (
                 <div
                   key={series.id}
                   className="p-5 rounded-xl bg-slate-950/70 border border-slate-800/90 hover:border-slate-700/80 transition flex flex-col justify-between space-y-4"
                 >
                   <div className="space-y-1">
-                    <h4 className="font-bold text-white text-base">{series.name}</h4>
+                    <h4 className="font-bold text-white text-xl">{series.name}</h4>
                     {series.description && (
                       <p className="text-xs text-slate-400 line-clamp-2">{series.description}</p>
                     )}
@@ -262,7 +263,7 @@ export default async function DashboardPage() {
                   <div className="pt-3 border-t border-slate-800/80 flex items-center justify-end">
                     <Link
                       href={`/dashboard/series/${series.id}`}
-                      className="text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
+                      className="text-sm font-bold px-4 py-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 transition"
                     >
                       Manage Series &rarr;
                     </Link>

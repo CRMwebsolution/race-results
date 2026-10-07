@@ -2,9 +2,9 @@
 import Link from 'next/link';
 import {usePathname} from 'next/navigation';
 import {SpectatorQR} from './spectator-qr';
-export function RaceNav({base,publicPath,eventName}:{base:string;publicPath:string;eventName:string}){
+export function RaceNav({base,publicPath,eventName,judgeOnly=false}:{base:string;publicPath:string;eventName:string;judgeOnly?:boolean}){
  const pathname=usePathname();
- const tabs=[['','Classes & rules'],['entries','Contestants'],['settings','Date & status'],['scoring','Enter results']];
+ const tabs=judgeOnly?[['judging','Enter judge scores']]:[['','Classes & rules'],['entries','Contestants'],['settings','Date & status'],['scoring','Enter results']];
  return <nav aria-label="Race navigation" className="flex flex-wrap gap-1 rounded-xl border border-slate-700 bg-slate-900 p-1 print:hidden">{tabs.map(([path,label])=>{
   const href=`${base}${path?'/'+path:''}`;
   const active=path?pathname===href:pathname===base||pathname.startsWith(base+'/classes/');

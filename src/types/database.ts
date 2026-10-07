@@ -14,6 +14,18 @@ export type Database = {
   }
   public: {
     Tables: {
+      race_staff: {
+        Row: { event_id: string; user_id: string; role: string; active: boolean; created_at: string }
+        Insert: { event_id: string; user_id: string; role: string; active?: boolean; created_at?: string }
+        Update: { active?: boolean; role?: string }
+        Relationships: [{ foreignKeyName: "race_staff_event_id_fkey"; columns: ["event_id"]; isOneToOne: false; referencedRelation: "events"; referencedColumns: ["id"] }]
+      }
+      race_staff_invitations: {
+        Row: { id: string; event_id: string; email: string; role: string; class_id: string | null; judge_label: string | null; token: string; created_by: string; created_at: string; expires_at: string; revoked_at: string | null; accepted_at: string | null; accepted_by: string | null }
+        Insert: { event_id: string; email: string; role: string; created_by: string }
+        Update: { revoked_at?: string | null }
+        Relationships: []
+      }
       attempts: {
         Row: {
           distance_mm: number | null
@@ -1711,6 +1723,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_view_staff_race: { Args: { p_event_id: string }; Returns: boolean }
+      can_access_track_workspace: { Args: { p_track_id: string }; Returns: boolean }
+      can_access_series_workspace: { Args: { p_series_id: string }; Returns: boolean }
+      create_race_staff_invitation: { Args: { p_event_id: string; p_email: string; p_role: string; p_class_id?: string; p_judge_label?: string }; Returns: string }
+      cancel_race_staff_invitation: { Args: { p_invitation_id: string }; Returns: undefined }
+      accept_race_staff_invitation: { Args: { p_token: string }; Returns: Json }
+      remove_race_staff: { Args: { p_event_id: string; p_user_id: string }; Returns: undefined }
       spectator_points_for_season: {
         Args: { p_season_id: string }
         Returns: string

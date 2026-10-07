@@ -1,12 +1,12 @@
 # RaceHoller implementation roadmap
 
-Updated October 6, 2026. This tracker reflects inspected implementation and recorded test coverage, not a general production-readiness certification. Detailed evidence: `FIXES_1_10_REPORT.md`; concise coding context: `REPAIR_HANDOFF.md`.
+Updated October 7, 2026. This tracker reflects inspected implementation and recorded test coverage, not a general production-readiness certification. Detailed evidence: `FIXES_1_10_REPORT.md`; concise coding context: `REPAIR_HANDOFF.md`.
 
 | Phase | Scope | Current status |
 | --- | --- | --- |
 | 1 | Tenant foundation, Auth and scoring contracts | Implemented; role/SQL/unit checks passed. Actual email delivery remains a provider/field check. |
 | 2 | Racing core, management, live/official results and offline scoring | Implemented with recorded acceptance coverage; physical-device/long-night verification remains. |
-| 3 | Advanced scoring, multi-judge workflows and series championships | Implemented core plus admin overview; billing/grant controls remain Phase 4. |
+| 3 | Advanced scoring, multi-judge workflows and series championships | Implementation complete, including class-grouped standings and race staff/judge invitations. Billing/grant controls remain Phase 4. |
 | 4 | Billing, registration, retention and pit display | Not started. Complete the manual/provider readiness follow-ups before a paid launch. |
 
 ## Phase 1: foundation
@@ -40,7 +40,8 @@ Updated October 6, 2026. This tracker reflects inspected implementation and reco
 - [x] Per-class championship placement/bonus/manual-award calculation using official versions, source/rule validation and retained publication history.
 - [x] Public series/standings pages and event-by-event breakdowns.
 - [x] Platform admin overview; tier/billing controls are identified as unimplemented.
-- [ ] Judge/staff invitation automation (judges currently need existing authorized membership).
+- [x] Race-scoped staff/judge invitation links: confirmed-email acceptance, automatic class assignment, seven-day expiry, cancellation/removal and dashboard access. Organizers share links by copy or an email draft; no automatic email delivery is claimed.
+- [x] Owner and spectator series standings grouped by class; series/season terminology clarified.
 - [ ] Paid capacity/entitlements, admin grants and retention enforcement (Phase 4).
 
 ## Phase 4: next implementation work

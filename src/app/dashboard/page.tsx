@@ -1,3 +1,4 @@
+import {AssignedRaces} from "@/components/assigned-races";
 import {readAll} from "@/lib/read-all";
 import {modeFeatures} from "@/lib/account-mode";
 import { redirect } from "next/navigation";
@@ -140,6 +141,7 @@ export default async function DashboardPage() {
 
         {/* Register New Track Form */}
         {!user.user_metadata.operating_mode && <p className="p-4 border border-amber-500 rounded">Tailor your dashboard: <Link href="/dashboard/settings" className="text-amber-400">choose how you run races</Link>.</p>}
+        <AssignedRaces/>
         {(() => {
           const trackSection = <>
         {features.tracks && validMemberships.length === 0 && <CreateTrackForm />}

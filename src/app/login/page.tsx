@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { Flag, ShieldCheck } from "lucide-react";
+import {authReturnPath} from "@/lib/auth-return";
 import { login } from "./actions";
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
 export default async function LoginPage(props: { searchParams: SearchParams }) {
   const searchParams = await props.searchParams;
+  const next=authReturnPath(searchParams.next);
   const error = typeof searchParams.error === "string" ? searchParams.error : null;
   const message = typeof searchParams.message === "string" ? searchParams.message : null;
 
@@ -43,12 +45,13 @@ export default async function LoginPage(props: { searchParams: SearchParams }) {
           )}
 
           <form action={login} className="space-y-4">
+            <input type="hidden" name="next" value={next}/>
             <div>
               <label
                 htmlFor="email"
                 className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5"
               >
-                Official Email
+                Email
               </label>
               <input
                 id="email"
@@ -88,7 +91,7 @@ export default async function LoginPage(props: { searchParams: SearchParams }) {
               </button>
             </div>
           </form>
-          <p className="mt-5 text-center text-sm text-slate-400">New here? <Link href="/register" className="font-semibold text-amber-400 underline">Create an account</Link></p>
+          <p className="mt-5 text-center text-sm text-slate-400">New here? <Link href={next==='/dashboard'?'/register':`/register?next=${encodeURIComponent(next)}`} className="font-semibold text-amber-400 underline">Create an account</Link></p>
 
           <div className="mt-6 pt-6 border-t border-slate-800/80 text-center">
             <div className="inline-flex items-center text-xs text-slate-500 space-x-1.5">

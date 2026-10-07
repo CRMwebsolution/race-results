@@ -22,7 +22,7 @@ export default async function EventScoringPage({
   if (!user) redirect("/login");
 
   const { data: canEdit } = await supabase.rpc("can_edit_race",{p_event_id:eventId});
-  if (!canEdit) redirect(`${ownerPath}/events/${eventId}`);
+  if (!canEdit) redirect(`${ownerPath}/events/${eventId}/judging`);
 
   // Fetch event and track details
   const { data: event } = await supabase

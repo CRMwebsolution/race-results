@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { readAll } from "@/lib/read-all";
 import { redirect } from "next/navigation";
 import { CreditCard, Zap, Check } from "lucide-react";
+import { displayPrice } from "@/lib/billing/catalog";
 
 
 export default async function BillingPage({searchParams}: {searchParams:Promise<{error?:string;success?:string;canceled?:string}>}) {
@@ -91,7 +92,7 @@ export default async function BillingPage({searchParams}: {searchParams:Promise<
                   <div className="flex-1">
                     <h4 className="text-xl font-bold text-white mb-2">Event Pass</h4>
                     <p className="text-slate-400 text-sm mb-6">Perfect for single events or one-off races.</p>
-                    <div className="text-3xl font-black text-white mb-6">$49 <span className="text-sm font-medium text-slate-500">/ event</span></div>
+                    <div className="text-3xl font-black text-white mb-6">{displayPrice("event_pass")} <span className="text-sm font-medium text-slate-500">/ event</span></div>
                     <ul className="space-y-3 mb-8">
                       <li className="flex items-start text-sm text-slate-300"><Check className="w-4 h-4 text-emerald-500 mr-2 shrink-0 mt-0.5"/> Adds 1 credit, used when an event first goes live</li>
                       <li className="flex items-start text-sm text-slate-300"><Check className="w-4 h-4 text-emerald-500 mr-2 shrink-0 mt-0.5"/> Supports 1 Track & 1 Series</li>
@@ -115,7 +116,7 @@ export default async function BillingPage({searchParams}: {searchParams:Promise<
                   <div className="flex-1">
                     <h4 className="text-xl font-bold text-white mb-2">Standard</h4>
                     <p className="text-slate-400 text-sm mb-6">For dedicated Track owners OR Series promoters.</p>
-                    <div className="text-3xl font-black text-white mb-6">$199 <span className="text-sm font-medium text-slate-500">/ season</span></div>
+                    <div className="text-3xl font-black text-white mb-6">{displayPrice("standard")} <span className="text-sm font-medium text-slate-500">/ season</span></div>
                     <ul className="space-y-3 mb-8">
                       <li className="flex items-start text-sm text-slate-300"><Check className="w-4 h-4 text-blue-500 mr-2 shrink-0 mt-0.5"/> Unlimited Events</li>
                       <li className="flex items-start text-sm text-slate-300"><Check className="w-4 h-4 text-blue-500 mr-2 shrink-0 mt-0.5"/> Up to 3 Tracks OR 3 Series</li>
@@ -139,7 +140,7 @@ export default async function BillingPage({searchParams}: {searchParams:Promise<
                   <div className="flex-1">
                     <h4 className="text-xl font-bold text-white mb-2">Premium</h4>
                     <p className="text-slate-400 text-sm mb-6">The ultimate package for managing both tracks and series.</p>
-                    <div className="text-3xl font-black text-white mb-6">$349 <span className="text-sm font-medium text-slate-500">/ season</span></div>
+                    <div className="text-3xl font-black text-white mb-6">{displayPrice("premium")} <span className="text-sm font-medium text-slate-500">/ season</span></div>
                     <ul className="space-y-3 mb-8">
                       <li className="flex items-start text-sm text-slate-300"><Check className="w-4 h-4 text-amber-500 mr-2 shrink-0 mt-0.5"/> Unlimited Events</li>
                       <li className="flex items-start text-sm text-slate-300"><Check className="w-4 h-4 text-amber-500 mr-2 shrink-0 mt-0.5"/> Up to 3 Tracks AND 3 Series</li>

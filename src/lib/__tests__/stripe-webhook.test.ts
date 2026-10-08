@@ -27,7 +27,7 @@ beforeEach(()=>{
  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL","https://example.test");
  vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY","local_test_service");
  state.session={id:"cs_test",mode:"payment",payment_status:"paid",client_reference_id:"org",metadata:{orgId:"org",tier:"event_pass",userId:"owner"},
-  amount_total:4900,currency:"usd",line_items:{data:[{quantity:1,price:{id:plans.event_pass.price}}]}};
+  amount_total:plans.event_pass.amount,currency:"usd",line_items:{data:[{quantity:1,price:{id:plans.event_pass.price}}]}};
  state.rpc.mockReset().mockResolvedValue({data:true,error:null});
  state.notice.mockReset().mockResolvedValue(0);
 });
@@ -38,7 +38,7 @@ describe("Stripe payment boundary",()=>{
  it("rejects an invalid signature",async()=>{const req=request();req.headers.set("stripe-signature","invalid");expect((await POST(req)).status).toBe(400);expect(state.rpc).not.toHaveBeenCalled();});
  it("waits for payment before granting access",async()=>{state.session.payment_status="unpaid";expect((await POST(request())).status).toBe(200);expect(state.rpc).not.toHaveBeenCalled();});
  it("rejects a mismatched paid tier and price",async()=>{state.session.metadata={orgId:"org",tier:"premium"};expect((await POST(request())).status).toBe(400);expect(state.rpc).not.toHaveBeenCalled();});
- it("activates a verified paid session before notifying",async()=>{expect((await POST(request())).status).toBe(200);expect(state.rpc).toHaveBeenCalledWith("apply_paid_entitlement",expect.objectContaining({p_session_id:"cs_test",p_tier:"event_pass",p_amount:4900}));expect(state.notice).toHaveBeenCalledOnce();});
+ it("activates a verified paid session before notifying",async()=>{expect((await POST(request())).status).toBe(200);expect(state.rpc).toHaveBeenCalledWith("apply_paid_entitlement",expect.objectContaining({p_session_id:"cs_test",p_tier:"event_pass",p_amount:plans.event_pass.amount}));expect(state.notice).toHaveBeenCalledOnce();});
  it("handles delayed payment success",async()=>{expect((await POST(request("checkout.session.async_payment_succeeded"))).status).toBe(200);expect(state.rpc).toHaveBeenCalledOnce();});
  it("returns failure so Stripe retries a failed activation",async()=>{state.rpc.mockResolvedValue({error:{message:"Temporary database failure"}});expect((await POST(request())).status).toBe(500);expect(state.notice).not.toHaveBeenCalled();});
 });

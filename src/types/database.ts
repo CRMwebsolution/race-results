@@ -1053,6 +1053,11 @@ export type Database = {
       }
       organizations: {
         Row: {
+          active_tier: string
+          event_quota: number
+          subscription_end_date: string | null
+          stripe_customer_id: string | null
+          limits_exempt: boolean
           billing_email: string
           created_at: string
           id: string
@@ -1060,6 +1065,11 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          active_tier?: string
+          event_quota?: number
+          subscription_end_date?: string | null
+          stripe_customer_id?: string | null
+          limits_exempt?: boolean
           billing_email: string
           created_at?: string
           id?: string
@@ -1067,6 +1077,11 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          active_tier?: string
+          event_quota?: number
+          subscription_end_date?: string | null
+          stripe_customer_id?: string | null
+          limits_exempt?: boolean
           billing_email?: string
           created_at?: string
           id?: string
@@ -1723,6 +1738,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_grant_entitlement: {
+        Args: { p_org_id: string; p_tier: string; p_quota: number; p_end_date: string | null; p_reason: string; p_limits_exempt?: boolean }
+        Returns: undefined
+      }
+      grant_organization_entitlement: {
+        Args: { p_org_id: string; p_tier: string; p_quota: number; p_end_date: string | null }
+        Returns: undefined
+      }
       can_view_staff_race: { Args: { p_event_id: string }; Returns: boolean }
       can_access_track_workspace: { Args: { p_track_id: string }; Returns: boolean }
       can_access_series_workspace: { Args: { p_series_id: string }; Returns: boolean }

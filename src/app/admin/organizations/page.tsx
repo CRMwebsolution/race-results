@@ -1,111 +1,53 @@
 import { createClient } from "@/lib/supabase/server";
-import Link from "next/link";
-import { ExternalLink, CreditCard } from "lucide-react";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
-export default async function AdminOrganizationsPage() {
+async function grantAccess(form: FormData) {
+  "use server";
   const supabase = await createClient();
+  const expiry = String(form.get("expires") || "");
+  const quota = Number(form.get("credits"));
+  if (!Number.isSafeInteger(quota) || quota < 0) redirect("/admin/organizations?error=Enter+a+whole+number+of+credits");
+  const { error } = await supabase.rpc("admin_grant_entitlement", {
+    p_org_id: String(form.get("orgId")), p_tier: String(form.get("tier")),
+    p_quota: quota, p_end_date: expiry ? new Date(expiry + "T23:59:59Z").toISOString() : null,
+    p_reason: String(form.get("reason") || ""), p_limits_exempt: form.get("exempt") === "on",
+  });
+  if (error) redirect("/admin/organizations?error=" + encodeURIComponent(error.message));
+  revalidatePath("/", "layout");
+  redirect("/admin/organizations?success=Access+updated");
+}
 
-  const { data: orgs } = await supabase
-    .from("organizations")
-    .select(`
-      id, 
-      name, 
-      tracks (id, name)
-    `)
-    .order("name", { ascending: true });
-
-  return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      <h1 className="text-2xl font-bold text-white">Registered Organizations</h1>
-
-      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-        <table className="w-full text-left text-sm text-slate-300">
-          <thead className="bg-slate-800/80 text-xs uppercase font-semibold text-slate-400 border-b border-slate-700">
-            <tr>
-              <th className="px-6 py-4">Organization</th>
-              <th className="px-6 py-4">Tracks</th>
-              <th className="px-6 py-4">Subscription</th>
-              <th className="px-6 py-4 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-800/50">
-            {orgs?.map((org: any) => (
-              <tr key={org.id} className="hover:bg-slate-800/30 transition">
-                <td className="px-6 py-4 font-medium text-white">{org.name}</td>
-                <td className="px-6 py-4">
-                  <div className="flex flex-col gap-1">
-                    {org.tracks.map((t: any) => (
-                      <Link 
-                        key={t.id} 
-                        href={`/dashboard/tracks/${t.id}`}
-                        className="text-amber-500 hover:text-amber-400 flex items-center space-x-1"
-                      >
-                        <span>{t.name}</span>
-                        <ExternalLink className="w-3 h-3" />
-                      </Link>
-                    ))}
-                    {org.tracks.length === 0 && <span className="text-slate-500 italic">No tracks</span>}
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <span className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-widest border ${
-                    org.active_tier === 'premium' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
-                    org.active_tier === 'standard' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                    'bg-slate-800 text-slate-400 border-slate-700'
-                  }`}>
-                    {org.active_tier || 'free'}
-                  </span>
-                  <div className="text-xs text-slate-500 mt-1">Quota: {org.event_quota || 0}</div>
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <form action={async (formData) => {
-                    'use server';
-                    const supabase = await createClient();
-                    const tier = formData.get('tier') as string;
-                    const orgId = formData.get('orgId') as string;
-                    const action = formData.get('admin_action') as string;
-                    
-                    if (action === 'bypass') {
-                      await supabase.rpc('grant_organization_entitlement', {
-                        p_org_id: orgId, p_tier: 'premium', p_quota: 9999, p_end_date: '2099-12-31'
-                      });
-                    } else if (action === 'set_tier') {
-                      await supabase.rpc('grant_organization_entitlement', {
-                        p_org_id: orgId, p_tier: tier, p_quota: 100, p_end_date: '2099-12-31'
-                      });
-                    }
-                    revalidatePath('/', 'layout');
-                  }}>
-                    <input type="hidden" name="orgId" value={org.id} />
-                    <div className="flex items-center justify-end space-x-2">
-                      <select name="tier" className="bg-slate-800 border border-slate-700 text-slate-300 text-xs rounded px-2 py-1">
-                        <option value="free">Free</option>
-                        <option value="event_pass">Event Pass</option>
-                        <option value="standard">Standard</option>
-                        <option value="premium">Premium</option>
-                      </select>
-                      <button name="admin_action" value="set_tier" className="text-xs font-semibold px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-white transition">
-                        Set
-                      </button>
-                      <button name="admin_action" value="bypass" className="text-xs font-semibold px-2 py-1 bg-amber-500/20 text-amber-500 hover:bg-amber-500/30 border border-amber-500/30 rounded transition" title="Grant unlimited lifetime premium access">
-                        Bypass Limits
-                      </button>
-                    </div>
-                  </form>
-                </td>
-              </tr>
-            ))}
-            {orgs?.length === 0 && (
-              <tr>
-                <td colSpan={4} className="px-6 py-8 text-center text-slate-500">
-                  No organizations found.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+export default async function AdminOrganizationsPage({ searchParams }: { searchParams: Promise<{error?: string; success?: string}> }) {
+  const params = await searchParams;
+  const supabase = await createClient();
+  const { data: admin, error: adminError } = await supabase.rpc("is_platform_admin");
+  if (adminError || !admin) redirect("/dashboard");
+  const { data: orgs, error } = await supabase.from("organizations")
+    .select("id,name,active_tier,event_quota,subscription_end_date,limits_exempt,tracks(id,name),series(id,name)").order("name");
+  return <div className="space-y-6 max-w-5xl mx-auto">
+    <h1 className="text-2xl font-bold">Account access</h1>
+    <p>Grant plans without payment. These grants are recorded with your reason.</p>
+    {(params.error || error) && <p role="alert" className="text-red-400">{params.error || error?.message}</p>}
+    {params.success && <p role="status" className="text-emerald-400">{params.success}</p>}
+    {orgs?.map(org => <section key={org.id} className="rounded-xl border border-slate-700 p-5 space-y-3">
+      <h2 className="font-bold text-xl">{org.name}</h2>
+      <p>{org.tracks.map(t => t.name).concat(org.series.map(s => s.name)).join(" · ") || "No assets yet"}</p>
+      <p>{org.active_tier.replace("_"," ")} · {org.event_quota} credits remaining
+        {org.subscription_end_date && " · Expires " + new Date(org.subscription_end_date).toLocaleDateString("en-US", {timeZone:"UTC"})}
+        {org.limits_exempt && " · Limits waived"}</p>
+      <form action={grantAccess} className="flex flex-wrap items-end gap-3">
+        <input type="hidden" name="orgId" value={org.id}/>
+        <label>Plan<select name="tier" defaultValue={org.active_tier} className="block rounded border p-2 bg-slate-800 text-white">
+          <option value="free">Free</option><option value="event_pass">Event Pass</option>
+          <option value="standard">Standard</option><option value="premium">Premium</option>
+        </select></label>
+        <label>Remaining credits<input className="block rounded border p-2 bg-slate-800 text-white" name="credits" type="number" min="0" step="1" defaultValue={org.event_quota} required/></label>
+        <label>Expires (UTC)<input className="block rounded border p-2 bg-slate-800 text-white" name="expires" type="date" defaultValue={org.subscription_end_date?.slice(0,10)}/></label>
+        <label className="flex gap-2"><input type="checkbox" name="exempt" defaultChecked={org.limits_exempt}/>Waive event and asset limits</label>
+        <label>Reason<input className="block rounded border p-2 bg-slate-800 text-white" name="reason" required placeholder="Why access is being granted"/></label>
+        <button className="rounded bg-amber-500 text-black px-4 py-2 font-bold">Save access</button>
+      </form>
+    </section>)}
+  </div>;
 }

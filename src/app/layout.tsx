@@ -1,5 +1,6 @@
 import {AccountSafety} from "@/components/account-safety";
 import {BackNavigation} from "@/components/back-navigation";
+import {Footer} from "@/components/footer";
 import type { Metadata } from "next";
 import "./globals.css";
 
@@ -19,7 +20,8 @@ export default function RootLayout({
       <body className="bg-slate-950 text-slate-100 antialiased selection:bg-amber-500 selection:text-slate-950 min-h-screen flex flex-col">
         <AccountSafety/>
         <BackNavigation/>
-        {children}
+        <div className="flex-1 w-full flex flex-col">{children}</div>
+        <Footer/>
       </body>
     </html>
   );

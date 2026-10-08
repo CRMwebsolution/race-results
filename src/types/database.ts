@@ -778,6 +778,9 @@ export type Database = {
       }
       events: {
         Row: {
+          archived_at: string | null
+          public_until: string | null
+          retention_finalized: boolean
           competition_season_id: string | null
           completed_at: string | null
           created_at: string
@@ -797,6 +800,9 @@ export type Database = {
           working_revision: number
         }
         Insert: {
+          archived_at?: string | null
+          public_until?: string | null
+          retention_finalized?: boolean
           competition_season_id?: string | null
           completed_at?: string | null
           created_at?: string
@@ -816,6 +822,9 @@ export type Database = {
           working_revision?: number
         }
         Update: {
+          archived_at?: string | null
+          public_until?: string | null
+          retention_finalized?: boolean
           competition_season_id?: string | null
           completed_at?: string | null
           created_at?: string
@@ -1741,6 +1750,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      sweep_expired_events: { Args: Record<PropertyKey, never>; Returns: undefined }
       billing_overview: { Args: { p_org_id: string }; Returns: Json }
       apply_paid_entitlement: { Args: { p_session_id: string; p_stripe_event_id: string; p_org_id: string; p_tier: string; p_amount: number; p_currency: string; p_notification: Json }; Returns: boolean }
       pending_payment_notifications: { Args: Record<PropertyKey, never>; Returns: Json }

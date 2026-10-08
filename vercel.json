@@ -3,6 +3,10 @@
     {
       "path": "/api/billing/retry-notifications",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/billing/maintenance",
+      "schedule": "15 6 * * *"
     }
   ]
 }

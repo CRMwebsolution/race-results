@@ -28,7 +28,7 @@ export default async function BillingPage({searchParams}: {searchParams:Promise<
 
   // We'll just display the first organization for simplicity, or map over them.
   // Most users only have one.
-  type Overview={scope:string;active_tier:string;subscription_end_date:string|null;limits_exempt:boolean;remaining_credits:number;organizations:{id:string;name:string}[]};
+  type Overview={scope:string;season_active:boolean;active_tier:string;subscription_end_date:string|null;limits_exempt:boolean;remaining_credits:number;organizations:{id:string;name:string}[]};
   const orgs:({id:string;name:string;event_quota:number}&Overview)[]=[];
   const seen=new Set<string>();
   for(const member of memberships) {
@@ -66,7 +66,7 @@ export default async function BillingPage({searchParams}: {searchParams:Promise<
                     {org.active_tier.replace('_', ' ')} Plan
                   </span>
                   
-                  {!org.limits_exempt && (org.active_tier === 'free' || org.active_tier === 'event_pass' || !org.subscription_end_date || Date.parse(org.subscription_end_date) <= Date.now()) ? (
+                  {!org.limits_exempt && !org.season_active ? (
                     <span className="text-slate-400 text-sm font-medium flex items-center">
                       <span className="w-2 h-2 rounded-full bg-slate-500 mr-2"></span>
                       {org.event_quota} event passes remaining
@@ -82,6 +82,7 @@ export default async function BillingPage({searchParams}: {searchParams:Promise<
             </div>
 
             <div className="p-6 sm:p-10 bg-slate-950">
+              {!org.season_active && org.subscription_end_date && <p role="status" className="mb-4 text-amber-400">Season Pass expired on {new Date(org.subscription_end_date).toLocaleDateString("en-US",{timeZone:"UTC"})}. Existing records stay available to you. Renew or use an Event Pass to begin another race.</p>}
               <h3 className="text-xl font-bold text-white mb-6">Upgrade your plan</h3>
               <div className="grid md:grid-cols-3 gap-6">
                 

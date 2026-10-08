@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import { CreditCard, Zap, Check } from "lucide-react";
 
 
-export default async function BillingPage() {
+export default async function BillingPage({searchParams}: {searchParams:Promise<{error?:string;success?:string;canceled?:string}>}) {
+  const params=await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -27,18 +28,29 @@ export default async function BillingPage() {
 
   // We'll just display the first organization for simplicity, or map over them.
   // Most users only have one.
-  const orgs = memberships.map(m => m.organizations).filter(Boolean) as any[];
+  type Overview={scope:string;active_tier:string;subscription_end_date:string|null;limits_exempt:boolean;remaining_credits:number;organizations:{id:string;name:string}[]};
+  const orgs:({id:string;name:string;event_quota:number}&Overview)[]=[];
+  const seen=new Set<string>();
+  for(const member of memberships) {
+    const {data,error}=await supabase.rpc("billing_overview",{p_org_id:member.organization_id});
+    if(error) throw new Error("Could not load account access: "+error.message);
+    const plan=data as unknown as Overview;
+    if(!seen.has(plan.scope)) { seen.add(plan.scope); orgs.push({...plan,id:member.organization_id,name:plan.organizations.map(o=>o.name).join(" · "),event_quota:plan.remaining_credits}); }
+  }
 
   return (
     <div className="max-w-5xl mx-auto p-4 sm:p-8 space-y-12 pb-24">
       <div>
         <h1 className="text-3xl font-extrabold text-white flex items-center space-x-3">
           <CreditCard className="w-8 h-8 text-amber-500" />
-          <span>Billing & Subscriptions</span>
+          <span>Billing & Access</span>
         </h1>
-        <p className="text-slate-400 mt-2">Manage your active plans, buy event passes, and unlock premium tools.</p>
+        <p className="text-slate-400 mt-2">Manage access across your tracks and series. Purchases are one-time; season passes do not renew automatically.</p>
       </div>
 
+      {params.error && <p role="alert" className="text-red-400">{params.error}</p>}
+      {params.success && <p role="status" className="text-emerald-400">Payment received. Your access updates after payment confirmation; refresh if it is still processing.</p>}
+      {params.canceled && <p role="status">Checkout canceled. No purchase was completed.</p>}
       <div className="space-y-12">
         {orgs.map(org => (
           <div key={org.id} className="bg-slate-900/50 border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
@@ -54,7 +66,7 @@ export default async function BillingPage() {
                     {org.active_tier.replace('_', ' ')} Plan
                   </span>
                   
-                  {org.active_tier === 'free' || org.active_tier === 'event_pass' ? (
+                  {!org.limits_exempt && (org.active_tier === 'free' || org.active_tier === 'event_pass' || !org.subscription_end_date || Date.parse(org.subscription_end_date) <= Date.now()) ? (
                     <span className="text-slate-400 text-sm font-medium flex items-center">
                       <span className="w-2 h-2 rounded-full bg-slate-500 mr-2"></span>
                       {org.event_quota} event passes remaining
@@ -62,7 +74,7 @@ export default async function BillingPage() {
                   ) : (
                     <span className="text-emerald-400 text-sm font-medium flex items-center">
                       <span className="w-2 h-2 rounded-full bg-emerald-500 mr-2"></span>
-                      Active Season Pass
+                      {org.limits_exempt ? 'Limits waived by admin' : 'Season Pass · Expires '+new Date(org.subscription_end_date!).toLocaleDateString('en-US',{timeZone:'UTC'})}
                     </span>
                   )}
                 </div>
@@ -80,9 +92,9 @@ export default async function BillingPage() {
                     <p className="text-slate-400 text-sm mb-6">Perfect for single events or one-off races.</p>
                     <div className="text-3xl font-black text-white mb-6">$49 <span className="text-sm font-medium text-slate-500">/ event</span></div>
                     <ul className="space-y-3 mb-8">
-                      <li className="flex items-start text-sm text-slate-300"><Check className="w-4 h-4 text-emerald-500 mr-2 shrink-0 mt-0.5"/> Adds 1 Event to your quota</li>
+                      <li className="flex items-start text-sm text-slate-300"><Check className="w-4 h-4 text-emerald-500 mr-2 shrink-0 mt-0.5"/> Adds 1 credit, used when an event first goes live</li>
                       <li className="flex items-start text-sm text-slate-300"><Check className="w-4 h-4 text-emerald-500 mr-2 shrink-0 mt-0.5"/> Supports 1 Track & 1 Series</li>
-                      <li className="flex items-start text-sm text-slate-300"><Check className="w-4 h-4 text-emerald-500 mr-2 shrink-0 mt-0.5"/> Standard 30-day archive limit</li>
+                      <li className="flex items-start text-sm text-slate-300"><Check className="w-4 h-4 text-emerald-500 mr-2 shrink-0 mt-0.5"/> Public results for 30 days after completion</li>
                     </ul>
                   </div>
                   <form action="/api/checkout" method="POST">

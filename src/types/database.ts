@@ -1053,6 +1053,7 @@ export type Database = {
       }
       organizations: {
         Row: {
+          billing_owner_id: string | null
           active_tier: string
           event_quota: number
           subscription_end_date: string | null
@@ -1065,6 +1066,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          billing_owner_id?: string | null
           active_tier?: string
           event_quota?: number
           subscription_end_date?: string | null
@@ -1077,6 +1079,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          billing_owner_id?: string | null
           active_tier?: string
           event_quota?: number
           subscription_end_date?: string | null
@@ -1738,6 +1741,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      billing_overview: { Args: { p_org_id: string }; Returns: Json }
+      apply_paid_entitlement: { Args: { p_session_id: string; p_stripe_event_id: string; p_org_id: string; p_tier: string; p_amount: number; p_currency: string; p_notification: Json }; Returns: boolean }
+      pending_payment_notifications: { Args: Record<PropertyKey, never>; Returns: Json }
+      record_payment_notification: { Args: { p_session_id: string; p_success: boolean; p_error?: string | null }; Returns: undefined }
       admin_grant_entitlement: {
         Args: { p_org_id: string; p_tier: string; p_quota: number; p_end_date: string | null; p_reason: string; p_limits_exempt?: boolean }
         Returns: undefined

@@ -8,12 +8,17 @@ export function BracketView({
   ladder,
   variant = 'spectator',
   activeClassTitle,
+  selectedMatchId,
+  onSelectMatch,
 }: {
   ladder: BracketLadder;
   variant?: 'spectator' | 'pit';
   activeClassTitle?: string;
+  selectedMatchId?: string;
+  onSelectMatch?: (matchId: string) => void;
 }) {
   const isPit = variant === 'pit';
+
   const [activeTab, setActiveTab] = useState<'all' | 'winners' | 'losers'>('all');
 
   if (!ladder || (!ladder.rounds.length && !ladder.winnersRounds?.length)) {
@@ -107,14 +112,24 @@ export function BracketView({
       {!ladder.hasLosersBracket ? (
         // Standard Single-Elimination
         <div className="overflow-x-auto pb-4 pt-2 -mx-2 px-2">
-          <div className="flex flex-row items-stretch gap-6 min-w-max">
-            {ladder.rounds.map((round) => (
-              <RoundColumn
-                key={round.round}
-                round={round}
-                isPit={isPit}
-                totalRounds={ladder.totalRounds}
-              />
+          <div className="flex flex-row items-stretch gap-2 sm:gap-4 min-w-max">
+            {ladder.rounds.map((round, idx) => (
+              <React.Fragment key={round.round}>
+                <RoundColumn
+                  round={round}
+                  isPit={isPit}
+                  totalRounds={ladder.totalRounds}
+                  selectedMatchId={selectedMatchId}
+                  onSelectMatch={onSelectMatch}
+                />
+                {idx < ladder.rounds.length - 1 && (
+                  <BracketTreeConnector
+                    currentCount={round.matchups.length}
+                    nextCount={ladder.rounds[idx + 1].matchups.length}
+                    isPit={isPit}
+                  />
+                )}
+              </React.Fragment>
             ))}
           </div>
         </div>
@@ -129,14 +144,24 @@ export function BracketView({
                 <h3 className={isPit ? 'text-3xl' : 'text-lg'}>Winners Bracket</h3>
               </div>
               <div className="overflow-x-auto pb-4 pt-2 -mx-2 px-2">
-                <div className="flex flex-row items-stretch gap-6 min-w-max">
-                  {(ladder.winnersRounds || ladder.rounds).map((round) => (
-                    <RoundColumn
-                      key={`W-${round.round}`}
-                      round={round}
-                      isPit={isPit}
-                      totalRounds={ladder.winnersRounds?.length || ladder.totalRounds}
-                    />
+                <div className="flex flex-row items-stretch gap-2 sm:gap-4 min-w-max">
+                  {(ladder.winnersRounds || ladder.rounds).map((round, idx, arr) => (
+                    <React.Fragment key={`W-${round.round}`}>
+                      <RoundColumn
+                        round={round}
+                        isPit={isPit}
+                        totalRounds={arr.length}
+                        selectedMatchId={selectedMatchId}
+                        onSelectMatch={onSelectMatch}
+                      />
+                      {idx < arr.length - 1 && (
+                        <BracketTreeConnector
+                          currentCount={round.matchups.length}
+                          nextCount={arr[idx + 1].matchups.length}
+                          isPit={isPit}
+                        />
+                      )}
+                    </React.Fragment>
                   ))}
                 </div>
               </div>
@@ -151,7 +176,12 @@ export function BracketView({
                 <h3 className={isPit ? 'text-3xl' : 'text-lg'}>Grand Finals (Winners Champ vs Losers Champ)</h3>
               </div>
               <div className="max-w-md">
-                <MatchupCard match={ladder.grandFinal} isPit={isPit} />
+                <MatchupCard
+                  match={ladder.grandFinal}
+                  isPit={isPit}
+                  isSelected={selectedMatchId === ladder.grandFinal.id}
+                  onSelect={onSelectMatch ? () => onSelectMatch(ladder.grandFinal!.id) : undefined}
+                />
               </div>
             </div>
           )}
@@ -164,14 +194,24 @@ export function BracketView({
                 <h3 className={isPit ? 'text-3xl' : 'text-lg'}>Losers Bracket (Consolation Ladder)</h3>
               </div>
               <div className="overflow-x-auto pb-4 pt-2 -mx-2 px-2">
-                <div className="flex flex-row items-stretch gap-6 min-w-max">
-                  {ladder.losersRounds.map((round) => (
-                    <RoundColumn
-                      key={`L-${round.round}`}
-                      round={round}
-                      isPit={isPit}
-                      totalRounds={ladder.losersRounds?.length || 1}
-                    />
+                <div className="flex flex-row items-stretch gap-2 sm:gap-4 min-w-max">
+                  {ladder.losersRounds.map((round, idx, arr) => (
+                    <React.Fragment key={`L-${round.round}`}>
+                      <RoundColumn
+                        round={round}
+                        isPit={isPit}
+                        totalRounds={arr.length}
+                        selectedMatchId={selectedMatchId}
+                        onSelectMatch={onSelectMatch}
+                      />
+                      {idx < arr.length - 1 && (
+                        <BracketTreeConnector
+                          currentCount={round.matchups.length}
+                          nextCount={arr[idx + 1].matchups.length}
+                          isPit={isPit}
+                        />
+                      )}
+                    </React.Fragment>
                   ))}
                 </div>
               </div>
@@ -183,14 +223,75 @@ export function BracketView({
   );
 }
 
+function BracketTreeConnector({
+  currentCount,
+  nextCount,
+  isPit,
+}: {
+  currentCount: number;
+  nextCount: number;
+  isPit?: boolean;
+}) {
+  const isFork = currentCount === 2 * nextCount;
+
+  return (
+    <div className={`flex flex-col justify-around py-12 ${isPit ? 'w-10 sm:w-16' : 'w-8 sm:w-12'} flex-shrink-0`}>
+      {Array.from({ length: nextCount }).map((_, i) => (
+        <div key={i} className="flex-1 flex items-center justify-center relative min-h-[100px]">
+          {isFork ? (
+            <svg
+              className="w-full h-full overflow-visible"
+              preserveAspectRatio="none"
+              viewBox="0 0 48 100"
+            >
+              <path
+                d="M 0 25 L 24 25 L 24 50 L 48 50"
+                fill="none"
+                stroke="#475569"
+                strokeWidth={isPit ? "3" : "2"}
+                vectorEffect="non-scaling-stroke"
+              />
+              <path
+                d="M 0 75 L 24 75 L 24 50 L 48 50"
+                fill="none"
+                stroke="#475569"
+                strokeWidth={isPit ? "3" : "2"}
+                vectorEffect="non-scaling-stroke"
+              />
+            </svg>
+          ) : (
+            <svg
+              className="w-full h-full overflow-visible"
+              preserveAspectRatio="none"
+              viewBox="0 0 48 100"
+            >
+              <path
+                d="M 0 50 L 48 50"
+                fill="none"
+                stroke="#475569"
+                strokeWidth={isPit ? "3" : "2"}
+                vectorEffect="non-scaling-stroke"
+              />
+            </svg>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function RoundColumn({
   round,
   isPit,
   totalRounds,
+  selectedMatchId,
+  onSelectMatch,
 }: {
   round: BracketRound;
   isPit: boolean;
   totalRounds: number;
+  selectedMatchId?: string;
+  onSelectMatch?: (matchId: string) => void;
 }) {
   return (
     <div className={`flex flex-col flex-1 min-w-[280px] max-w-[340px] ${isPit ? 'min-w-[340px] max-w-[420px]' : ''}`}>
@@ -211,6 +312,8 @@ function RoundColumn({
             key={match.id}
             match={match}
             isPit={isPit}
+            isSelected={selectedMatchId === match.id}
+            onSelect={onSelectMatch ? () => onSelectMatch(match.id) : undefined}
           />
         ))}
       </div>
@@ -221,16 +324,25 @@ function RoundColumn({
 function MatchupCard({
   match,
   isPit,
+  isSelected,
+  onSelect,
 }: {
   match: BracketMatchup;
   isPit: boolean;
+  isSelected?: boolean;
+  onSelect?: () => void;
 }) {
   const is1stAcross = match.isManual || match.winnerReason?.toLowerCase().includes('1st across line');
 
   return (
     <div
+      onClick={onSelect}
       className={`rounded-2xl border transition-all ${
-        match.isComplete
+        onSelect ? 'cursor-pointer hover:border-amber-500/60 hover:shadow-lg' : ''
+      } ${
+        isSelected
+          ? 'border-amber-400 ring-2 ring-amber-400/60 bg-amber-950/30 shadow-[0_0_20px_rgba(245,158,11,0.25)]'
+          : match.isComplete
           ? isPit
             ? 'bg-slate-950 border-slate-700 shadow-md'
             : 'bg-slate-900 border-slate-700/80 shadow-md'
@@ -241,7 +353,14 @@ function MatchupCard({
     >
       {/* Match Header */}
       <div className={`flex items-center justify-between px-3 py-1.5 border-b text-xs font-mono ${isPit ? 'border-slate-800 text-slate-400 text-sm' : 'border-slate-800 text-slate-400'}`}>
-        <span className="font-bold">{match.id}</span>
+        <div className="flex items-center gap-1.5">
+          <span className="font-bold">{match.id}</span>
+          {isSelected && (
+            <span className="px-1.5 py-0.5 bg-amber-500 text-slate-950 font-black text-[9px] uppercase tracking-wider rounded">
+              Scoring
+            </span>
+          )}
+        </div>
         {match.isComplete ? (
           <span className="text-emerald-400 font-bold flex items-center gap-1">
             <CheckCircle className="w-3.5 h-3.5" /> Done
@@ -252,6 +371,7 @@ function MatchupCard({
           </span>
         )}
       </div>
+
 
       {/* Match Competitors */}
       <div className="divide-y divide-slate-800/80">

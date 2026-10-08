@@ -12,7 +12,10 @@ import {prepareEvent} from '@/lib/offline/prepare';
 import {flushPrepared,retryPrepared,resolveConflict} from '@/lib/offline/sync';
 import {SortHeading} from '@/components/sort-heading';
 import {explainError,ActionFeedback} from '@/components/action-feedback';
-import {saveAttempt, setBracketMatchWinner, setBracketPasses} from './actions';
+import {saveAttempt, setBracketMatchWinner, setBracketPasses, setBracketByes} from './actions';
+import {BracketView} from '@/components/bracket-view';
+import {isByeMatch, drawRandomByes} from '@/scoring/bracket';
+import {Trophy, ChevronLeft, ChevronRight, CheckCircle, Clock, Flag, Dices, Shuffle, Eye, EyeOff} from 'lucide-react';
 import {finalizeEventStandings} from '../settings/actions';
 
 export type EventType={id:string;name:string;working_revision:number;status:string};
@@ -29,6 +32,9 @@ export function ScoringWorkspace({accountId,canComplete=false,offlineOnly=false,
  const [drafts,setDrafts]=useState<Record<string,string>>({}),[errors,setErrors]=useState<Record<string,string>>({});
  const [saving,setSaving]=useState<string[]>([]),[completing,setCompleting]=useState(false),[completeError,setCompleteError]=useState('');
  const [overrideWinners,setOverrideWinners]=useState<Record<string,Record<string,string|null>>>({});
+ const [overrideByes,setOverrideByes]=useState<Record<string,string[]>>({});
+ const [selectedMatchId,setSelectedMatchId]=useState<string|null>(null);
+ const [showFullGrid,setShowFullGrid]=useState(false);
  const [extraPasses,setExtraPasses]=useState<Record<string,number>>({});
  const [connected,setConnected]=useState(true),[order,setOrder]=useState<ResultOrder>('run'),[reverse,setReverse]=useState(false);
  const [frozen,setFrozen]=useState<string[]|null>(null);
@@ -64,6 +70,14 @@ export function ScoringWorkspace({accountId,canComplete=false,offlineOnly=false,
    if(!res.success)setCompleteError(res.error||'Failed to update bracket winner');
   }catch(e:any){setCompleteError(e?.message||'Failed to update bracket winner');}
  }
+ async function handleSetByes(byeIds:string[]){
+  if(!activeClass)return;
+  setOverrideByes(prev=>({...prev,[activeClass.id]:byeIds}));
+  try{
+   const res=await setBracketByes(trackId,event.id,activeClass.id,byeIds);
+   if(!res.success)setCompleteError(res.error||'Failed to update bracket byes');
+  }catch(e:any){setCompleteError(e?.message||'Failed to update bracket byes');}
+ }
  const bracketLadder=useMemo(()=>{
   if(!activeClass||activeClass.scoring_type!=='head_to_head')return null;
   const classAttempts=attempts.filter(a=>a.event_class_id===activeClass.id).map(a=>({
@@ -75,10 +89,37 @@ export function ScoringWorkspace({accountId,canComplete=false,offlineOnly=false,
     manualWinners:{
       ...(activeClass.scoring_config?.manualWinners||{}),
       ...(overrideWinners[activeClass.id]||{}),
-    }
+    },
+    byeEntryIds:overrideByes[activeClass.id]??activeClass.scoring_config?.byeEntryIds,
   };
   return buildBracketLadder(classEntries,classAttempts,effectiveConfig);
- },[activeClass,classEntries,attempts,overrideWinners]);
+ },[activeClass,classEntries,attempts,overrideWinners,overrideByes]);
+ const allTournamentMatches=useMemo(()=>{
+  if(!bracketLadder)return [];
+  const rounds=bracketLadder.hasLosersBracket
+    ?[...(bracketLadder.winnersRounds||bracketLadder.rounds),...(bracketLadder.losersRounds||[])]
+    :bracketLadder.rounds;
+  const list=rounds.flatMap(r=>r.matchups);
+  if(bracketLadder.grandFinal)list.push(bracketLadder.grandFinal);
+  return list;
+ },[bracketLadder]);
+ const playableMatches=useMemo(()=>{
+  return allTournamentMatches.filter(m=>!isByeMatch(m)&&m.racer1&&m.racer2);
+ },[allTournamentMatches]);
+ const firstIncompletePlayable=useMemo(()=>{
+  return playableMatches.find(m=>!m.isComplete)||null;
+ },[playableMatches]);
+ const activeMatch=useMemo(()=>{
+  if(!allTournamentMatches.length)return null;
+  if(selectedMatchId){
+   const match=allTournamentMatches.find(m=>m.id===selectedMatchId);
+   if(match)return match;
+  }
+  return firstIncompletePlayable||playableMatches[0]||allTournamentMatches[0];
+ },[allTournamentMatches,selectedMatchId,firstIncompletePlayable,playableMatches]);
+ const activeMatchIndex=activeMatch?playableMatches.findIndex(m=>m.id===activeMatch.id):-1;
+ const prevMatchId=activeMatchIndex>0?playableMatches[activeMatchIndex-1].id:null;
+ const nextMatchId=activeMatchIndex>=0&&activeMatchIndex<playableMatches.length-1?playableMatches[activeMatchIndex+1].id:null;
  async function handleAdjustPasses(newCount:number){
   if(!activeClass)return;
   setExtraPasses(prev=>({...prev,[activeClass.id]:newCount}));
@@ -182,88 +223,487 @@ export function ScoringWorkspace({accountId,canComplete=false,offlineOnly=false,
   {Object.keys(errors).length>0&&<p role="alert" className="p-4 text-red-400">{[...new Set(Object.values(errors))].join(' ')} Your entries are kept.</p>}
   {activeClass?.scoring_type==='judged_points'&&<Link href={`${base}/judging`} className="inline-block p-4 text-amber-400 underline">Enter scores for this judged class</Link>}
   {activeClass?.scoring_type==='head_to_head'&&bracketLadder&&(
-   <div className="mx-4 p-4 bg-slate-900 border border-slate-800 rounded-lg space-y-4">
-    <div className="flex flex-wrap items-center justify-between gap-2">
-     <div>
-      <h3 className="font-bold text-amber-400 text-base">🏁 Bracket Pairings ({bracketLadder.bracketSize}-Car Field{bracketLadder.hasLosersBracket?' · Double Elimination':''})</h3>
-      <p className="text-xs text-slate-400">
-       {bracketLadder.winCriterion==='first_to_finish'
-         ? '⚡ Rule: First to Finish Line — Times always recorded & displayed. Click racer to set 1st across line.'
-         : '⚡ Rule: Fastest Elapsed Time — Lower ET advances automatically (Click racer to manually override winner).'}
-      </p>
-     </div>
-     {bracketLadder.championId&&<span className="px-3 py-1 bg-amber-500 text-slate-950 font-black rounded-lg text-xs uppercase tracking-wider">🏆 Winner: {bracketLadder.resultsByEntryId[bracketLadder.championId]?.displayName}</span>}
-    </div>
+    <div className="mx-4 space-y-5">
+     {/* 1. Active Match Scoring Field (The 2 Contestants Currently Racing) */}
+     <div className="p-4 sm:p-6 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl space-y-5">
+      {/* Header with Navigation and Status */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+       <div className="space-y-1">
+        <div className="flex flex-wrap items-center gap-2">
+         <span className="px-2.5 py-1 rounded-lg bg-amber-500 text-slate-950 font-black text-xs font-mono uppercase tracking-wider">
+          {activeMatch ? activeMatch.id : 'No Match'}
+         </span>
+         <h3 className="font-black text-white text-lg sm:text-xl">
+          {activeMatch
+            ? `${activeMatch.bracketType === 'finals' ? 'Grand Finals' : `Round ${activeMatch.round} (Pass ${activeMatch.round})`} · Heat ${activeMatch.matchNumber}`
+            : 'All Matches Complete'}
+         </h3>
+         {activeMatch?.isComplete ? (
+          <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 font-bold text-xs flex items-center gap-1">
+           <CheckCircle className="w-3.5 h-3.5" /> Done
+          </span>
+         ) : (
+          <span className="px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-400 font-bold text-xs flex items-center gap-1 animate-pulse">
+           <Clock className="w-3.5 h-3.5" /> Currently Racing
+          </span>
+         )}
+        </div>
+        <p className="text-xs text-slate-400">
+         {activeClass.scoring_config?.winCriterion === 'first_to_finish'
+           ? '⚡ Win Rule: First to Finish Line — Times always recorded & displayed. Click contestant to confirm stripe winner.'
+           : '⚡ Win Rule: Fastest Elapsed Time — Lower ET advances automatically (Click contestant to override winner).'}
+        </p>
+       </div>
 
-    {/* Winners Rounds / Main Ladder */}
-    <div className="space-y-2">
-     {bracketLadder.hasLosersBracket&&<h4 className="text-xs font-bold uppercase tracking-wider text-amber-500">Winners Bracket</h4>}
-     <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-      {(bracketLadder.winnersRounds||bracketLadder.rounds).map(r=><div key={r.round} className="p-2.5 bg-slate-950 border border-slate-800 rounded space-y-2">
-       <p className="font-bold text-xs text-slate-400 uppercase tracking-wider">{r.roundName} (Pass {r.round})</p>
-       {r.matchups.map(m=><MatchupBox key={m.id} match={m} onSelectWinner={handleSetWinner}/>)}
-      </div>)}
-     </div>
-    </div>
-
-    {/* Grand Finals if Double Elimination */}
-    {bracketLadder.grandFinal&&(
-     <div className="p-3 bg-amber-950/20 border border-amber-500/30 rounded-lg space-y-2 max-w-lg">
-      <h4 className="text-xs font-black uppercase tracking-wider text-amber-400">Grand Finals (Winners Champ vs Losers Champ)</h4>
-      <MatchupBox match={bracketLadder.grandFinal} onSelectWinner={handleSetWinner}/>
-     </div>
-    )}
-
-    {/* Losers Rounds if Double Elimination */}
-    {bracketLadder.losersRounds&&bracketLadder.losersRounds.length>0&&(
-     <div className="space-y-2 pt-2">
-      <h4 className="text-xs font-bold uppercase tracking-wider text-cyan-400">Losers Bracket (Consolation Ladder)</h4>
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-       {bracketLadder.losersRounds.map(r=><div key={r.round} className="p-2.5 bg-slate-950 border border-slate-800 rounded space-y-2">
-        <p className="font-bold text-xs text-cyan-500 uppercase tracking-wider">{r.roundName}</p>
-        {r.matchups.map(m=><MatchupBox key={m.id} match={m} onSelectWinner={handleSetWinner}/>)}
-       </div>)}
+       {/* Prev / Next controls */}
+       <div className="flex items-center gap-2">
+        <button
+          type="button"
+          disabled={!prevMatchId}
+          onClick={() => prevMatchId && setSelectedMatchId(prevMatchId)}
+          className="px-3 py-1.5 rounded-xl border border-slate-700 bg-slate-950 text-slate-300 hover:text-white disabled:opacity-30 text-xs font-bold flex items-center gap-1 transition"
+        >
+         <ChevronLeft className="w-4 h-4" /> Prev Match
+        </button>
+        <span className="text-xs font-mono text-slate-400">
+         {activeMatchIndex >= 0 ? `${activeMatchIndex + 1} of ${playableMatches.length}` : '—'}
+        </span>
+        <button
+          type="button"
+          disabled={!nextMatchId}
+          onClick={() => nextMatchId && setSelectedMatchId(nextMatchId)}
+          className="px-3 py-1.5 rounded-xl border border-slate-700 bg-slate-950 text-slate-300 hover:text-white disabled:opacity-30 text-xs font-bold flex items-center gap-1 transition"
+        >
+         Next Match <ChevronRight className="w-4 h-4" />
+        </button>
+       </div>
       </div>
+
+      {/* Quick Playable Match Pills */}
+      {playableMatches.length > 1 && (
+       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-0.5 hide-scrollbar text-xs">
+        {playableMatches.map((m) => {
+         const isActive = m.id === activeMatch?.id;
+         return (
+          <button
+           key={m.id}
+           type="button"
+           onClick={() => setSelectedMatchId(m.id)}
+           className={`px-3 py-1.5 rounded-lg whitespace-nowrap font-mono font-bold transition flex items-center gap-1.5 ${
+            isActive
+              ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-400'
+              : m.isComplete
+              ? 'bg-slate-950 border border-emerald-500/30 text-emerald-400 hover:border-emerald-500/60'
+              : 'bg-slate-950 border border-slate-800 text-slate-400 hover:text-slate-200'
+           }`}
+          >
+           <span>{m.id}</span>
+           <span className="text-[11px] font-sans font-normal opacity-80">
+            ({m.racer1?.displayName?.split(' ')[0] || '#1'} vs {m.racer2?.displayName?.split(' ')[0] || '#2'})
+           </span>
+           {m.isComplete && <CheckCircle className="w-3 h-3 text-emerald-400" />}
+          </button>
+         );
+        })}
+       </div>
+      )}
+
+      {/* Contestants In This Race (Only 2 at a time) */}
+      {activeMatch && activeMatch.racer1 && activeMatch.racer2 ? (
+       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative">
+        {/* Racer 1 (Lane 1) */}
+        {(() => {
+          const r1 = activeMatch.racer1;
+          const passOrd = activeMatch.round;
+          const k1 = r1 && !r1.isBye ? `${r1.entryId}:${passOrd}` : null;
+          const att1 = attempts.find(a => a.event_class_id === activeClass.id && a.entry_id === r1?.entryId && a.ordinal === passOrd);
+          const val1 = k1 ? (drafts[k1] ?? att1?.raw_input ?? '') : '';
+          const isWinner1 = activeMatch.winnerId === r1?.entryId;
+          const isLoser1 = activeMatch.isComplete && !isWinner1;
+
+          return (
+           <div className={`p-4 rounded-2xl border transition-all space-y-4 ${
+            isWinner1
+              ? 'bg-amber-950/30 border-amber-500 ring-2 ring-amber-500/50 shadow-lg shadow-amber-500/10'
+              : isLoser1
+              ? 'bg-slate-950/60 border-slate-800 opacity-70'
+              : 'bg-slate-950 border-slate-800'
+           }`}>
+            <div className="flex items-center justify-between">
+             <div className="flex items-center gap-2 min-w-0">
+              <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono font-bold text-xs">
+               Seed #{r1?.seed}
+              </span>
+              <span className="text-xs uppercase font-bold text-slate-500 tracking-wider">Lane 1</span>
+             </div>
+             {isWinner1 && (
+              <span className="px-2 py-0.5 rounded-full bg-emerald-500 text-slate-950 font-black text-xs uppercase tracking-wider flex items-center gap-1">
+               <Trophy className="w-3 h-3" /> Winner
+              </span>
+             )}
+            </div>
+
+            <div>
+             <h4 className="text-xl sm:text-2xl font-black text-white truncate">
+              {r1?.displayName}
+             </h4>
+             <p className="text-xs font-mono text-slate-400">
+              Pass {passOrd} Recorded ET: <span className="text-white font-bold">{r1?.displayScore || '—'}</span>
+             </p>
+            </div>
+
+            <div className="space-y-1.5">
+             <label className="block text-xs font-semibold text-slate-400">
+              Enter Pass {passOrd} Time / Distance
+             </label>
+             <input
+              type="text"
+              data-score-pass={passOrd}
+              aria-label={`${r1?.displayName}, pass ${passOrd}`}
+              aria-invalid={Boolean(k1 && errors[k1])}
+              title={k1 ? errors[k1] : undefined}
+              value={val1}
+              onChange={e => {
+               if (!k1) return;
+               const next = { ...draftRef.current };
+               if (e.target.value === (att1?.raw_input ?? '')) delete next[k1];
+               else next[k1] = e.target.value;
+               writeDrafts(next);
+               setErrors(prev => { const n = { ...prev }; delete n[k1]; return n; });
+              }}
+              onBlur={e => {
+               if (k1 && e.target.value !== (att1?.raw_input ?? '')) {
+                void saveInput(r1!.entryId, passOrd, e.target.value);
+               }
+              }}
+              onKeyDown={e => {
+               if (e.key === 'Enter') e.currentTarget.blur();
+              }}
+              disabled={completing || (k1 ? saving.includes(k1) : false) || event.status === 'completed'}
+              placeholder="e.g. 9.082 s or -"
+              className={`w-full p-3 rounded-xl border bg-slate-900 text-white font-mono text-lg text-center font-bold focus:ring-2 focus:ring-amber-500 ${
+               k1 && errors[k1] ? 'border-red-500' : 'border-slate-700'
+              }`}
+             />
+             {k1 && errors[k1] && <p className="text-xs text-red-400">{errors[k1]}</p>}
+            </div>
+
+            <button
+             type="button"
+             disabled={!r1 || r1.isBye || completing || event.status === 'completed'}
+             onClick={() => {
+              if (!activeMatch || !r1) return;
+              void handleSetWinner(activeMatch.id, isWinner1 ? null : r1.entryId);
+             }}
+             className={`w-full py-3 px-4 rounded-xl font-bold text-sm transition flex items-center justify-center gap-2 ${
+              isWinner1
+                ? 'bg-amber-500 text-slate-950 font-black shadow-lg shadow-amber-500/20 ring-2 ring-amber-400'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+             }`}
+            >
+             {isWinner1 ? (
+              <>
+               <CheckCircle className="w-4 h-4" /> Winner (Click to reset)
+              </>
+             ) : activeClass.scoring_config?.winCriterion === 'first_to_finish' ? (
+              <>
+               <Flag className="w-4 h-4 text-emerald-400" /> 🏁 1st Across Finish Line
+              </>
+             ) : (
+              <>
+               <Trophy className="w-4 h-4 text-amber-400" /> ★ Pick Winner (Override)
+              </>
+             )}
+            </button>
+           </div>
+          );
+        })()}
+
+        {/* Racer 2 (Lane 2) */}
+        {(() => {
+          const r2 = activeMatch.racer2;
+          const passOrd = activeMatch.round;
+          const k2 = r2 && !r2.isBye ? `${r2.entryId}:${passOrd}` : null;
+          const att2 = attempts.find(a => a.event_class_id === activeClass.id && a.entry_id === r2?.entryId && a.ordinal === passOrd);
+          const val2 = k2 ? (drafts[k2] ?? att2?.raw_input ?? '') : '';
+          const isWinner2 = activeMatch.winnerId === r2?.entryId;
+          const isLoser2 = activeMatch.isComplete && !isWinner2;
+
+          return (
+           <div className={`p-4 rounded-2xl border transition-all space-y-4 ${
+            isWinner2
+              ? 'bg-amber-950/30 border-amber-500 ring-2 ring-amber-500/50 shadow-lg shadow-amber-500/10'
+              : isLoser2
+              ? 'bg-slate-950/60 border-slate-800 opacity-70'
+              : 'bg-slate-950 border-slate-800'
+           }`}>
+            <div className="flex items-center justify-between">
+             <div className="flex items-center gap-2 min-w-0">
+              <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono font-bold text-xs">
+               Seed #{r2?.seed}
+              </span>
+              <span className="text-xs uppercase font-bold text-slate-500 tracking-wider">Lane 2</span>
+             </div>
+             {isWinner2 && (
+              <span className="px-2 py-0.5 rounded-full bg-emerald-500 text-slate-950 font-black text-xs uppercase tracking-wider flex items-center gap-1">
+               <Trophy className="w-3 h-3" /> Winner
+              </span>
+             )}
+            </div>
+
+            <div>
+             <h4 className="text-xl sm:text-2xl font-black text-white truncate">
+              {r2?.displayName}
+             </h4>
+             <p className="text-xs font-mono text-slate-400">
+              Pass {passOrd} Recorded ET: <span className="text-white font-bold">{r2?.displayScore || '—'}</span>
+             </p>
+            </div>
+
+            <div className="space-y-1.5">
+             <label className="block text-xs font-semibold text-slate-400">
+              Enter Pass {passOrd} Time / Distance
+             </label>
+             <input
+              type="text"
+              data-score-pass={passOrd}
+              aria-label={`${r2?.displayName}, pass ${passOrd}`}
+              aria-invalid={Boolean(k2 && errors[k2])}
+              title={k2 ? errors[k2] : undefined}
+              value={val2}
+              onChange={e => {
+               if (!k2) return;
+               const next = { ...draftRef.current };
+               if (e.target.value === (att2?.raw_input ?? '')) delete next[k2];
+               else next[k2] = e.target.value;
+               writeDrafts(next);
+               setErrors(prev => { const n = { ...prev }; delete n[k2]; return n; });
+              }}
+              onBlur={e => {
+               if (k2 && e.target.value !== (att2?.raw_input ?? '')) {
+                void saveInput(r2!.entryId, passOrd, e.target.value);
+               }
+              }}
+              onKeyDown={e => {
+               if (e.key === 'Enter') e.currentTarget.blur();
+              }}
+              disabled={completing || (k2 ? saving.includes(k2) : false) || event.status === 'completed'}
+              placeholder="e.g. 9.082 s or -"
+              className={`w-full p-3 rounded-xl border bg-slate-900 text-white font-mono text-lg text-center font-bold focus:ring-2 focus:ring-amber-500 ${
+               k2 && errors[k2] ? 'border-red-500' : 'border-slate-700'
+              }`}
+             />
+             {k2 && errors[k2] && <p className="text-xs text-red-400">{errors[k2]}</p>}
+            </div>
+
+            <button
+             type="button"
+             disabled={!r2 || r2.isBye || completing || event.status === 'completed'}
+             onClick={() => {
+              if (!activeMatch || !r2) return;
+              void handleSetWinner(activeMatch.id, isWinner2 ? null : r2.entryId);
+             }}
+             className={`w-full py-3 px-4 rounded-xl font-bold text-sm transition flex items-center justify-center gap-2 ${
+              isWinner2
+                ? 'bg-amber-500 text-slate-950 font-black shadow-lg shadow-amber-500/20 ring-2 ring-amber-400'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+             }`}
+            >
+             {isWinner2 ? (
+              <>
+               <CheckCircle className="w-4 h-4" /> Winner (Click to reset)
+              </>
+             ) : activeClass.scoring_config?.winCriterion === 'first_to_finish' ? (
+              <>
+               <Flag className="w-4 h-4 text-emerald-400" /> 🏁 1st Across Finish Line
+              </>
+             ) : (
+              <>
+               <Trophy className="w-4 h-4 text-amber-400" /> ★ Pick Winner (Override)
+              </>
+             )}
+            </button>
+           </div>
+          );
+        })()}
+       </div>
+      ) : (
+       <div className="p-8 text-center bg-slate-950 rounded-2xl border border-slate-800 text-slate-400">
+        <p>No active head-to-head match ready to score.</p>
+       </div>
+      )}
+
+      {/* Outcome / Advance bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-800">
+       <div className="text-xs text-slate-400 font-mono">
+        {activeMatch?.winnerReason && (
+         <span className="text-amber-300 font-semibold">Outcome: {activeMatch.winnerReason}</span>
+        )}
+       </div>
+       {activeMatch?.isComplete && nextMatchId && (
+        <button
+         type="button"
+         onClick={() => setSelectedMatchId(nextMatchId)}
+         className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-sm flex items-center gap-2 shadow-lg transition"
+        >
+         Advance to Next Match ({playableMatches[activeMatchIndex + 1]?.racer1?.displayName?.split(' ')[0] || 'Racer'} vs {playableMatches[activeMatchIndex + 1]?.racer2?.displayName?.split(' ')[0] || 'Racer'}) <ChevronRight className="w-4 h-4" />
+        </button>
+       )}
+      </div>
+
+      {/* Bye Allocation Card (Owner Decides / Draws from Hat) */}
+      {bracketLadder.numByes != null && bracketLadder.numByes > 0 && (
+       <div className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-2.5 min-w-0">
+         <div className="p-2 bg-amber-500/20 text-amber-400 rounded-lg flex-shrink-0">
+          <Dices className="w-4 h-4" />
+         </div>
+         <div className="min-w-0">
+          <p className="font-bold text-amber-400">
+           🎩 Bye Allocation ({bracketLadder.numByes} {bracketLadder.numByes === 1 ? 'Bye' : 'Byes'})
+          </p>
+          <p className="text-slate-400 text-[11px] truncate">
+           Assigned to: <span className="font-semibold text-white">
+            {bracketLadder.byeEntryIds && bracketLadder.byeEntryIds.length
+              ? bracketLadder.byeEntryIds
+                  .map(id => classEntries.find(e => e.id === id)?.display_name || id)
+                  .join(', ')
+              : `${classEntries[0]?.display_name || 'Seed #1'} (Top Seed)`}
+           </span>
+          </p>
+         </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+         <button
+          type="button"
+          onClick={() => {
+           const randomIds = drawRandomByes(classEntries, bracketLadder.numByes!);
+           void handleSetByes(randomIds);
+          }}
+          className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition flex items-center gap-1.5 shadow"
+          title="Randomly draw bye recipient from a hat"
+         >
+          <Shuffle className="w-3.5 h-3.5" /> 🎲 Draw From Hat
+         </button>
+         <select
+          value={bracketLadder.byeEntryIds?.[0] || ''}
+          onChange={e => {
+           if (e.target.value) void handleSetByes([e.target.value]);
+          }}
+          className="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-slate-200 text-xs font-medium"
+         >
+          <option value="">Choose racer for bye...</option>
+          {classEntries.map(e => (
+           <option key={e.id} value={e.id}>
+            {e.display_name} (Seed #{e.seed ?? '—'})
+           </option>
+          ))}
+         </select>
+         {bracketLadder.byeEntryIds && bracketLadder.byeEntryIds.length > 0 && (
+          <button
+           type="button"
+           onClick={() => void handleSetByes([])}
+           className="text-slate-400 hover:text-white text-[11px] underline"
+          >
+           Reset to #1 Seed
+          </button>
+         )}
+        </div>
+       </div>
+      )}
      </div>
-    )}
-   </div>
-  )}
-  <div className="overflow-x-auto p-4 min-w-0">
-   <p id="score-entry-help" className="mb-3 text-sm text-slate-400">Tab moves down each pass column, then to the next pass. Shift+Tab moves back.{activeClass?.scoring_type==='fastest_pass'&&' Enter seconds (9.082 s) for a completed run or distance (108.5 ft / 108 ft 6 in) for an incomplete run. Every completed run beats every incomplete run.'} Use - for no pass.</p>
-   <table aria-label={`${activeClass?.name||'Class'} scores`} className="w-full min-w-[640px] text-left bg-slate-900 rounded-lg" onFocusCapture={e=>{if(e.target instanceof HTMLInputElement)setFrozen(rows.map(r=>r.entryId));}} onBlurCapture={e=>{if(!(e.relatedTarget instanceof HTMLInputElement)||!e.currentTarget.contains(e.relatedTarget))setFrozen(null);}}>
-    <thead className="bg-slate-800"><tr><SortHeading<ResultOrder> label="Rank" value="rank" order={order} reverse={reverse} onOrder={setOrder} onReverse={setReverse}/><SortHeading<ResultOrder> label="Order" value="run" order={order} reverse={reverse} onOrder={setOrder} onReverse={setReverse}/><SortHeading<ResultOrder> label="Racer" value="name" order={order} reverse={reverse} onOrder={setOrder} onReverse={setReverse}/>{Array.from({length:columns},(_,i)=><SortHeading<ResultOrder> key={i} label={`Pass ${i+1}`} value={`pass:${i+1}`} order={order} reverse={reverse} onOrder={setOrder} onReverse={setReverse}/>)}<th scope="col" className="p-3">Result</th></tr></thead>
-    <tbody>{rows.map(row=><tr data-testid="scoring-row" data-entry-id={row.entryId} key={row.entryId} className="border-t border-slate-700"><td className="p-3">{row.rank===null?'—':`${row.tied?'T':''}${row.rank}`}</td><td className="p-3">{row.orderNum}</td><td className="p-3 font-semibold">{row.entry.display_name}</td>{Array.from({length:columns},(_,i)=>{const ordinal=i+1,key=`${row.entryId}:${ordinal}`,attempt=row.attempts.find(a=>a.ordinal===ordinal);return <td key={ordinal} className="p-2"><input type="text" data-score-pass={ordinal} tabIndex={key===gridTabStop?0:-1} onFocus={()=>setTabStop(key)} aria-describedby="score-entry-help" aria-label={`${row.entry.display_name}, pass ${ordinal}`} aria-invalid={Boolean(errors[key])} title={errors[key]} value={drafts[key]??attempt?.rawInput??''} onChange={e=>{const next={...draftRef.current};if(e.target.value===(attempt?.rawInput??''))delete next[key];else next[key]=e.target.value;writeDrafts(next);setErrors(previous=>{const next={...previous};delete next[key];return next;});}} onBlur={e=>{if(e.target.value!==(attempt?.rawInput??''))void saveInput(row.entryId,ordinal,e.target.value);}} onKeyDown={handleScoreKeyDown} disabled={completing||saving.includes(key)||event.status==='completed'||activeClass?.scoring_type==='judged_points'} placeholder="-" className={`w-full min-w-[96px] p-3 rounded border bg-slate-950 text-white font-mono ${errors[key]?'border-red-500':'border-slate-700'}`}/></td>;})}<td className="p-3 whitespace-nowrap font-mono">{row.score.label||'No score'}</td></tr>)}{!rows.length&&<tr><td colSpan={columns+4} className="p-6">No contestants in this class yet. Use Add contestant above.</td></tr>}</tbody>
-   </table>
-  </div>
- </div>;
-}
 
+     {/* 2. Tournament Bracket Tree Pairings (Placed BELOW the scoring field for the owner) */}
+     <div className="p-4 sm:p-6 bg-slate-900 border border-slate-800 rounded-2xl space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+       <div>
+        <h3 className="font-black text-amber-400 text-base sm:text-lg flex items-center gap-2">
+         <Trophy className="w-5 h-5 text-amber-500" /> Tournament Bracket Tree ({bracketLadder.bracketSize}-Car Field{bracketLadder.hasLosersBracket ? ' · Double Elimination' : ''})
+        </h3>
+        <p className="text-xs text-slate-400">
+         Click any matchup card in the tree to jump to it in the scoring field above.
+        </p>
+       </div>
+       {bracketLadder.championId && (
+        <span className="px-3 py-1 bg-amber-500 text-slate-950 font-black rounded-lg text-xs uppercase tracking-wider">
+         🏆 Champion: {bracketLadder.resultsByEntryId[bracketLadder.championId]?.displayName}
+        </span>
+       )}
+      </div>
 
-function MatchupBox({match,onSelectWinner}:{match:import('@/scoring/bracket').BracketMatchup;onSelectWinner:(matchId:string,winnerId:string|null)=>void}){
- const isManual=Boolean(match.isManual);
- return <div className="p-2 rounded bg-slate-900 border border-slate-800 text-xs font-mono space-y-1.5">
-  <div className="flex items-center justify-between text-[11px] text-slate-400 border-b border-slate-800/80 pb-1">
-   <span className="font-bold">{match.id}</span>
-   {isManual&&<button type="button" onClick={()=>onSelectWinner(match.id,null)} className="text-[10px] text-red-400 hover:underline">Reset Auto</button>}
-  </div>
-  {[match.racer1,match.racer2].map((racer,idx)=>{
-   if(!racer) return <div key={idx} className="text-slate-600 italic py-0.5">TBD</div>;
-   const isWinner=match.winnerId===racer.entryId;
-   return <div key={racer.entryId} className={`flex items-center justify-between p-1 rounded ${isWinner?'bg-amber-500/10 border border-amber-500/40 text-amber-300':'text-slate-300'}`}>
-    <div className="flex items-center gap-1.5 min-w-0">
-     {!racer.isBye&&<span className="text-[10px] text-slate-400">#{racer.seed}</span>}
-     <span className="truncate font-semibold text-xs">{racer.displayName}</span>
+      <BracketView
+       ladder={bracketLadder}
+       selectedMatchId={activeMatch?.id}
+       onSelectMatch={mId => setSelectedMatchId(mId)}
+      />
+     </div>
+
+     {/* 3. Collapsible Full Contestant Table */}
+     <div className="p-4 bg-slate-900/60 border border-slate-800 rounded-2xl space-y-3">
+      <div className="flex items-center justify-between">
+       <p className="text-xs text-slate-400 font-semibold">
+        Full Contestant Leaderboard Table ({rows.length} Contestants)
+       </p>
+       <button
+        type="button"
+        onClick={() => setShowFullGrid(prev => !prev)}
+        className="text-xs font-bold text-amber-400 hover:underline flex items-center gap-1.5"
+       >
+        {showFullGrid ? (
+         <>
+          <EyeOff className="w-3.5 h-3.5" /> Hide Full Table
+         </>
+        ) : (
+         <>
+          <Eye className="w-3.5 h-3.5" /> Show Full Table
+         </>
+        )}
+       </button>
+      </div>
+
+      {showFullGrid && (
+       <div className="overflow-x-auto pt-2 min-w-0">
+        <table aria-label={`${activeClass?.name||'Class'} scores`} className="w-full min-w-[640px] text-left bg-slate-900 rounded-lg">
+         <thead className="bg-slate-800">
+          <tr>
+           <SortHeading<ResultOrder> label="Rank" value="rank" order={order} reverse={reverse} onOrder={setOrder} onReverse={setReverse}/>
+           <SortHeading<ResultOrder> label="Order" value="run" order={order} reverse={reverse} onOrder={setOrder} onReverse={setReverse}/>
+           <SortHeading<ResultOrder> label="Racer" value="name" order={order} reverse={reverse} onOrder={setOrder} onReverse={setReverse}/>
+           {Array.from({length:columns},(_,i)=><SortHeading<ResultOrder> key={i} label={`Pass ${i+1}`} value={`pass:${i+1}`} order={order} reverse={reverse} onOrder={setOrder} onReverse={setReverse}/>)}
+           <th scope="col" className="p-3">Result</th>
+          </tr>
+         </thead>
+         <tbody>
+          {rows.map(row=><tr data-testid="scoring-row" data-entry-id={row.entryId} key={row.entryId} className="border-t border-slate-700">
+           <td className="p-3">{row.rank===null?'—':`${row.tied?'T':''}${row.rank}`}</td>
+           <td className="p-3">{row.orderNum}</td>
+           <td className="p-3 font-semibold">{row.entry.display_name}</td>
+           {Array.from({length:columns},(_,i)=>{
+            const ordinal=i+1,key=`${row.entryId}:${ordinal}`,attempt=row.attempts.find(a=>a.ordinal===ordinal);
+            return <td key={ordinal} className="p-2">
+             <input type="text" data-score-pass={ordinal} tabIndex={key===gridTabStop?0:-1} onFocus={()=>setTabStop(key)} aria-label={`${row.entry.display_name}, pass ${ordinal}`} aria-invalid={Boolean(errors[key])} title={errors[key]} value={drafts[key]??attempt?.rawInput??''} onChange={e=>{const next={...draftRef.current};if(e.target.value===(attempt?.rawInput??''))delete next[key];else next[key]=e.target.value;writeDrafts(next);setErrors(prev=>{const next={...prev};delete next[key];return next;});}} onBlur={e=>{if(e.target.value!==(attempt?.rawInput??''))void saveInput(row.entryId,ordinal,e.target.value);}} onKeyDown={handleScoreKeyDown} disabled={completing||saving.includes(key)||event.status==='completed'} placeholder="-" className={`w-full min-w-[96px] p-2.5 rounded border bg-slate-950 text-white font-mono ${errors[key]?'border-red-500':'border-slate-700'}`}/>
+            </td>;
+           })}
+           <td className="p-3 whitespace-nowrap font-mono">{row.score.label||'No score'}</td>
+          </tr>)}
+          {!rows.length&&<tr><td colSpan={columns+4} className="p-6">No contestants in this class yet. Use Add contestant above.</td></tr>}
+         </tbody>
+        </table>
+       </div>
+      )}
+     </div>
     </div>
-    <div className="flex items-center gap-2 flex-shrink-0">
-     <span className="font-bold text-xs">{racer.displayScore||'-'}</span>
-     {!racer.isBye&&match.racer1&&match.racer2&&!match.racer1.isBye&&!match.racer2.isBye&&(
-      <button type="button" onClick={()=>onSelectWinner(match.id,racer.entryId)} className={`px-1.5 py-0.5 rounded text-[10px] font-sans font-bold transition ${isWinner?'bg-amber-500 text-slate-950':'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}>
-       {isWinner?'★ Winner':'Pick Winner'}
-      </button>
-     )}
+   )}
+
+   {/* Standard full table for non-bracket race formats */}
+   {activeClass?.scoring_type!=='head_to_head'&&(
+    <div className="overflow-x-auto p-4 min-w-0">
+     <p id="score-entry-help" className="mb-3 text-sm text-slate-400">Tab moves down each pass column, then to the next pass. Shift+Tab moves back.{activeClass?.scoring_type==='fastest_pass'&&' Enter seconds (9.082 s) for a completed run or distance (108.5 ft / 108 ft 6 in) for an incomplete run. Every completed run beats every incomplete run.'} Use - for no pass.</p>
+     <table aria-label={`${activeClass?.name||'Class'} scores`} className="w-full min-w-[640px] text-left bg-slate-900 rounded-lg" onFocusCapture={e=>{if(e.target instanceof HTMLInputElement)setFrozen(rows.map(r=>r.entryId));}} onBlurCapture={e=>{if(!(e.relatedTarget instanceof HTMLInputElement)||!e.currentTarget.contains(e.relatedTarget))setFrozen(null);}}>
+      <thead className="bg-slate-800"><tr><SortHeading<ResultOrder> label="Rank" value="rank" order={order} reverse={reverse} onOrder={setOrder} onReverse={setReverse}/><SortHeading<ResultOrder> label="Order" value="run" order={order} reverse={reverse} onOrder={setOrder} onReverse={setReverse}/><SortHeading<ResultOrder> label="Racer" value="name" order={order} reverse={reverse} onOrder={setOrder} onReverse={setReverse}/>{Array.from({length:columns},(_,i)=><SortHeading<ResultOrder> key={i} label={`Pass ${i+1}`} value={`pass:${i+1}`} order={order} reverse={reverse} onOrder={setOrder} onReverse={setReverse}/>)}<th scope="col" className="p-3">Result</th></tr></thead>
+      <tbody>{rows.map(row=><tr data-testid="scoring-row" data-entry-id={row.entryId} key={row.entryId} className="border-t border-slate-700"><td className="p-3">{row.rank===null?'—':`${row.tied?'T':''}${row.rank}`}</td><td className="p-3">{row.orderNum}</td><td className="p-3 font-semibold">{row.entry.display_name}</td>{Array.from({length:columns},(_,i)=>{const ordinal=i+1,key=`${row.entryId}:${ordinal}`,attempt=row.attempts.find(a=>a.ordinal===ordinal);return <td key={ordinal} className="p-2"><input type="text" data-score-pass={ordinal} tabIndex={key===gridTabStop?0:-1} onFocus={()=>setTabStop(key)} aria-describedby="score-entry-help" aria-label={`${row.entry.display_name}, pass ${ordinal}`} aria-invalid={Boolean(errors[key])} title={errors[key]} value={drafts[key]??attempt?.rawInput??''} onChange={e=>{const next={...draftRef.current};if(e.target.value===(attempt?.rawInput??''))delete next[key];else next[key]=e.target.value;writeDrafts(next);setErrors(previous=>{const next={...previous};delete next[key];return next;});}} onBlur={e=>{if(e.target.value!==(attempt?.rawInput??''))void saveInput(row.entryId,ordinal,e.target.value);}} onKeyDown={handleScoreKeyDown} disabled={completing||saving.includes(key)||event.status==='completed'||activeClass?.scoring_type==='judged_points'} placeholder="-" className={`w-full min-w-[96px] p-3 rounded border bg-slate-950 text-white font-mono ${errors[key]?'border-red-500':'border-slate-700'}`}/></td>;})}<td className="p-3 whitespace-nowrap font-mono">{row.score.label||'No score'}</td></tr>)}{!rows.length&&<tr><td colSpan={columns+4} className="p-6">No contestants in this class yet. Use Add contestant above.</td></tr>}</tbody>
+     </table>
     </div>
-   </div>;
-  })}
-  {match.winnerReason&&<p className="text-[10px] text-slate-400 truncate pt-0.5">{match.winnerReason}</p>}
- </div>;
+   )}
+  </div>;
 }

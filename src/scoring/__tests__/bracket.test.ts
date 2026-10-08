@@ -10,6 +10,9 @@ import {
   compareScores,
   parseAttemptInput,
   Attempt,
+  isByeMatch,
+  getPlayableMatchups,
+  drawRandomByes,
 } from "../index";
 import { scoringFromForm } from "@/components/scoring-fields";
 import { passCount } from "@/lib/race-order";
@@ -519,4 +522,96 @@ describe("Scoring Fields Form Parsing", () => {
     expect(passCount({ bracketSize: 8, requiredPasses: 1 }, [{ ordinal: 2 }])).toBe(2);
   });
 });
+
+describe("Custom Bye Allocation and Playable Match Progression", () => {
+  const entries = [
+    { id: "e1", display_name: "Racer 1", seed: 1 },
+    { id: "e2", display_name: "Racer 2", seed: 2 },
+    { id: "e3", display_name: "Racer 3", seed: 3 },
+    { id: "e4", display_name: "Racer 4", seed: 4 },
+    { id: "e5", display_name: "Racer 5", seed: 5 },
+  ]; // 5 racers in an 8-car bracket => 3 byes
+
+  it("drawRandomByes selects the specified number of entries from the hat", () => {
+    const drawn = drawRandomByes(entries, 3);
+    expect(drawn).toHaveLength(3);
+    // All drawn IDs exist in entries
+    for (const id of drawn) {
+      expect(entries.some((e) => e.id === id)).toBe(true);
+    }
+    // Unique IDs
+    expect(new Set(drawn).size).toBe(3);
+  });
+
+  it("supports owner custom bye assignment via byeEntryIds", () => {
+    // Owner chooses Racer 3, Racer 4, Racer 5 to get the 3 byes instead of top seeds
+    const ladder = buildBracketLadder(entries, [], {
+      bracketSize: 8,
+      byeEntryIds: ["e3", "e4", "e5"],
+    });
+
+    const r1 = ladder.rounds[0].matchups;
+    expect(r1).toHaveLength(4);
+
+    // Verify that e3, e4, e5 are paired with BYE and automatically advanced
+    const byeMatches = r1.filter(isByeMatch);
+    expect(byeMatches).toHaveLength(3);
+    const byeWinners = byeMatches.map((m) => m.winnerId);
+    expect(byeWinners).toContain("e3");
+    expect(byeWinners).toContain("e4");
+    expect(byeWinners).toContain("e5");
+
+    // Racer 1 and Racer 2 now race head-to-head in Round 1
+    const r1Playable = r1.filter((m) => !isByeMatch(m));
+    expect(r1Playable).toHaveLength(1);
+    expect(r1Playable[0].racer1?.entryId).toBe("e1");
+    expect(r1Playable[0].racer2?.entryId).toBe("e2");
+
+    // Playable across tournament: Round 1 (e1 vs e2) is ready, and Semifinals matchup (e4 vs e5) is also ready
+    const playable = getPlayableMatchups(ladder);
+    expect(playable[0].racer1?.entryId).toBe("e1");
+    expect(playable[0].racer2?.entryId).toBe("e2");
+    expect(playable[1].racer1?.entryId).toBe("e4");
+    expect(playable[1].racer2?.entryId).toBe("e5");
+  });
+
+  it("getPlayableMatchups skips bye matches and shows the active race pair (e.g. racers 2 & 3)", () => {
+    // 7 racers in an 8-car bracket (1 bye). Default top seed (e1) gets the bye.
+    const field7 = [
+      { id: "e1", display_name: "Racer 1", seed: 1 },
+      { id: "e2", display_name: "Racer 2", seed: 2 },
+      { id: "e3", display_name: "Racer 3", seed: 3 },
+      { id: "e4", display_name: "Racer 4", seed: 4 },
+      { id: "e5", display_name: "Racer 5", seed: 5 },
+      { id: "e6", display_name: "Racer 6", seed: 6 },
+      { id: "e7", display_name: "Racer 7", seed: 7 },
+    ];
+
+    const ladder = buildBracketLadder(field7, []);
+    const r1 = ladder.rounds[0].matchups;
+    expect(r1).toHaveLength(4);
+
+    // Match 1: e1 vs BYE (Seed 8) -> isByeMatch is true, winnerId is e1
+    expect(isByeMatch(r1[0])).toBe(true);
+    expect(r1[0].winnerId).toBe("e1");
+
+    // Playable matches must filter out the bye match!
+    const playable = getPlayableMatchups(ladder);
+    // Match 1 was a bye, so playable matches in R1 are matches 2, 3, 4
+    expect(playable[0].id).toBe(r1[1].id);
+    expect(playable[0].racer1?.entryId).toBe("e4");
+    expect(playable[0].racer2?.entryId).toBe("e5");
+
+    // Next match in queue:
+    expect(playable[1].id).toBe(r1[2].id);
+    expect(playable[1].racer1?.entryId).toBe("e2");
+    expect(playable[1].racer2?.entryId).toBe("e7");
+
+    // Next match in queue:
+    expect(playable[2].id).toBe(r1[3].id);
+    expect(playable[2].racer1?.entryId).toBe("e3");
+    expect(playable[2].racer2?.entryId).toBe("e6");
+  });
+});
+
 

@@ -66,10 +66,45 @@ export type BracketLadder = {
   resultsByEntryId: Record<string, EntryBracketResult>;
   hasLosersBracket?: boolean;
   winCriterion?: "fastest_time" | "first_to_finish";
+  numByes?: number;
+  byeEntryIds?: string[];
   winnersRounds?: BracketRound[];
   losersRounds?: BracketRound[];
   grandFinal?: BracketMatchup | null;
 };
+
+export function isByeMatch(match: BracketMatchup | null | undefined): boolean {
+  if (!match) return false;
+  return Boolean(match.racer1?.isBye || match.racer2?.isBye);
+}
+
+export function getPlayableMatchups(ladder: BracketLadder): BracketMatchup[] {
+  const result: BracketMatchup[] = [];
+  const rounds = ladder.hasLosersBracket
+    ? [...(ladder.winnersRounds || ladder.rounds), ...(ladder.losersRounds || [])]
+    : ladder.rounds;
+
+  for (const round of rounds) {
+    for (const match of round.matchups) {
+      if (!isByeMatch(match) && match.racer1 && match.racer2) {
+        result.push(match);
+      }
+    }
+  }
+
+  if (ladder.grandFinal && !isByeMatch(ladder.grandFinal) && ladder.grandFinal.racer1 && ladder.grandFinal.racer2) {
+    result.push(ladder.grandFinal);
+  }
+
+  return result;
+}
+
+export function drawRandomByes(entries: Array<{ id: string }>, count: number): string[] {
+  if (count <= 0 || !entries.length) return [];
+  const shuffled = [...entries].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count).map((e) => e.id);
+}
+
 
 /**
  * Returns standard tournament pairing order for a power-of-two bracket size.
@@ -287,6 +322,165 @@ export function compareMatchAttempts(
 }
 
 /**
+ * Populates Round 1 matchups with seeded entries and BYEs.
+ * Supports custom bye assignments (e.g., drawn from a hat by the owner).
+ */
+export function populateRound1Matchups(
+  matchups: BracketMatchup[],
+  bracketSize: number,
+  seeded: BracketSeed[],
+  config: Record<string, unknown> = {}
+): { chosenByeSet: Set<string> } {
+  const numByes = Math.max(0, bracketSize - seeded.length);
+  const seedOrder = getBracketSeedOrder(bracketSize);
+  const chosenByeSet = new Set<string>();
+
+  if (numByes <= 0) {
+    for (let m = 0; m < matchups.length; m++) {
+      const seed1 = seedOrder[m * 2];
+      const seed2 = seedOrder[m * 2 + 1];
+      const entry1 = seeded[seed1 - 1];
+      const entry2 = seeded[seed2 - 1];
+
+      matchups[m].racer1 = entry1
+        ? { entryId: entry1.id, displayName: entry1.displayName, seed: entry1.seed, isBye: false }
+        : { entryId: `bye-${seed1}`, displayName: "BYE", seed: seed1, isBye: true };
+
+      matchups[m].racer2 = entry2
+        ? { entryId: entry2.id, displayName: entry2.displayName, seed: entry2.seed, isBye: false }
+        : { entryId: `bye-${seed2}`, displayName: "BYE", seed: seed2, isBye: true };
+    }
+    return { chosenByeSet };
+  }
+
+  // Check if owner provided manual or hat-drawn byeEntryIds
+  const rawByeIds = config.byeEntryIds;
+  const specifiedByeIds = Array.isArray(rawByeIds)
+    ? (rawByeIds as string[]).filter((id) => seeded.some((s) => s.id === id))
+    : [];
+
+  for (const id of specifiedByeIds) {
+    if (chosenByeSet.size < numByes) {
+      chosenByeSet.add(id);
+    }
+  }
+
+  // If more byes needed than specified, fill in with top seeds
+  for (const s of seeded) {
+    if (chosenByeSet.size >= numByes) break;
+    chosenByeSet.add(s.id);
+  }
+
+  // Check if chosen byes match the default standard top seeds (1..numByes)
+  const defaultByeSet = new Set<string>();
+  for (let i = 0; i < numByes && i < seeded.length; i++) {
+    defaultByeSet.add(seeded[i].id);
+  }
+
+  const isCustomByes =
+    specifiedByeIds.length > 0 &&
+    Array.from(chosenByeSet).some((id) => !defaultByeSet.has(id));
+
+  if (!isCustomByes) {
+    // Standard tournament seeding: seeds map directly to seedOrder slots
+    for (let m = 0; m < matchups.length; m++) {
+      const seed1 = seedOrder[m * 2];
+      const seed2 = seedOrder[m * 2 + 1];
+      const entry1 = seeded[seed1 - 1];
+      const entry2 = seeded[seed2 - 1];
+
+      matchups[m].racer1 = entry1
+        ? { entryId: entry1.id, displayName: entry1.displayName, seed: entry1.seed, isBye: false }
+        : { entryId: `bye-${seed1}`, displayName: "BYE", seed: seed1, isBye: true };
+
+      matchups[m].racer2 = entry2
+        ? { entryId: entry2.id, displayName: entry2.displayName, seed: entry2.seed, isBye: false }
+        : { entryId: `bye-${seed2}`, displayName: "BYE", seed: seed2, isBye: true };
+    }
+    return { chosenByeSet };
+  }
+
+  // Custom byes active (e.g. drawn from a hat):
+  const byeRacers = seeded.filter((s) => chosenByeSet.has(s.id));
+  const competingRacers = seeded.filter((s) => !chosenByeSet.has(s.id));
+
+  // Determine matchup slots where virtual seeds (byes) live
+  const byeMatchIndices: number[] = [];
+  const headToHeadMatchIndices: number[] = [];
+
+  for (let m = 0; m < matchups.length; m++) {
+    const s1 = seedOrder[m * 2];
+    const s2 = seedOrder[m * 2 + 1];
+    if (Math.max(s1, s2) > seeded.length && byeMatchIndices.length < numByes) {
+      byeMatchIndices.push(m);
+    }
+  }
+
+  for (let m = 0; m < matchups.length; m++) {
+    if (!byeMatchIndices.includes(m)) {
+      if (byeMatchIndices.length < numByes) {
+        byeMatchIndices.push(m);
+      } else {
+        headToHeadMatchIndices.push(m);
+      }
+    }
+  }
+
+  // Populate bye matchups
+  for (let i = 0; i < byeMatchIndices.length; i++) {
+    const m = byeMatchIndices[i];
+    const racer = byeRacers[i];
+    if (racer) {
+      matchups[m].racer1 = {
+        entryId: racer.id,
+        displayName: racer.displayName,
+        seed: racer.seed,
+        isBye: false,
+      };
+      matchups[m].racer2 = {
+        entryId: `bye-${m + 1}`,
+        displayName: "BYE",
+        seed: 99,
+        isBye: true,
+      };
+    }
+  }
+
+  // Populate competing head-to-head matchups
+  for (let i = 0; i < headToHeadMatchIndices.length; i++) {
+    const m = headToHeadMatchIndices[i];
+    const top = competingRacers[i];
+    const bottom = competingRacers[competingRacers.length - 1 - i];
+
+    if (top) {
+      matchups[m].racer1 = {
+        entryId: top.id,
+        displayName: top.displayName,
+        seed: top.seed,
+        isBye: false,
+      };
+    }
+    if (bottom && bottom.id !== top?.id) {
+      matchups[m].racer2 = {
+        entryId: bottom.id,
+        displayName: bottom.displayName,
+        seed: bottom.seed,
+        isBye: false,
+      };
+    } else {
+      matchups[m].racer2 = {
+        entryId: `bye-unpaired`,
+        displayName: "BYE",
+        seed: 99,
+        isBye: true,
+      };
+    }
+  }
+
+  return { chosenByeSet };
+}
+
+/**
  * Builds and resolves bracket ladder (supporting both Single Elimination and Double Elimination / Losers Bracket).
  */
 export function buildBracketLadder(
@@ -446,22 +640,8 @@ export function buildBracketLadder(
     }
 
     // Populate Round 1 matchups
-    const seedOrder = getBracketSeedOrder(bracketSize);
-    const r1Matchups = rounds[0].matchups;
-    for (let m = 0; m < r1Matchups.length; m++) {
-      const seed1 = seedOrder[m * 2];
-      const seed2 = seedOrder[m * 2 + 1];
-      const entry1 = seeded[seed1 - 1];
-      const entry2 = seeded[seed2 - 1];
+    const { chosenByeSet } = populateRound1Matchups(rounds[0].matchups, bracketSize, seeded, config);
 
-      r1Matchups[m].racer1 = entry1
-        ? { entryId: entry1.id, displayName: entry1.displayName, seed: entry1.seed, isBye: false }
-        : { entryId: `bye-${seed1}`, displayName: "BYE", seed: seed1, isBye: true };
-
-      r1Matchups[m].racer2 = entry2
-        ? { entryId: entry2.id, displayName: entry2.displayName, seed: entry2.seed, isBye: false }
-        : { entryId: `bye-${seed2}`, displayName: "BYE", seed: seed2, isBye: true };
-    }
 
     // Simulate each round forward
     for (let r = 1; r <= totalRounds; r++) {
@@ -569,7 +749,10 @@ export function buildBracketLadder(
       resultsByEntryId,
       hasLosersBracket: false,
       winCriterion,
+      numByes: Math.max(0, bracketSize - seeded.length),
+      byeEntryIds: Array.from(chosenByeSet),
     };
+
   }
 
   // --------------------------------------------------------------------------
@@ -685,22 +868,9 @@ export function buildBracketLadder(
   }
 
   // Populate Winners Round 1
-  const seedOrder = getBracketSeedOrder(bracketSize);
   const w1Matchups = winnersRounds[0].matchups;
-  for (let m = 0; m < w1Matchups.length; m++) {
-    const seed1 = seedOrder[m * 2];
-    const seed2 = seedOrder[m * 2 + 1];
-    const entry1 = seeded[seed1 - 1];
-    const entry2 = seeded[seed2 - 1];
+  const { chosenByeSet } = populateRound1Matchups(w1Matchups, bracketSize, seeded, config);
 
-    w1Matchups[m].racer1 = entry1
-      ? { entryId: entry1.id, displayName: entry1.displayName, seed: entry1.seed, isBye: false }
-      : { entryId: `bye-${seed1}`, displayName: "BYE", seed: seed1, isBye: true };
-
-    w1Matchups[m].racer2 = entry2
-      ? { entryId: entry2.id, displayName: entry2.displayName, seed: entry2.seed, isBye: false }
-      : { entryId: `bye-${seed2}`, displayName: "BYE", seed: seed2, isBye: true };
-  }
 
   // 4. Interleaved round-by-round progression for Double Elimination
   if (k === 1) {
@@ -909,5 +1079,7 @@ export function buildBracketLadder(
     winnersRounds,
     losersRounds,
     grandFinal,
+    numByes: Math.max(0, bracketSize - seeded.length),
+    byeEntryIds: Array.from(chosenByeSet),
   };
 }

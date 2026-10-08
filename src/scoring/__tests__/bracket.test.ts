@@ -12,6 +12,7 @@ import {
   Attempt,
 } from "../index";
 import { scoringFromForm } from "@/components/scoring-fields";
+import { passCount } from "@/lib/race-order";
 
 function makeAttempt(
   id: string,
@@ -492,6 +493,30 @@ describe("Scoring Fields Form Parsing", () => {
     expect(parsed.scoring_config.winCriterion).toBe("first_to_finish");
     expect(parsed.scoring_config.losersBracket).toBe(true);
     expect(parsed.scoring_config.bracketSize).toBe(8);
+  });
+
+  it("defaults requiredPasses to 1 in bracket racing and keeps it adjustable", () => {
+    // 1. When not specified on form, defaults to 1
+    const defaultForm = new FormData();
+    defaultForm.set("scoring_type", "head_to_head");
+    const defaultParsed = scoringFromForm(defaultForm);
+    expect(defaultParsed.scoring_config.requiredPasses).toBe(1);
+
+    // 2. When adjusted by user (e.g. 3 passes), respects it
+    const adjustedForm = new FormData();
+    adjustedForm.set("scoring_type", "head_to_head");
+    adjustedForm.set("requiredPasses", "3");
+    const adjustedParsed = scoringFromForm(adjustedForm);
+    expect(adjustedParsed.scoring_config.requiredPasses).toBe(3);
+
+    // 3. passCount returns 1 by default for bracket class with no runs yet
+    expect(passCount({ bracketSize: 8, requiredPasses: 1 }, [])).toBe(1);
+
+    // 4. passCount returns configured amount when adjusted to 3
+    expect(passCount({ bracketSize: 8, requiredPasses: 3 }, [])).toBe(3);
+
+    // 5. passCount automatically expands when attempts with higher ordinals exist
+    expect(passCount({ bracketSize: 8, requiredPasses: 1 }, [{ ordinal: 2 }])).toBe(2);
   });
 });
 

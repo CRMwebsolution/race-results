@@ -13,7 +13,10 @@ export function sortResults<T extends {entryId:string;orderNum:number;rank:numbe
  return [...rows].sort((a,b)=>{const x=metric(a),y=metric(b);if(!x||!y)return x?-1:y?1:a.orderNum-b.orderNum||a.entryId.localeCompare(b.entryId);return (x[0]-y[0]||(x[1]-y[1])*(reverse?-1:1))||a.orderNum-b.orderNum||a.entryId.localeCompare(b.entryId);});
 }
 export function passCount(config:any,attempts:{ordinal:number}[]){
- const mult = config?.losersBracket ? 2 : 1;
- const bracketRounds = config?.bracketSize ? Math.ceil(Math.log2(Math.max(2,Number(config.bracketSize)))) * mult : Number(config?.bracketRounds)||0;
- return Math.min(100,Math.max(2,Number(config?.requiredPasses)||0,Number(config?.judgedRounds)||0,bracketRounds,...(config?.requiredOrdinals||[]),...attempts.map(a=>a.ordinal)));
+ const isBracket = config?.bracketSize != null || config?.winCriterion != null || config?.losersBracket != null || config?.seedMethod != null;
+ if (isBracket) {
+  const configuredPasses = Number(config?.requiredPasses) || 1;
+  return Math.min(100, Math.max(1, configuredPasses, ...attempts.map(a=>a.ordinal)));
+ }
+ return Math.min(100,Math.max(2,Number(config?.requiredPasses)||0,Number(config?.judgedRounds)||0,...(config?.requiredOrdinals||[]),...attempts.map(a=>a.ordinal)));
 }

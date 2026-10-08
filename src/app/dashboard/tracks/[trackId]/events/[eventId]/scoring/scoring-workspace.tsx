@@ -12,7 +12,7 @@ import {prepareEvent} from '@/lib/offline/prepare';
 import {flushPrepared,retryPrepared,resolveConflict} from '@/lib/offline/sync';
 import {SortHeading} from '@/components/sort-heading';
 import {explainError,ActionFeedback} from '@/components/action-feedback';
-import {saveAttempt, setBracketMatchWinner} from './actions';
+import {saveAttempt, setBracketMatchWinner, setBracketPasses} from './actions';
 import {finalizeEventStandings} from '../settings/actions';
 
 export type EventType={id:string;name:string;working_revision:number;status:string};
@@ -29,6 +29,7 @@ export function ScoringWorkspace({accountId,canComplete=false,offlineOnly=false,
  const [drafts,setDrafts]=useState<Record<string,string>>({}),[errors,setErrors]=useState<Record<string,string>>({});
  const [saving,setSaving]=useState<string[]>([]),[completing,setCompleting]=useState(false),[completeError,setCompleteError]=useState('');
  const [overrideWinners,setOverrideWinners]=useState<Record<string,Record<string,string|null>>>({});
+ const [extraPasses,setExtraPasses]=useState<Record<string,number>>({});
  const [connected,setConnected]=useState(true),[order,setOrder]=useState<ResultOrder>('run'),[reverse,setReverse]=useState(false);
  const [frozen,setFrozen]=useState<string[]|null>(null);
  const [tabStop,setTabStop]=useState<string|null>(null);
@@ -78,7 +79,20 @@ export function ScoringWorkspace({accountId,canComplete=false,offlineOnly=false,
   };
   return buildBracketLadder(classEntries,classAttempts,effectiveConfig);
  },[activeClass,classEntries,attempts,overrideWinners]);
- const columns=passCount(activeClass?.scoring_config,attempts.filter(a=>a.event_class_id===activeClassId));
+ async function handleAdjustPasses(newCount:number){
+  if(!activeClass)return;
+  setExtraPasses(prev=>({...prev,[activeClass.id]:newCount}));
+  try{
+   const res=await setBracketPasses(trackId,event.id,activeClass.id,newCount);
+   if(!res.success)setCompleteError(res.error||'Failed to update passes');
+  }catch(e:any){setCompleteError(e?.message||'Failed to update passes');}
+ }
+ const classConfig=useMemo(()=>{
+  if(!activeClass)return {};
+  const passes=extraPasses[activeClass.id]??activeClass.scoring_config?.requiredPasses;
+  return {...activeClass.scoring_config,...(passes!=null?{requiredPasses:passes}:{})};
+ },[activeClass,extraPasses]);
+ const columns=passCount(classConfig,attempts.filter(a=>a.event_class_id===activeClassId));
  const ranked=useMemo(()=>{
   if(!activeClass)return [];
   const grouped=new Map<string,AttemptType[]>();for(const a of attempts){if(a.event_class_id===activeClass.id)grouped.set(a.entry_id,[...(grouped.get(a.entry_id)||[]),a]);}
@@ -151,6 +165,14 @@ export function ScoringWorkspace({accountId,canComplete=false,offlineOnly=false,
  return <div data-offline-ready={prepared&&!prepared.closed?"true":"false"} className="w-full min-w-0 space-y-3">
   <nav aria-label="Scoring actions" className="flex flex-wrap items-center gap-3 p-4 bg-slate-900 border-b">
    <div className="flex flex-wrap gap-2 flex-1">{classes.map(c=><button key={c.id} disabled={completing} aria-pressed={activeClassId===c.id} onClick={()=>{setActiveClassId(c.id);setFrozen(null);}} className={`p-3 rounded-lg font-semibold ${activeClassId===c.id?'bg-amber-500 text-slate-950':'border border-slate-700 bg-slate-950'}`}>{c.name}</button>)}</div>
+   {activeClass?.scoring_type==='head_to_head'&&(
+    <div className="flex items-center gap-1.5 p-1.5 bg-slate-950 border border-slate-700 rounded-lg text-xs">
+     <span className="font-semibold text-slate-400">Passes:</span>
+     <button type="button" disabled={columns<=1||completing} onClick={()=>void handleAdjustPasses(Math.max(1,columns-1))} className="w-6 h-6 flex items-center justify-center rounded border border-slate-700 bg-slate-900 text-slate-300 hover:text-white disabled:opacity-30 font-bold" title="Decrease passes">-</button>
+     <span className="font-mono font-bold text-amber-400 px-1">{columns}</span>
+     <button type="button" disabled={columns>=100||completing} onClick={()=>void handleAdjustPasses(columns+1)} className="w-6 h-6 flex items-center justify-center rounded border border-slate-700 bg-slate-900 text-slate-300 hover:text-white font-bold" title="Add pass">+</button>
+    </div>
+   )}
    <Link href={`${base}/entries?class=${activeClassId}`} className="p-3 border rounded-lg">Add contestant</Link>
    {canComplete&&<button onClick={()=>void complete()} onMouseDown={e=>e.preventDefault()} disabled={completing} className="p-3 rounded-lg bg-emerald-600 text-white font-bold">{completing?'Saving and completing…':'Complete race'}</button>}
    <p role="status" className="w-full text-sm text-slate-400">{status}</p>

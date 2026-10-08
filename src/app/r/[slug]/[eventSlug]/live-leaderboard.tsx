@@ -9,6 +9,8 @@ import { useEffect, useState, useMemo, useRef, useTransition } from "react";
 import { watchPublicEvent } from "@/lib/event-sync";
 import { createClient } from "@/lib/supabase/client";
 import { scoreClass, rankEntries, compareRankedEntries } from "@/scoring";
+import { buildBracketLadder } from "@/scoring/bracket";
+import { BracketView } from "@/components/bracket-view";
 import { Loader2, RefreshCw, Printer } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -46,6 +48,7 @@ export function LiveLeaderboard({
   const [sortOrder,setSortOrder]=useState<ResultOrder>("rank");
   const [reverse,setReverse]=useState(false);
   const [activeClassId, setActiveClassId] = useState<string>(classes[0]?.id || "");
+  const [bracketView, setBracketView] = useState(true);
   const [connected, setConnected] = useState(false);
   const [isRefreshing, startTransition] = useTransition();
   const currentEvent = useRef(event);
@@ -64,10 +67,30 @@ export function LiveLeaderboard({
   const activeClass = classes.find((c) => c.id === activeClassId);
   const activeEntries = initialEntries.filter((e) => e.event_class_id === activeClassId);
 
+  const bracketLadder = useMemo(() => {
+    if (!activeClass || activeClass.scoring_type !== "head_to_head") return null;
+    const attemptsForClass = initialAttempts
+      .filter((a) => a.event_class_id === activeClass.id)
+      .map((a) => ({
+        id: a.id,
+        entryId: a.entry_id,
+        ordinal: a.ordinal,
+        status: a.status as "valid" | "dq" | "dnf" | "dns" | "no_time",
+        elapsedMs: a.elapsed_ms,
+        distanceMm: a.distance_mm,
+        penaltyMs: a.penalty_ms,
+        rawInput: a.raw_input,
+      }));
+    return buildBracketLadder(activeEntries, attemptsForClass, activeClass.scoring_config);
+  }, [activeClass, activeEntries, initialAttempts]);
+
   const rankedEntries = useMemo(() => {
     if (!activeClass) return [];
 
     const attemptsForClass = initialAttempts.filter((a) => a.event_class_id === activeClass.id);
+    const effectiveConfig = bracketLadder
+      ? { ...activeClass.scoring_config, bracketScores: bracketLadder.resultsByEntryId }
+      : activeClass.scoring_config;
 
     const entriesWithScore = activeEntries.map((entry) => {
       const judges=judgeScores.filter(s=>s.entryId===entry.id);
@@ -85,7 +108,7 @@ export function LiveLeaderboard({
         }));
 
       const official=officialResults?.find(r=>r.id===entry.id);
-      const score = officialResults ? (official?.score ?? {eligible:official?.final_rank!=null,primary:null,direction:"asc" as const,tieBreakers:[],label:official?.final_rank!=null ? `Official rank ${official.final_rank} (original score not retained)` : "Unranked",details:{}}) : scoreClass(activeClass.scoring_type, entryAttempts, activeClass.scoring_config, activeClass.scoring_version,judges);
+      const score = officialResults ? (official?.score ?? {eligible:official?.final_rank!=null,primary:null,direction:"asc" as const,tieBreakers:[],label:official?.final_rank!=null ? `Official rank ${official.final_rank} (original score not retained)` : "Unranked",details:{}}) : scoreClass(activeClass.scoring_type, entryAttempts, effectiveConfig, activeClass.scoring_version,judges);
 
       return {
         entry,
@@ -101,7 +124,7 @@ export function LiveLeaderboard({
 
     return officialResults ? entriesWithScore : rankEntries(entriesWithScore);
 
-  }, [activeClass, activeEntries, initialAttempts,officialResults,judgeScores]);
+  }, [activeClass, activeEntries, initialAttempts, officialResults, judgeScores, bracketLadder]);
 
   const eligible=rankedEntries.filter(r=>r.rank!==null&&championship?.eligibleEntryIds.includes(r.entryId)).sort((a,b)=>a.rank!-b.rank!||a.entryId.localeCompare(b.entryId));
   const pointsRows=eligible.map((r,i)=>{const position=eligible.findIndex(other=>other.rank===r.rank)+1;return {...r,pointsRank:position,points:championship?.rules.find(rule=>position>=rule.rank_start&&position<=rule.rank_end)?.points||0};});
@@ -146,8 +169,45 @@ export function LiveLeaderboard({
       </div>
 
       {championship?.classIds.includes(activeClassId)&&<section className="p-4 border rounded space-y-3"><h3 className="text-xl font-bold">{championship.name} · Series points positions</h3><p className="text-sm text-slate-400">Registered entries only. These placement points are before bonuses and manual amendments.{championship.showSeasonTotals?" Published season totals appear below.":""}</p><div className="overflow-x-auto"><table className="w-full text-left"><thead><tr><th className="p-2">Points position</th><th className="p-2">Registered entry</th><th className="p-2">Race finish</th><th className="p-2">Placement points</th></tr></thead><tbody>{pointsRows.map(r=><tr key={r.entryId}><td className="p-2">{r.pointsRank}</td><td className="p-2">{r.entry.display_name}</td><td className="p-2">{r.rank}</td><td className="p-2">{r.points}</td></tr>)}</tbody></table></div>{!pointsRows.length&&<p>No ranked eligible entries yet.</p>}</section>}
-      {/* Leaderboard */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
+      {/* Format-specific controls for Bracket Racing */}
+      {activeClass?.scoring_type === 'head_to_head' && bracketLadder && (
+        <div className="flex items-center gap-2 print:hidden">
+          <button
+            onClick={() => setBracketView(true)}
+            aria-pressed={bracketView}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition ${
+              bracketView
+                ? 'bg-amber-500 text-slate-950 shadow-md'
+                : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-white'
+            }`}
+          >
+            🏁 Elimination Bracket
+          </button>
+          <button
+            onClick={() => setBracketView(false)}
+            aria-pressed={!bracketView}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition ${
+              !bracketView
+                ? 'bg-amber-500 text-slate-950 shadow-md'
+                : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-white'
+            }`}
+          >
+            📋 Leaderboard Table
+          </button>
+        </div>
+      )}
+
+      {/* Render Bracket View if selected */}
+      {activeClass?.scoring_type === 'head_to_head' && bracketLadder && bracketView && (
+        <div className="print:hidden">
+          <BracketView ladder={bracketLadder} activeClassTitle={activeClass.name} />
+        </div>
+      )}
+
+      {/* Leaderboard Table (Always rendered for print, toggled for interactive view) */}
+      <div className={`bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl ${
+        activeClass?.scoring_type === 'head_to_head' && bracketView ? 'hidden print:block' : ''
+      }`}>
         <div className="p-4 border-b border-slate-800 bg-slate-800/30 flex items-center justify-between">
           <h3 className="font-bold text-white">{activeClass?.name} {championship?'Overall race results':'Leaderboard'}</h3>
           <div className="flex flex-wrap gap-3 print:hidden">

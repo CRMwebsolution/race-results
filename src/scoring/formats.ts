@@ -3,6 +3,7 @@ export const scoringFormats = [
   ['consistency', 'Consistency'],
   ['combined_time', 'Combined times'],
   ['judged_points', 'Judged points'],
+  ['head_to_head', 'Heads-up bracket'],
 ] as const;
 
 export function scoringFormatLabel(type: string) {

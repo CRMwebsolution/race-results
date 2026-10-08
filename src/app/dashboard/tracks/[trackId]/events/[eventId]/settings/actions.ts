@@ -4,7 +4,7 @@ import { readAll } from "@/lib/read-all";
 
 import {revalidatePath} from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { scoreClass, rankEntries } from "@/scoring";
+import { scoreClass, rankEntries, buildBracketLadder } from "@/scoring";
 
 export async function finalizeEventStandings(eventId: string, scoresConfirmed = false) {
   const supabase = await createClient();
@@ -48,6 +48,20 @@ export async function finalizeEventStandings(eventId: string, scoresConfirmed = 
     const classAttempts = attempts?.filter(a => a.event_class_id === cls.id) || [];
     const config = (cls.scoring_config as any) || {};
 
+    const bracketLadder = cls.scoring_type === "head_to_head"
+      ? buildBracketLadder(classEntries.map(e => ({ id: e.id, display_name: e.display_name, seed: e.seed, order_num: e.order_num })), classAttempts.map(a => ({
+          id: a.id,
+          entryId: a.entry_id,
+          ordinal: a.ordinal,
+          status: a.status as any,
+          elapsedMs: a.elapsed_ms,
+          distanceMm: a.distance_mm,
+          penaltyMs: a.penalty_ms,
+          rawInput: a.raw_input,
+        })), config)
+      : null;
+    const effectiveConfig = bracketLadder ? { ...config, bracketScores: bracketLadder.resultsByEntryId } : config;
+
     const entriesWithScore = classEntries.map(entry => {
       const entryAttempts = classAttempts
         .filter(a => a.entry_id === entry.id)
@@ -62,7 +76,7 @@ export async function finalizeEventStandings(eventId: string, scoresConfirmed = 
           rawInput: a.raw_input
         }));
 
-      const score = scoreClass(cls.scoring_type, entryAttempts, config, cls.scoring_version,judgeInput(judgeScores.filter(s=>s.entry_id===entry.id)));
+      const score = scoreClass(cls.scoring_type, entryAttempts, effectiveConfig, cls.scoring_version,judgeInput(judgeScores.filter(s=>s.entry_id===entry.id)));
 
       return {
         entryId: entry.id,

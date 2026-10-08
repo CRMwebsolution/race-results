@@ -8,6 +8,8 @@ import { useEffect, useState, useMemo, useRef, useTransition } from "react";
 import { watchPublicEvent } from "@/lib/event-sync";
 import { createClient } from "@/lib/supabase/client";
 import { scoreClass, rankEntries } from "@/scoring";
+import { buildBracketLadder } from "@/scoring/bracket";
+import { BracketView } from "@/components/bracket-view";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -46,6 +48,7 @@ export function PitDisplay({
   const [reverse,setReverse]=useState(false);
   const [selectedClassId, setSelectedClassId] = useState<string>("");
   const [following, setFollowing] = useState(true);
+  const [bracketView, setBracketView] = useState(true);
   const activeClassId=following || !classes.some(c=>c.id===selectedClassId) ? latestClassId || classes[0]?.id || "" : selectedClassId;
   const [connected, setConnected] = useState(false);
   const [isRefreshing, startTransition] = useTransition();
@@ -64,10 +67,30 @@ export function PitDisplay({
   const activeClass = classes.find((c) => c.id === activeClassId);
   const activeEntries = initialEntries.filter((e) => e.event_class_id === activeClassId);
 
+  const bracketLadder = useMemo(() => {
+    if (!activeClass || activeClass.scoring_type !== "head_to_head") return null;
+    const attemptsForClass = initialAttempts
+      .filter((a) => a.event_class_id === activeClass.id)
+      .map((a) => ({
+        id: a.id,
+        entryId: a.entry_id,
+        ordinal: a.ordinal,
+        status: a.status as "valid" | "dq" | "dnf" | "dns" | "no_time",
+        elapsedMs: a.elapsed_ms,
+        distanceMm: a.distance_mm,
+        penaltyMs: a.penalty_ms,
+        rawInput: a.raw_input,
+      }));
+    return buildBracketLadder(activeEntries, attemptsForClass, activeClass.scoring_config);
+  }, [activeClass, activeEntries, initialAttempts]);
+
   const rankedEntries = useMemo(() => {
     if (!activeClass) return [];
 
     const attemptsForClass = initialAttempts.filter((a) => a.event_class_id === activeClass.id);
+    const effectiveConfig = bracketLadder
+      ? { ...activeClass.scoring_config, bracketScores: bracketLadder.resultsByEntryId }
+      : activeClass.scoring_config;
 
     const entriesWithScore = activeEntries.map((entry) => {
       const judges=judgeScores.filter(s=>s.entryId===entry.id);
@@ -85,7 +108,7 @@ export function PitDisplay({
         }));
 
       const official=officialResults?.find(r=>r.id===entry.id);
-      const score = officialResults ? (official?.score ?? {eligible:official?.final_rank!=null,primary:null,direction:"asc" as const,tieBreakers:[],label:official?.final_rank!=null ? `Official rank ${official.final_rank} (original score not retained)` : "Unranked",details:{}}) : scoreClass(activeClass.scoring_type, entryAttempts, activeClass.scoring_config, activeClass.scoring_version,judges);
+      const score = officialResults ? (official?.score ?? {eligible:official?.final_rank!=null,primary:null,direction:"asc" as const,tieBreakers:[],label:official?.final_rank!=null ? `Official rank ${official.final_rank} (original score not retained)` : "Unranked",details:{}}) : scoreClass(activeClass.scoring_type, entryAttempts, effectiveConfig, activeClass.scoring_version,judges);
 
       return {
         entry,
@@ -100,7 +123,7 @@ export function PitDisplay({
     });
 
     return officialResults ? entriesWithScore : rankEntries(entriesWithScore);
-  }, [activeClass, activeEntries, initialAttempts, judgeScores, officialResults]);
+  }, [activeClass, activeEntries, initialAttempts, judgeScores, officialResults, bracketLadder]);
 
   const displayRows=sortResults(rankedEntries,sortOrder,reverse);
   
@@ -143,7 +166,41 @@ export function PitDisplay({
         ))}
       </div>
 
-      {/* Leaderboard */}
+      {/* Bracket View Switcher for Pit Display */}
+      {activeClass?.scoring_type === 'head_to_head' && bracketLadder && (
+        <div className="flex flex-wrap gap-4">
+          <button
+            onClick={() => setBracketView(true)}
+            aria-pressed={bracketView}
+            className={`px-8 py-4 rounded-xl text-2xl font-bold uppercase tracking-wider transition ${
+              bracketView
+                ? 'bg-amber-500 text-black shadow-[0_0_20px_rgba(245,158,11,0.4)]'
+                : 'bg-slate-900 text-slate-400 border-2 border-slate-800 hover:text-white'
+            }`}
+          >
+            🏁 Bracket Ladder
+          </button>
+          <button
+            onClick={() => setBracketView(false)}
+            aria-pressed={!bracketView}
+            className={`px-8 py-4 rounded-xl text-2xl font-bold uppercase tracking-wider transition ${
+              !bracketView
+                ? 'bg-amber-500 text-black shadow-[0_0_20px_rgba(245,158,11,0.4)]'
+                : 'bg-slate-900 text-slate-400 border-2 border-slate-800 hover:text-white'
+            }`}
+          >
+            📋 Leaderboard Table
+          </button>
+        </div>
+      )}
+
+      {/* Bracket View in Pit Display */}
+      {activeClass?.scoring_type === 'head_to_head' && bracketLadder && bracketView ? (
+        <div className="flex-1 bg-slate-950 border-2 border-slate-800 rounded-3xl p-6 overflow-hidden shadow-2xl">
+          <BracketView ladder={bracketLadder} variant="pit" activeClassTitle={activeClass.name} />
+        </div>
+      ) : (
+      /* Leaderboard */
       <div className="flex-1 bg-slate-950 border-2 border-slate-800 rounded-3xl overflow-hidden shadow-2xl flex flex-col">
         <div className="overflow-x-auto flex-1">
           <table aria-label={`${activeClass?.name||'Race'} results`} className="w-full text-left whitespace-nowrap">
@@ -171,6 +228,7 @@ export function PitDisplay({
           </table>
         </div>
       </div>
+      )}
     </div>
   );
 }

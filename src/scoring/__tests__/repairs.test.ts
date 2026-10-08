@@ -19,7 +19,7 @@ describe("Scoring repairs", () => {
     expect(scoreClass("fastest_pass", [], { timeDecimals: 100 }).details.error).toBeTruthy();
   });
   it("fails explicitly on unsupported formats and scorer versions", () => {
-    expect(scoreClass("head_to_head", [attempt(1, "9")]).details.error).toBeTruthy();
+    expect(scoreClass("team_aggregate", [attempt(1, "9")]).details.error).toBeTruthy();
     expect(scoreClass("fastest_pass", [attempt(1, "9")], {}, 2).details.error).toBeTruthy();
   });
   it.each(["fastest_pass", "stopped_distance"])("ranks every distance tiebreaker descending for %s", type => {

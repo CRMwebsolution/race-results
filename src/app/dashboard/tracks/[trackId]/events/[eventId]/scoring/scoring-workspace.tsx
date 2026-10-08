@@ -3,7 +3,7 @@ import {useEffect,useMemo,useRef,useState} from 'react';
 import type {KeyboardEvent} from 'react';
 import Link from 'next/link';
 import {useRouter} from 'next/navigation';
-import {scoreClass,rankEntries} from '@/scoring';
+import {scoreClass,rankEntries,buildBracketLadder} from '@/scoring';
 import {judgeRoundAttempts,JudgeInput} from '@/scoring/multi-judge';
 import {parseAttemptInput} from '@/scoring/parser';
 import {sortResults,passCount,ResultOrder} from '@/lib/race-order';
@@ -50,16 +50,26 @@ export function ScoringWorkspace({accountId,canComplete=false,offlineOnly=false,
   return()=>{mounted=false;unsubscribe();window.removeEventListener('online',online);window.removeEventListener('offline',offline);window.clearInterval(timer);};
  },[accountId,event.id,event.status,offlineOnly]);
  const activeClass=classes.find(c=>c.id===activeClassId);
+ const classEntries=useMemo(()=>initialEntries.filter(e=>e.event_class_id===activeClassId),[initialEntries,activeClassId]);
+ const bracketLadder=useMemo(()=>{
+  if(!activeClass||activeClass.scoring_type!=='head_to_head')return null;
+  const classAttempts=attempts.filter(a=>a.event_class_id===activeClass.id).map(a=>({
+    id:a.id,entryId:a.entry_id,ordinal:a.ordinal,status:a.status as 'valid'|'dq'|'dnf'|'dns'|'no_time',
+    elapsedMs:a.elapsed_ms,distanceMm:a.distance_mm,penaltyMs:a.penalty_ms,rawInput:a.raw_input,
+  }));
+  return buildBracketLadder(classEntries,classAttempts,activeClass.scoring_config);
+ },[activeClass,classEntries,attempts]);
  const columns=passCount(activeClass?.scoring_config,attempts.filter(a=>a.event_class_id===activeClassId));
  const ranked=useMemo(()=>{
   if(!activeClass)return [];
   const grouped=new Map<string,AttemptType[]>();for(const a of attempts){if(a.event_class_id===activeClass.id)grouped.set(a.entry_id,[...(grouped.get(a.entry_id)||[]),a]);}
-  return rankEntries(initialEntries.filter(e=>e.event_class_id===activeClass.id).map(entry=>{
+  const effectiveConfig=bracketLadder?{...activeClass.scoring_config,bracketScores:bracketLadder.resultsByEntryId}:activeClass.scoring_config;
+  return rankEntries(classEntries.map(entry=>{
    const judges=judgeScores.filter(s=>s.entryId===entry.id);
    const values=activeClass.scoring_type==='judged_points'?judgeRoundAttempts(entry.id,judges,activeClass.scoring_config):(grouped.get(entry.id)||[]).map(a=>({id:a.id,entryId:a.entry_id,ordinal:a.ordinal,status:a.status as 'valid'|'dq'|'dnf'|'dns'|'no_time',elapsedMs:a.elapsed_ms,distanceMm:a.distance_mm,penaltyMs:a.penalty_ms,rawInput:a.raw_input}));
-   return {entry,entryId:entry.id,seed:entry.seed,orderNum:entry.order_num,attempts:values,score:scoreClass(activeClass.scoring_type,values,activeClass.scoring_config,activeClass.scoring_version,judges)};
+   return {entry,entryId:entry.id,seed:entry.seed,orderNum:entry.order_num,attempts:values,score:scoreClass(activeClass.scoring_type,values,effectiveConfig,activeClass.scoring_version,judges)};
   }));
- },[activeClass,attempts,initialEntries,judgeScores]);
+ },[activeClass,attempts,classEntries,judgeScores,bracketLadder]);
  const sorted=sortResults(ranked,order,reverse),rows=frozen?[...sorted].sort((a,b)=>frozen.indexOf(a.entryId)-frozen.indexOf(b.entryId)):sorted;
  const [tabEntry,tabPass]=(tabStop||'').split(':');
  const gridTabStop=rows.some(row=>row.entryId===tabEntry)&&Number(tabPass)>0&&Number(tabPass)<=columns
@@ -130,6 +140,17 @@ export function ScoringWorkspace({accountId,canComplete=false,offlineOnly=false,
   {prepared?.outbox.filter((o,i,a)=>(o.state!=='queued'||o.error)&&a.findIndex(x=>x.entryId===o.entryId&&x.ordinal===o.ordinal)===i).map(o=><div key={o.id} role="alert" className="mx-4 p-3 border rounded space-y-2"><p>{initialEntries.find(e=>e.id===o.entryId)?.display_name}, pass {o.ordinal}: {o.state==='conflict'?'Another scorekeeper changed this result. Choose which score to keep.':`This score is saved on your device. ${explainError(o.error||'Reconnect and try saving again.')}`} Your entry: {o.raw}</p>{o.state==='conflict'?<div className="flex flex-wrap gap-3"><button className="p-3 border rounded" onClick={()=>accountId&&void resolveConflict(accountId,event.id,o.entryId,o.ordinal,false).catch(e=>setCompleteError(explainError(e.message)))}>Keep the other saved score</button><button className="p-3 border rounded" onClick={()=>accountId&&void resolveConflict(accountId,event.id,o.entryId,o.ordinal,true).catch(e=>setCompleteError(explainError(e.message)))}>Keep my score</button></div>:<button className="p-3 border rounded" onClick={()=>accountId&&void retryPrepared(accountId,event.id).catch(()=>{})}>Try saving again</button>}</div>)}
   {Object.keys(errors).length>0&&<p role="alert" className="p-4 text-red-400">{[...new Set(Object.values(errors))].join(' ')} Your entries are kept.</p>}
   {activeClass?.scoring_type==='judged_points'&&<Link href={`${base}/judging`} className="inline-block p-4 text-amber-400 underline">Enter scores for this judged class</Link>}
+  {activeClass?.scoring_type==='head_to_head'&&bracketLadder&&(
+   <div className="mx-4 p-4 bg-slate-900 border border-slate-800 rounded-lg space-y-3">
+    <div className="flex items-center justify-between">
+     <h3 className="font-bold text-amber-400">🏁 Bracket Pairings ({bracketLadder.bracketSize}-Car Field)</h3>
+     {bracketLadder.championId&&<span className="px-2.5 py-1 bg-amber-500 text-slate-950 font-bold rounded text-xs">Winner: {bracketLadder.resultsByEntryId[bracketLadder.championId]?.displayName}</span>}
+    </div>
+    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+     {bracketLadder.rounds.map(r=><div key={r.round} className="p-2.5 bg-slate-950 border border-slate-800 rounded space-y-1.5"><p className="font-bold text-xs text-slate-400 uppercase tracking-wider">{r.roundName} (Pass {r.round})</p>{r.matchups.map(m=><div key={m.id} className="p-1.5 rounded bg-slate-900 border border-slate-800 text-xs font-mono flex items-center justify-between"><span className={m.winnerId===m.racer1?.entryId?'text-amber-400 font-bold':'text-slate-300'}>{m.racer1?`#${m.racer1.seed} ${m.racer1.displayName}`:'TBD'}</span><span className="text-slate-500 text-[10px]">vs</span><span className={m.winnerId===m.racer2?.entryId?'text-amber-400 font-bold':'text-slate-300'}>{m.racer2?`#${m.racer2.seed} ${m.racer2.displayName}`:'TBD'}</span></div>)}</div>)}
+    </div>
+   </div>
+  )}
   <div className="overflow-x-auto p-4 min-w-0">
    <p id="score-entry-help" className="mb-3 text-sm text-slate-400">Tab moves down each pass column, then to the next pass. Shift+Tab moves back.{activeClass?.scoring_type==='fastest_pass'&&' Enter seconds (9.082 s) for a completed run or distance (108.5 ft / 108 ft 6 in) for an incomplete run. Every completed run beats every incomplete run.'} Use - for no pass.</p>
    <table aria-label={`${activeClass?.name||'Class'} scores`} className="w-full min-w-[640px] text-left bg-slate-900 rounded-lg" onFocusCapture={e=>{if(e.target instanceof HTMLInputElement)setFrozen(rows.map(r=>r.entryId));}} onBlurCapture={e=>{if(!(e.relatedTarget instanceof HTMLInputElement)||!e.currentTarget.contains(e.relatedTarget))setFrozen(null);}}>

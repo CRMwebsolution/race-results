@@ -4,6 +4,7 @@ import { scoreFastestPass } from "./fastest-pass";
 import { scoreConsistency } from "./consistency";
 import { scoreCombinedTime } from "./combined-time";
 import { scoreJudgedPoints } from "./judged-points";
+import { scoreHeadToHead } from "./head-to-head";
 import { scoreStoppedDistance } from "./stopped-distance";
 
 function invalid(message: string): Score {
@@ -33,6 +34,11 @@ export function scoreClass(type: string, attempts: Attempt[], rawConfig: unknown
       return scoreConsistency(attempts, { requiredOrdinals: ordinals as [number, number], decimals: Number(decimals) });
     }
     case "combined_time": return scoreCombinedTime(attempts, { requiredPasses: config.requiredPasses as number | undefined });
+    case "head_to_head": {
+      const entryId = attempts[0]?.entryId;
+      const bracketResult = entryId && (config.bracketScores as Record<string, any>)?.[entryId];
+      return scoreHeadToHead(attempts, { ...config, decimals: Number(decimals) }, bracketResult);
+    }
     case "judged_points": return judgeScores ? scoreMultiJudge(judgeScores,config) : scoreJudgedPoints(attempts);
     case "stopped_distance": return scoreStoppedDistance(attempts);
     default: return invalid(`Unsupported scoring format: ${type}`);

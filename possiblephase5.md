@@ -119,13 +119,12 @@ Switching costs keep tracks on legacy systems. An import wizard takes CSV or Exc
 
 ## Pillar E: Major Scoring Expansion
 
-### E1. Heads-Up Brackets & Elimination Ladders
-The handoff notes say bracket and team formats currently "must fail explicitly." Phase 5 is the time to build them properly:
-- A bracket generator seeded from qualifying results, with byes for uneven fields.
-- A live bracket view on the spectator page and pit display.
-- Results feed the same shared scoring and ranking contracts, so CSV export, finalization, and standings keep working.
-- Ships as a new versioned scoring type in the registry, with no changes to existing formats.
-- **Effort:** L. This opens up drag-style and heads-up event types that RaceHoller can't serve today.
+### E1. Heads-Up Brackets & Elimination Ladders (✅ COMPLETED)
+- **Bracket Generator:** Standard NCAA/NHRA tournament elimination ladder (powers of 2: 2, 4, 8, 16, 32, 64) with automatic byes awarded to top seeds for uneven fields.
+- **Matchup Resolution:** Head-to-head match scoring round by round. Lower adjusted elapsed time (including penalties) advances; valid runs beat DQ/DNF/DNS; solo bye advances automatically.
+- **Live Bracket View:** Responsive, high-contrast tournament ladder component (BracketView) on both spectator leaderboards (/r/[slug]/[eventSlug]) and Pit Display (/pit-display), with instant toggle between elimination bracket and leaderboard table views.
+- **Scoring Desk Integration:** Dynamic bracket pairings helper on scoring workspace showing upcoming round pairings and match outcomes.
+- **Scoring & Ranking Contracts:** Ships as head_to_head in the shared registry. Full ranking contracts preserved: Champion (1st), Runner-Up (2nd), Semifinalists (3rd/4th broken by round elapsed times), with CSV export, finalization, and championship standings working seamlessly.
 
 ---
 
@@ -190,3 +189,4 @@ flowchart LR
 3. **Timing hardware (A1):** Which timing systems do your target tracks actually use? This decides which adapters to build first.
 4. **Brackets (E1):** Which event types should brackets support first?
 5. **Tier map:** Do you agree with the feature-to-tier placements above?
+

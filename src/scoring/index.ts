@@ -5,4 +5,6 @@ export * from "./consistency";
 export * from "./parser";
 export * from "./combined-time";
 export * from "./judged-points";
+export * from "./head-to-head";
+export * from "./bracket";
 export * from "./registry";

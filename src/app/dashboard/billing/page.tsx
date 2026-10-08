@@ -21,8 +21,12 @@ export default async function BillingPage({searchParams}: {searchParams:Promise<
 
   if (!memberships || memberships.length === 0) {
     return (
-      <div className="max-w-4xl mx-auto p-8 text-center text-slate-500">
-        You must own or manage an organization to access billing.
+      <div className="max-w-4xl mx-auto p-8 text-center text-slate-500 space-y-4">
+        <p>Billing is managed on a per-Track or per-Series basis.</p>
+        <p>You must create a Track or Series first to access billing settings.</p>
+        <div className="pt-4">
+          <a href="/dashboard" className="px-4 py-2 bg-amber-500 text-slate-950 rounded-xl font-bold hover:bg-amber-400">Go to Dashboard</a>
+        </div>
       </div>
     );
   }

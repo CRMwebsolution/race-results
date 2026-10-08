@@ -12,9 +12,7 @@ export async function changePassword(f:FormData){
  const {data,error:credentialError}=await verify.auth.signInWithPassword({email:user.email!,password:current});
  if(credentialError||data.user?.id!==user.id)redirect('/dashboard/settings?error=Current password is incorrect');
  if(data.session)await verify.auth.signOut({scope:'local'});
- const nonce=String(f.get('nonce')||'').trim();
- const {error}=await db.auth.updateUser({password,...(nonce?{nonce}:{}),current_password:current} as Parameters<typeof db.auth.updateUser>[0]);
+ const {error}=await db.auth.updateUser({password,current_password:current});
  if(error)redirect(`/dashboard/settings?error=${encodeURIComponent(error.message)}`);
  redirect('/dashboard/settings?message=Password changed successfully');
 }
-export async function requestPasswordNonce(){const db=await createClient();const {error}=await db.auth.reauthenticate();if(error)redirect(`/dashboard/settings?error=${encodeURIComponent(error.message)}`);redirect('/dashboard/settings?message=Check your email for the verification code');}

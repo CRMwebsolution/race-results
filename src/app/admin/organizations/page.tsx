@@ -12,7 +12,7 @@ async function grantAccess(form: FormData) {
   if (!Number.isSafeInteger(quota) || quota < 0) redirect("/admin/organizations?error=Enter+a+whole+number+of+credits");
   const { error } = await supabase.rpc("admin_grant_entitlement", {
     p_org_id: String(form.get("orgId")), p_tier: String(form.get("tier")),
-    p_quota: quota, p_end_date: expires?.toISOString() || null,
+    p_quota: quota, p_end_date: (expires?.toISOString() || null) as any,
     p_reason: String(form.get("reason") || ""), p_limits_exempt: form.get("exempt") === "on",
   });
   if (error) redirect("/admin/organizations?error=" + encodeURIComponent(error.message));

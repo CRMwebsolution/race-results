@@ -21,6 +21,8 @@ export default async function RegisterPage({searchParams}: {searchParams: Search
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 space-y-5">
         <ActionFeedback error={error} message={message}/>
         <form action={signup} className="space-y-4"><input type="hidden" name="next" value={next}/>
+          <label className="block text-sm font-semibold">Full Name<input name="full_name" type="text" required autoComplete="name" className={inputStyle}/></label>
+          <label className="block text-sm font-semibold">Phone Number<input name="phone" type="tel" required autoComplete="tel" className={inputStyle}/></label>
           <label className="block text-sm font-semibold">Email<input name="email" type="email" required autoComplete="email" className={inputStyle}/></label>
           <label className="block text-sm font-semibold">Password<input name="password" type="password" required autoComplete="new-password" className={inputStyle}/></label>
           {invited?<input type="hidden" name="operating_mode" value="single_track"/>:<><label className="block text-sm font-semibold">How do you run races?

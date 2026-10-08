@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Flag, CalendarDays, Plus, Calendar, ExternalLink } from "lucide-react";
+import {TipBubble} from "@/components/tip-provider";
 
 export default async function TrackDashboardPage({ params }: { params: Promise<{ trackId: string }> }) {
   const { trackId } = await params;
@@ -55,7 +56,11 @@ export default async function TrackDashboardPage({ params }: { params: Promise<{
         <div className="flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-white">Events & Meets</h1>
-            <p className="text-slate-400 text-sm mt-1">Manage single-day events and races for this venue.</p>
+            <p className="text-slate-400 text-sm mt-1 mb-4">Manage single-day events and races for this venue.</p>
+            <TipBubble className="max-w-xl">
+              <strong className="block mb-1">Creating an Event</strong>
+              An Event represents a single day of racing. After creating an event, click into it to add "Classes" (like Pro Mod, Bracket, etc.) and register competitors for them.
+            </TipBubble>
           </div>
           <div className="flex flex-wrap gap-3">
             <Link

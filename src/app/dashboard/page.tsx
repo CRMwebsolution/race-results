@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Flag, MapPin, Shield, User, ExternalLink, Calendar } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { CreateTrackForm } from "./create-track-form";
+import {TipBubble} from "@/components/tip-provider";
 
 type TrackInfo = {
   id: string;
@@ -128,9 +129,15 @@ export default async function DashboardPage() {
               <h1 className="text-2xl font-bold text-white tracking-tight">
                 Race Official Dashboard
               </h1>
-              <p className="text-sm text-slate-400 mt-1">
+              <p className="text-sm text-slate-400 mt-1 mb-4">
                 Signed in as <span className="text-amber-400 font-mono">{user.email}</span>
               </p>
+              <TipBubble className="max-w-xl">
+                <strong className="block mb-1">Welcome to RaceHoller!</strong>
+                Use this dashboard to manage your tracks, create events, and assign roles. 
+                If you travel, you can create a Series to group events across multiple tracks. 
+                You can turn these tips off in the Help menu.
+              </TipBubble>
             </div>
             <div className="flex items-center space-x-2 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-xl w-fit">
               <Shield className="w-3.5 h-3.5" />

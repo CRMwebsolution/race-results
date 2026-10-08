@@ -57,7 +57,7 @@ export default async function ManageEntriesPage({ params, searchParams }: { para
     }
     const { error: dbError } = await supabase.rpc("register_race_contestant", {
       p_owner_id: trackId, p_event_id: eventId, p_class_id: classId, p_display_name: displayName,
-      p_order_num: orderNum, p_registration_id: String(formData.get("registration_id") || "") || null,
+      p_order_num: orderNum ?? undefined, p_registration_id: String(formData.get("registration_id") || "") || undefined,
     });
 
     

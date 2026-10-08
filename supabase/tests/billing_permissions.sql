@@ -15,6 +15,9 @@ set local request.jwt.claim.sub='be000000-0000-4000-8000-000000000002';
 select public.admin_grant_entitlement('be100000-0000-4000-8000-000000000001','premium',2,now()+interval '1 year','Complimentary access',false);
 do $$ begin
  if not exists(select 1 from public.organizations where id='be100000-0000-4000-8000-000000000001' and active_tier='premium' and event_quota=2) then raise exception 'Unpaid admin grant failed'; end if;
+end $$;
+reset role;
+do $$ begin
  if not exists(select 1 from public.audit_events where target_id='be100000-0000-4000-8000-000000000001' and after_data->>'reason'='Complimentary access') then raise exception 'Grant reason missing'; end if;
 end $$;
 reset role;

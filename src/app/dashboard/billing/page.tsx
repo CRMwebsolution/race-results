@@ -1,8 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { readAll } from "@/lib/read-all";
 import { redirect } from "next/navigation";
-import { CreditCard, Zap, Check, AlertTriangle } from "lucide-react";
-import { revalidatePath } from "next/cache";
+import { CreditCard, Zap, Check } from "lucide-react";
+
 
 export default async function BillingPage() {
   const supabase = await createClient();
@@ -86,7 +86,6 @@ export default async function BillingPage() {
                     </ul>
                   </div>
                   <form action="/api/checkout" method="POST">
-                    <input type="hidden" name="priceId" value="price_1UO6cQBT7bmxRGOQYUXxXI3W" />
                     <input type="hidden" name="orgId" value={org.id} />
                     <input type="hidden" name="tier" value="event_pass" />
                     <button type="submit" className="w-full py-3 px-4 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition">
@@ -111,7 +110,6 @@ export default async function BillingPage() {
                     </ul>
                   </div>
                   <form action="/api/checkout" method="POST">
-                    <input type="hidden" name="priceId" value="price_1UO6fABT7bmxRGOQW651BRq4" />
                     <input type="hidden" name="orgId" value={org.id} />
                     <input type="hidden" name="tier" value="standard" />
                     <button type="submit" className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition shadow-[0_0_15px_rgba(37,99,235,0.3)]">
@@ -136,7 +134,6 @@ export default async function BillingPage() {
                     </ul>
                   </div>
                   <form action="/api/checkout" method="POST">
-                    <input type="hidden" name="priceId" value="price_1UO6giBT7bmxRGOQVa0kvEtw" />
                     <input type="hidden" name="orgId" value={org.id} />
                     <input type="hidden" name="tier" value="premium" />
                     <button type="submit" className="w-full py-3 px-4 bg-amber-500 hover:bg-amber-400 text-amber-950 font-bold rounded-xl transition shadow-[0_0_15px_rgba(245,158,11,0.4)]">

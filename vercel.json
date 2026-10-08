@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/billing/retry-notifications",
+      "schedule": "0 6 * * *"
+    }
+  ]
+}

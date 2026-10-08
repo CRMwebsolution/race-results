@@ -1,76 +1,43 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import { paidTier, plans } from "@/lib/billing/catalog";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_fake", {
-  apiVersion: "2024-12-18.acacia" as any, // Using latest valid typed API version, or whatever is installed
-});
-
+function back(req: Request, message: string) {
+ const url = new URL("/dashboard/billing",req.url);url.searchParams.set("error",message);
+ return NextResponse.redirect(url,303);
+}
 export async function POST(req: Request) {
-  try {
-    const formData = await req.formData();
-    const priceId = formData.get("priceId")?.toString();
-    const orgId = formData.get("orgId")?.toString();
-    const tier = formData.get("tier")?.toString();
-
-    if (!priceId || !orgId || !tier) {
-      return NextResponse.redirect(new URL("/dashboard/billing?error=Missing parameters", req.url));
-    }
-
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      return NextResponse.redirect(new URL("/login", req.url));
-    }
-
-    // Verify user owns the org
-    const { data: membership } = await supabase
-      .from("organization_memberships")
-      .select("role")
-      .eq("organization_id", orgId)
-      .eq("user_id", user.id)
-      .eq("active", true)
-      .in("role", ["owner", "admin"])
-      .single();
-
-    if (!membership) {
-      return NextResponse.redirect(new URL("/dashboard/billing?error=Unauthorized", req.url));
-    }
-
-    // Create a Checkout Session
-    const origin = req.headers.get("origin") || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-    
-    // User stated all purchases are manual one-time (even seasonal tiers)
-    const mode = "payment";
-    
-    const session = await stripe.checkout.sessions.create({
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
-      mode: mode,
-      success_url: `${origin}/dashboard/billing?success=true`,
-      cancel_url: `${origin}/dashboard/billing?canceled=true`,
-      customer_email: user.email,
-      client_reference_id: orgId,
-      metadata: {
-        orgId: orgId,
-        userId: user.id,
-        tier: tier,
-      },
-    });
-
-    if (session.url) {
-      return NextResponse.redirect(session.url, 303);
-    }
-    
-    return NextResponse.redirect(new URL("/dashboard/billing?error=Could not create session", req.url));
-
-  } catch (err: any) {
-    console.error("Checkout error:", err);
-    return NextResponse.redirect(new URL(`/dashboard/billing?error=${encodeURIComponent(err.message)}`, req.url));
-  }
+ try {
+  const form = await req.formData();
+  const orgId = String(form.get("orgId") || ""), tier = String(form.get("tier") || "");
+  if (!orgId || !paidTier(tier)) return back(req,"Choose an account and a valid plan.");
+  const supabase = await createClient();
+  const {data:{user}} = await supabase.auth.getUser();
+  if (!user) return NextResponse.redirect(new URL("/login",req.url),303);
+  const {data:membership,error} = await supabase.from("organization_memberships").select("role")
+   .eq("organization_id",orgId).eq("user_id",user.id).eq("active",true).in("role",["owner","admin"]).maybeSingle();
+  if (error || !membership) return back(req,"You must own or manage this account.");
+  const key = process.env.STRIPE_SECRET_KEY;
+  const origin = process.env.NEXT_PUBLIC_SITE_URL;
+  if (!key || !origin) return back(req,"Payments are not configured yet. Contact support.");
+  const base = new URL(origin);
+  if (base.protocol !== "https:" && process.env.NODE_ENV === "production") return back(req,"Payment return address is not configured correctly.");
+  const stripe = new Stripe(key);
+  const plan = plans[tier], price = await stripe.prices.retrieve(plan.price);
+  if (!price.active || price.type !== "one_time" || price.currency !== "usd" || price.unit_amount !== plan.amount)
+   return back(req,"This plan's payment price is not configured correctly. Contact support.");
+  const session = await stripe.checkout.sessions.create({
+   mode:"payment",line_items:[{price:plan.price,quantity:1}],
+   success_url:new URL("/dashboard/billing?success=true",base).href,
+   cancel_url:new URL("/dashboard/billing?canceled=true",base).href,
+   customer_email:user.email,client_reference_id:orgId,
+   metadata:{orgId,userId:user.id,tier,priceId:plan.price},
+  });
+  if (!session.url) return back(req,"Checkout could not open. Please try again.");
+  return NextResponse.redirect(session.url,303);
+ } catch (error) {
+  console.error("Checkout failed",error);
+  return back(req,"Checkout could not open. Please try again or contact support.");
+ }
 }

@@ -30,6 +30,7 @@ export function SpectatorQR({path,eventName,className}: {path: string; eventName
     <button type="button" onClick={()=>void open()} className={`${className||button} inline-flex items-center gap-2`}><QrCode aria-hidden="true" className="h-5 w-5"/>Spectator QR</button>
     <dialog ref={dialog} aria-labelledby={titleId} className="w-[calc(100%-2rem)] max-w-lg rounded-2xl p-5 bg-slate-900 text-white border border-slate-700 backdrop:bg-black/70">
       <div className="flex items-start justify-between gap-3"><div><h2 id={titleId} className="text-xl font-bold">Spectator QR code</h2><p className="mt-1 text-sm text-slate-400">{eventName}</p></div><button type="button" aria-label="Close QR code" onClick={()=>dialog.current?.close()} className="p-3 rounded-lg border border-slate-700"><X aria-hidden="true" className="h-5 w-5"/></button></div>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <div className="my-4">{image?<img src={image} alt={`Scan to view ${eventName} results`} width={512} height={512} className="w-full h-auto rounded-lg"/>:<p role="status">{error?'':'Creating QR code…'}</p>}</div>
       {error&&<p role="alert" className="mb-3 text-red-300">{error}</p>}
       <label className="block text-sm font-semibold">Spectator link<input readOnly value={url} onFocus={e=>e.currentTarget.select()} className="block w-full my-2 p-3 rounded-lg border border-slate-700 bg-slate-950 text-white"/></label>

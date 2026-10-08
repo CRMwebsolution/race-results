@@ -12,7 +12,7 @@ import {prepareEvent} from '@/lib/offline/prepare';
 import {flushPrepared,retryPrepared,resolveConflict} from '@/lib/offline/sync';
 import {SortHeading} from '@/components/sort-heading';
 import {explainError,ActionFeedback} from '@/components/action-feedback';
-import {saveAttempt} from './actions';
+import {saveAttempt, setBracketMatchWinner} from './actions';
 import {finalizeEventStandings} from '../settings/actions';
 
 export type EventType={id:string;name:string;working_revision:number;status:string};
@@ -28,6 +28,7 @@ export function ScoringWorkspace({accountId,canComplete=false,offlineOnly=false,
  const [attempts,setAttempts]=useState(initialAttempts),[prepared,setPrepared]=useState<Prepared|null>(null);
  const [drafts,setDrafts]=useState<Record<string,string>>({}),[errors,setErrors]=useState<Record<string,string>>({});
  const [saving,setSaving]=useState<string[]>([]),[completing,setCompleting]=useState(false),[completeError,setCompleteError]=useState('');
+ const [overrideWinners,setOverrideWinners]=useState<Record<string,Record<string,string|null>>>({});
  const [connected,setConnected]=useState(true),[order,setOrder]=useState<ResultOrder>('run'),[reverse,setReverse]=useState(false);
  const [frozen,setFrozen]=useState<string[]|null>(null);
  const [tabStop,setTabStop]=useState<string|null>(null);
@@ -51,14 +52,32 @@ export function ScoringWorkspace({accountId,canComplete=false,offlineOnly=false,
  },[accountId,event.id,event.status,offlineOnly]);
  const activeClass=classes.find(c=>c.id===activeClassId);
  const classEntries=useMemo(()=>initialEntries.filter(e=>e.event_class_id===activeClassId),[initialEntries,activeClassId]);
+ async function handleSetWinner(matchId:string,winnerEntryId:string|null){
+  if(!activeClass)return;
+  setOverrideWinners(prev=>({
+   ...prev,
+   [activeClass.id]:{...(prev[activeClass.id]||{}),[matchId]:winnerEntryId}
+  }));
+  try{
+   const res=await setBracketMatchWinner(trackId,event.id,activeClass.id,matchId,winnerEntryId);
+   if(!res.success)setCompleteError(res.error||'Failed to update bracket winner');
+  }catch(e:any){setCompleteError(e?.message||'Failed to update bracket winner');}
+ }
  const bracketLadder=useMemo(()=>{
   if(!activeClass||activeClass.scoring_type!=='head_to_head')return null;
   const classAttempts=attempts.filter(a=>a.event_class_id===activeClass.id).map(a=>({
     id:a.id,entryId:a.entry_id,ordinal:a.ordinal,status:a.status as 'valid'|'dq'|'dnf'|'dns'|'no_time',
     elapsedMs:a.elapsed_ms,distanceMm:a.distance_mm,penaltyMs:a.penalty_ms,rawInput:a.raw_input,
   }));
-  return buildBracketLadder(classEntries,classAttempts,activeClass.scoring_config);
- },[activeClass,classEntries,attempts]);
+  const effectiveConfig={
+    ...activeClass.scoring_config,
+    manualWinners:{
+      ...(activeClass.scoring_config?.manualWinners||{}),
+      ...(overrideWinners[activeClass.id]||{}),
+    }
+  };
+  return buildBracketLadder(classEntries,classAttempts,effectiveConfig);
+ },[activeClass,classEntries,attempts,overrideWinners]);
  const columns=passCount(activeClass?.scoring_config,attempts.filter(a=>a.event_class_id===activeClassId));
  const ranked=useMemo(()=>{
   if(!activeClass)return [];
@@ -141,14 +160,50 @@ export function ScoringWorkspace({accountId,canComplete=false,offlineOnly=false,
   {Object.keys(errors).length>0&&<p role="alert" className="p-4 text-red-400">{[...new Set(Object.values(errors))].join(' ')} Your entries are kept.</p>}
   {activeClass?.scoring_type==='judged_points'&&<Link href={`${base}/judging`} className="inline-block p-4 text-amber-400 underline">Enter scores for this judged class</Link>}
   {activeClass?.scoring_type==='head_to_head'&&bracketLadder&&(
-   <div className="mx-4 p-4 bg-slate-900 border border-slate-800 rounded-lg space-y-3">
-    <div className="flex items-center justify-between">
-     <h3 className="font-bold text-amber-400">🏁 Bracket Pairings ({bracketLadder.bracketSize}-Car Field)</h3>
-     {bracketLadder.championId&&<span className="px-2.5 py-1 bg-amber-500 text-slate-950 font-bold rounded text-xs">Winner: {bracketLadder.resultsByEntryId[bracketLadder.championId]?.displayName}</span>}
+   <div className="mx-4 p-4 bg-slate-900 border border-slate-800 rounded-lg space-y-4">
+    <div className="flex flex-wrap items-center justify-between gap-2">
+     <div>
+      <h3 className="font-bold text-amber-400 text-base">🏁 Bracket Pairings ({bracketLadder.bracketSize}-Car Field{bracketLadder.hasLosersBracket?' · Double Elimination':''})</h3>
+      <p className="text-xs text-slate-400">
+       {bracketLadder.winCriterion==='first_to_finish'
+         ? '⚡ Rule: First to Finish Line — Times always recorded & displayed. Click racer to set 1st across line.'
+         : '⚡ Rule: Fastest Elapsed Time — Lower ET advances automatically (Click racer to manually override winner).'}
+      </p>
+     </div>
+     {bracketLadder.championId&&<span className="px-3 py-1 bg-amber-500 text-slate-950 font-black rounded-lg text-xs uppercase tracking-wider">🏆 Winner: {bracketLadder.resultsByEntryId[bracketLadder.championId]?.displayName}</span>}
     </div>
-    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-     {bracketLadder.rounds.map(r=><div key={r.round} className="p-2.5 bg-slate-950 border border-slate-800 rounded space-y-1.5"><p className="font-bold text-xs text-slate-400 uppercase tracking-wider">{r.roundName} (Pass {r.round})</p>{r.matchups.map(m=><div key={m.id} className="p-1.5 rounded bg-slate-900 border border-slate-800 text-xs font-mono flex items-center justify-between"><span className={m.winnerId===m.racer1?.entryId?'text-amber-400 font-bold':'text-slate-300'}>{m.racer1?`#${m.racer1.seed} ${m.racer1.displayName}`:'TBD'}</span><span className="text-slate-500 text-[10px]">vs</span><span className={m.winnerId===m.racer2?.entryId?'text-amber-400 font-bold':'text-slate-300'}>{m.racer2?`#${m.racer2.seed} ${m.racer2.displayName}`:'TBD'}</span></div>)}</div>)}
+
+    {/* Winners Rounds / Main Ladder */}
+    <div className="space-y-2">
+     {bracketLadder.hasLosersBracket&&<h4 className="text-xs font-bold uppercase tracking-wider text-amber-500">Winners Bracket</h4>}
+     <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      {(bracketLadder.winnersRounds||bracketLadder.rounds).map(r=><div key={r.round} className="p-2.5 bg-slate-950 border border-slate-800 rounded space-y-2">
+       <p className="font-bold text-xs text-slate-400 uppercase tracking-wider">{r.roundName} (Pass {r.round})</p>
+       {r.matchups.map(m=><MatchupBox key={m.id} match={m} onSelectWinner={handleSetWinner}/>)}
+      </div>)}
+     </div>
     </div>
+
+    {/* Grand Finals if Double Elimination */}
+    {bracketLadder.grandFinal&&(
+     <div className="p-3 bg-amber-950/20 border border-amber-500/30 rounded-lg space-y-2 max-w-lg">
+      <h4 className="text-xs font-black uppercase tracking-wider text-amber-400">Grand Finals (Winners Champ vs Losers Champ)</h4>
+      <MatchupBox match={bracketLadder.grandFinal} onSelectWinner={handleSetWinner}/>
+     </div>
+    )}
+
+    {/* Losers Rounds if Double Elimination */}
+    {bracketLadder.losersRounds&&bracketLadder.losersRounds.length>0&&(
+     <div className="space-y-2 pt-2">
+      <h4 className="text-xs font-bold uppercase tracking-wider text-cyan-400">Losers Bracket (Consolation Ladder)</h4>
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+       {bracketLadder.losersRounds.map(r=><div key={r.round} className="p-2.5 bg-slate-950 border border-slate-800 rounded space-y-2">
+        <p className="font-bold text-xs text-cyan-500 uppercase tracking-wider">{r.roundName}</p>
+        {r.matchups.map(m=><MatchupBox key={m.id} match={m} onSelectWinner={handleSetWinner}/>)}
+       </div>)}
+      </div>
+     </div>
+    )}
    </div>
   )}
   <div className="overflow-x-auto p-4 min-w-0">
@@ -158,5 +213,35 @@ export function ScoringWorkspace({accountId,canComplete=false,offlineOnly=false,
     <tbody>{rows.map(row=><tr data-testid="scoring-row" data-entry-id={row.entryId} key={row.entryId} className="border-t border-slate-700"><td className="p-3">{row.rank===null?'—':`${row.tied?'T':''}${row.rank}`}</td><td className="p-3">{row.orderNum}</td><td className="p-3 font-semibold">{row.entry.display_name}</td>{Array.from({length:columns},(_,i)=>{const ordinal=i+1,key=`${row.entryId}:${ordinal}`,attempt=row.attempts.find(a=>a.ordinal===ordinal);return <td key={ordinal} className="p-2"><input type="text" data-score-pass={ordinal} tabIndex={key===gridTabStop?0:-1} onFocus={()=>setTabStop(key)} aria-describedby="score-entry-help" aria-label={`${row.entry.display_name}, pass ${ordinal}`} aria-invalid={Boolean(errors[key])} title={errors[key]} value={drafts[key]??attempt?.rawInput??''} onChange={e=>{const next={...draftRef.current};if(e.target.value===(attempt?.rawInput??''))delete next[key];else next[key]=e.target.value;writeDrafts(next);setErrors(previous=>{const next={...previous};delete next[key];return next;});}} onBlur={e=>{if(e.target.value!==(attempt?.rawInput??''))void saveInput(row.entryId,ordinal,e.target.value);}} onKeyDown={handleScoreKeyDown} disabled={completing||saving.includes(key)||event.status==='completed'||activeClass?.scoring_type==='judged_points'} placeholder="-" className={`w-full min-w-[96px] p-3 rounded border bg-slate-950 text-white font-mono ${errors[key]?'border-red-500':'border-slate-700'}`}/></td>;})}<td className="p-3 whitespace-nowrap font-mono">{row.score.label||'No score'}</td></tr>)}{!rows.length&&<tr><td colSpan={columns+4} className="p-6">No contestants in this class yet. Use Add contestant above.</td></tr>}</tbody>
    </table>
   </div>
+ </div>;
+}
+
+
+function MatchupBox({match,onSelectWinner}:{match:import('@/scoring/bracket').BracketMatchup;onSelectWinner:(matchId:string,winnerId:string|null)=>void}){
+ const isManual=Boolean(match.isManual);
+ return <div className="p-2 rounded bg-slate-900 border border-slate-800 text-xs font-mono space-y-1.5">
+  <div className="flex items-center justify-between text-[11px] text-slate-400 border-b border-slate-800/80 pb-1">
+   <span className="font-bold">{match.id}</span>
+   {isManual&&<button type="button" onClick={()=>onSelectWinner(match.id,null)} className="text-[10px] text-red-400 hover:underline">Reset Auto</button>}
+  </div>
+  {[match.racer1,match.racer2].map((racer,idx)=>{
+   if(!racer) return <div key={idx} className="text-slate-600 italic py-0.5">TBD</div>;
+   const isWinner=match.winnerId===racer.entryId;
+   return <div key={racer.entryId} className={`flex items-center justify-between p-1 rounded ${isWinner?'bg-amber-500/10 border border-amber-500/40 text-amber-300':'text-slate-300'}`}>
+    <div className="flex items-center gap-1.5 min-w-0">
+     {!racer.isBye&&<span className="text-[10px] text-slate-400">#{racer.seed}</span>}
+     <span className="truncate font-semibold text-xs">{racer.displayName}</span>
+    </div>
+    <div className="flex items-center gap-2 flex-shrink-0">
+     <span className="font-bold text-xs">{racer.displayScore||'-'}</span>
+     {!racer.isBye&&match.racer1&&match.racer2&&!match.racer1.isBye&&!match.racer2.isBye&&(
+      <button type="button" onClick={()=>onSelectWinner(match.id,racer.entryId)} className={`px-1.5 py-0.5 rounded text-[10px] font-sans font-bold transition ${isWinner?'bg-amber-500 text-slate-950':'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}>
+       {isWinner?'★ Winner':'Pick Winner'}
+      </button>
+     )}
+    </div>
+   </div>;
+  })}
+  {match.winnerReason&&<p className="text-[10px] text-slate-400 truncate pt-0.5">{match.winnerReason}</p>}
  </div>;
 }

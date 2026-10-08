@@ -44,6 +44,9 @@ export function scoreHeadToHead(
     } else if (isRunner) {
       primary = 9000000;
       label = roundTime != null ? `Runner-up · ${(roundTime / 1000).toFixed(decimals)} s` : "Runner-up";
+    } else if (bracketResult.placementRank != null && bracketResult.placementRank >= 3) {
+      primary = Math.max(100000, 10000000 - (bracketResult.placementRank - 1) * 1000000);
+      label = roundTime != null ? `${bracketResult.statusLabel} · ${(roundTime / 1000).toFixed(decimals)} s` : bracketResult.statusLabel;
     } else {
       const roundNum = bracketResult.eliminatedInRound ?? maxRound;
       primary = roundNum * 1000000;

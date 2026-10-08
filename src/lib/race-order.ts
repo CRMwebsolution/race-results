@@ -13,6 +13,7 @@ export function sortResults<T extends {entryId:string;orderNum:number;rank:numbe
  return [...rows].sort((a,b)=>{const x=metric(a),y=metric(b);if(!x||!y)return x?-1:y?1:a.orderNum-b.orderNum||a.entryId.localeCompare(b.entryId);return (x[0]-y[0]||(x[1]-y[1])*(reverse?-1:1))||a.orderNum-b.orderNum||a.entryId.localeCompare(b.entryId);});
 }
 export function passCount(config:any,attempts:{ordinal:number}[]){
- const bracketRounds = config?.bracketSize ? Math.ceil(Math.log2(Math.max(2,Number(config.bracketSize)))) : Number(config?.bracketRounds)||0;
+ const mult = config?.losersBracket ? 2 : 1;
+ const bracketRounds = config?.bracketSize ? Math.ceil(Math.log2(Math.max(2,Number(config.bracketSize)))) * mult : Number(config?.bracketRounds)||0;
  return Math.min(100,Math.max(2,Number(config?.requiredPasses)||0,Number(config?.judgedRounds)||0,bracketRounds,...(config?.requiredOrdinals||[]),...attempts.map(a=>a.ordinal)));
 }

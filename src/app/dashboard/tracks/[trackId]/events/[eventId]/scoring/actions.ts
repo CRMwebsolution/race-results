@@ -39,3 +39,52 @@ export async function saveAttempt(
   revalidatePath("/dashboard/tracks/" + trackId + "/events/" + eventId + "/scoring");
   return { success: true, ...result };
 }
+
+export async function setBracketMatchWinner(
+  trackId: string,
+  eventId: string,
+  eventClassId: string,
+  matchId: string,
+  winnerEntryId: string | null
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+  const { data: cls, error: fetchError } = await supabase
+    .from("event_classes")
+    .select("scoring_config")
+    .eq("id", eventClassId)
+    .eq("event_id", eventId)
+    .single();
+
+  if (fetchError || !cls) {
+    return { success: false, error: fetchError?.message || "Class not found" };
+  }
+
+  const currentConfig = (cls.scoring_config as Record<string, any>) || {};
+  const currentManual = { ...(currentConfig.manualWinners || {}) };
+
+  if (winnerEntryId) {
+    currentManual[matchId] = winnerEntryId;
+  } else {
+    delete currentManual[matchId];
+  }
+
+  const nextConfig = {
+    ...currentConfig,
+    manualWinners: currentManual,
+  };
+
+  const { error: updateError } = await supabase
+    .from("event_classes")
+    .update({ scoring_config: nextConfig })
+    .eq("id", eventClassId)
+    .eq("event_id", eventId);
+
+  if (updateError) {
+    return { success: false, error: updateError.message };
+  }
+
+  revalidatePath(`/dashboard/tracks/${trackId}/events/${eventId}/scoring`);
+  revalidatePath(`/r`, "layout");
+  revalidatePath(`/s`, "layout");
+  return { success: true };
+}

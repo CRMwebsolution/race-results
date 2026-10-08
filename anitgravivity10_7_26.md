@@ -1,3 +1,5 @@
+> **October 8 correction:** This is the historical Antigravity handoff. Its claims about a successful build, secure billing activation, most-recent pit activity, quota enforcement, and unlimited bypass were not supported by that commit. The completed repair implementation and current verification are in the October 8 section of [chatgptupdates.md](chatgptupdates.md). Real payment/provider acceptance remains pending.
+
 # Antigravity Handoff: October 7th, 2026 (Phase 4 Completion)
 
 ## Overview

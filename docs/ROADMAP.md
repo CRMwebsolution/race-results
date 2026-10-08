@@ -39,20 +39,23 @@ Updated October 7, 2026. This tracker reflects inspected implementation and reco
 - [x] Stable racer/class mapping and idempotent roster import; historical unmatched entries are explicitly excluded until deliberately linked.
 - [x] Per-class championship placement/bonus/manual-award calculation using official versions, source/rule validation and retained publication history.
 - [x] Public series/standings pages and event-by-event breakdowns.
-- [x] Platform admin overview; tier/billing controls are identified as unimplemented.
-- [x] Race-scoped staff/judge invitation links: confirmed-email acceptance, automatic class assignment, seven-day expiry, cancellation/removal and dashboard access. Organizers share links by copy or an email draft; no automatic email delivery is claimed.
+- [x] Platform admin overview and checked unpaid access grants with required audit reasons.
+- [x] Race-scoped staff/judge invitation links: confirmed-email acceptance, automatic class assignment, seven-day expiry, cancellation/removal and dashboard access. Organizers copy the invitation link and send it; no automatic email delivery is claimed.
 - [x] Owner and spectator series standings grouped by class; series/season terminology clarified.
-- [ ] Paid capacity/entitlements, admin grants and retention enforcement (Phase 4).
+- [x] Paid capacity/entitlements, admin grants and retention enforcement implemented (Phase 4); provider acceptance is separate.
 
-## Phase 4: next implementation work
+## Phase 4: implemented, provider acceptance pending
 
-- [ ] Stripe checkout, customer portal, signed idempotent payment webhooks and failed-payment recovery.
-- [ ] Tier definitions, server-enforced quotas/entitlements and audited platform-admin overrides.
-- [ ] Racer profiles and self-service event registration, promoter review and entry payments.
-- [ ] Completion/tier-aware archive visibility/expiry and approved retention rules; preserve history independently of public hiding.
-- [ ] Dedicated big-screen pit display and recovery behavior.
+- [x] Server-selected one-time Stripe checkout, signed webhook verification, paid-session matching, atomic idempotent activation, and delayed-payment handling.
+- [x] Account-wide tier/asset limits, atomic first-live event credits, accurate remaining balance/expiry, and audited unpaid platform-admin grants.
+- [x] Completion/tier-aware public retention with frozen deadlines, anonymous RLS, owner history, and an enabled hourly archive sweep.
+- [x] Pit display follows the latest edited scoring row; manual class selection, Follow live class, completed official snapshots, and error/recovery handling.
+- [x] Dedicated billing, retention, timestamp, Stripe-boundary, and official-pit tests; generated types and migration ledger reconciled.
+- [ ] Real Stripe checkout/payment/refund acceptance and deployed price/key/webhook configuration.
+- [ ] Actual n8n delivery and session-ID deduplication; configure the protected notification retry secret.
+- [ ] Physical TV/mobile/tablet verification.
 
-Account mode is distinct from the paid tier. Test payment flows before accepting real charges. No billing, registration or archive-expiry implementation is claimed by repairs 1–10.
+Racer accounts, self-service entry payment/registration, and an automatic-renewal subscription portal were dropped by the owner. Racer registration remains a staff action. All tier purchases are one-time. Account mode remains distinct from the paid tier. See the October 8 section of `chatgptupdates.md` for the final implementation and evidence.
 
 ## Later format expansion
 
@@ -61,7 +64,7 @@ Account mode is distinct from the paid tier. Test payment flows before accepting
 
 Each expansion needs its complete storage, rules, permissions, live display, snapshots and tests. Unsupported formats currently fail explicitly.
 
-## Acceptance checkpoint
+## Historical Phase 3 acceptance checkpoint
 
 49 unit/queue tests, 27-migration replay, nine SQL workflow suites, lint, TypeScript and production build passed. CI runs those checks on main. Deployed browser evidence includes Chromium mobile core flows and real realtime recovery; Firefox desktop and WebKit mobile preferences/series CRUD/permissions; real password credentials; two-browser save conflicts; and a disconnected browser reload/sync test. Final deployed password/concurrency/judging/championship/spectator smoke: four passed without retries. Large-event official capture also passed with 1,205 valid passes and ranks 1–1,205. Disconnected reload/sync passed again, with two receipts, one version increment per pass and a closed session. Guarded fixture/account cleanup is complete. Automated acceptance is complete; manual/provider checks above remain explicit.
 

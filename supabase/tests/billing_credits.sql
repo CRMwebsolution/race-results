@@ -23,10 +23,10 @@ do $$ begin
 end $$;
 delete from public.events where id='be700000-0000-4000-8000-000000000001';
 update public.organizations set event_quota=1 where id='be500000-0000-4000-8000-000000000001';
-do $ begin
+do $$ begin
  begin insert into public.events(id,series_id,name,slug,local_date,status) values('be700000-0000-4000-8000-000000000001','be600000-0000-4000-8000-000000000002','Reused ID','credit-reused',current_date,'live');
   raise exception 'Deleted event credit reused' using errcode='XX000'; exception when raise_exception then null; end;
  if (select event_quota from public.organizations where id='be500000-0000-4000-8000-000000000001')<>1 then raise exception 'Failed reuse charged a credit'; end if;
-end $;
+end $$;
 select 'event credits: PASS (calendar free, pooled across account, charged once, no free allowance)' as result;
 rollback;

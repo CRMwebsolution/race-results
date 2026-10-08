@@ -391,3 +391,57 @@ Older `docs/REPAIR_HANDOFF.md` and `docs/FIXES_1_10_REPORT.md` are evidence for 
 6. Use additive migrations and explicit checked writes; preserve snapshots, membership dates and amendment history. Never commit secrets or use service-role credentials in browser code.
 7. Commit/push coherent major updates. If shell push credentials are unavailable, the connected GitHub API can upload verified blobs/tree and advance main with an expected-parent lease. Do not force-push over remote work.
 
+
+## October 8, 2026 — Phase 4 repair implementation
+
+This section supersedes the completion and billing-security claims in `anitgravivity10_7_26.md`. Phase 3 remains complete. The six authorized repair sessions were implemented and pushed as separate major updates. Verification remains in small sections; no live test included more than one contestant and all SQL fixtures were rolled back.
+
+### Behavior and code
+
+- Regular accounts cannot directly INSERT organizations or UPDATE plan, credit, expiry, Stripe customer, exemption, or billing-owner fields. Checked onboarding still creates organizations. Normal name/contact edits remain permitted.
+- Platform admins can grant plans without payment through `admin_grant_entitlement`, with a required reason, expiration for season plans, remaining credits, and an explicit event/asset-limit waiver. Grants are audited and apply across the original owning account. The admin page selects the real billing fields, checks authority, validates inputs, and displays success/errors. The legacy four-argument grant remains an authenticated, checked admin wrapper.
+- Checkout accepts an organization and tier; the server selects the Stripe price. It validates that the price is active, one-time, USD, and the expected amount ($49/$199/$349). Missing configuration fails clearly. Return URLs use the configured site address. All purchases remain one-time, with no automatic renewal.
+- Stripe webhooks always require a valid signature, then retrieve the session and require a paid, matching one-time purchase, exact server catalog price/amount/currency/quantity, and organization reference. Both immediate and asynchronous payment success are supported.
+- Service-only `apply_paid_entitlement` atomically inserts a unique payment receipt and activates access. Duplicate session/event deliveries do not repeat credits. Event Passes preserve season plans. Buying the same season tier adds a year; buying a different season tier replaces it with that tier for a year.
+- n8n notifications are queued in the same transaction as activation, sent afterward, and retained for retry on transport or HTTP errors. Retry delivery is at least once, with the session ID supplied as an idempotency key. The n8n workflow must deduplicate by session ID. A protected daily Vercel retry route requires `CRON_SECRET`; the notification endpoint may be overridden by `N8N_PAYMENT_WEBHOOK_URL`. No actual payment or production notification was sent during these checks.
+- Calendar-only draft/scheduled events are free. A database lock protects account-wide credits, consumed once when an event first becomes live. Returning to live does not consume another credit. Deleted event identifiers cannot be reused to evade payment. The temporary 1,000-free-event behavior is removed. Existing live/completed events were grandfathered without a retroactive charge.
+- Asset limits apply across organizations belonging to the original account owner: Free/Event Pass 1 Track + 1 Series; Standard 3 Tracks OR 3 Series; Premium 3 of each. The original owner is recorded in protected `organizations.billing_owner_id`; checked owner creation assigns it before an asset is created. Limits waived by platform admin actually bypass event and asset caps.
+- `billing_overview` returns shared remaining credits, effective season activity, expiry, and associated organizations. Billing groups account assets, displays expired access correctly, and explains plan replacement/renewal. Account mode remains separate from billing.
+- Public retention starts at first live activation and is recalculated once at first completion: 30 days for an Event Pass/free event; season-tier events stay public until the later of completion + 30 days or the UTC calendar-year boundary. Deadlines remain frozen across plan/date changes and reopening. Legacy active events received a migration-time grace window; legacy completed events use their recorded completion timestamp.
+- Archive visibility is enforced by event RLS and the shared race predicate, covering event lists, spectator links, child race data, official snapshots, and pit routes. Staff/owners retain history. An hourly Supabase `pg_cron` job named `raceholler-archive-results` is enabled. A protected Vercel maintenance endpoint is also available; public expiration does not depend on either job running on time.
+- Attempts now have server-controlled `updated_at`, advanced on insert/edit; historical attempts with unknown edit order remain null. Judge edits use the same timestamping. Pit displays default to and follow the class with the newest scoring-row edit, rather than the most attempts. Manual selection pins a class until “Follow live class” is selected. No known activity falls back to running order.
+- Completed pit displays load the immutable official payload, including classes, entries, attempts, ranks, and scores. Missing snapshots and database read failures are reported rather than silently showing recalculated/empty results. Track event overview now provides the pit shortcut as well as series routes.
+
+### Migration reconciliation
+
+The eight Phase 3 filenames listed earlier with differing timestamps were renamed to their actual recorded live versions; their SQL contents were preserved. The billing foundation was renamed to `20261008025932_20261008000000_billing_entitlements_foundation.sql`, matching its original live history. No live history rows were rewritten. The two unrecorded Antigravity quota/archive files were retired and replaced by recorded repair migrations. Fresh replay verifies the resulting order; existing customers do not need those retired files reapplied.
+
+New live migrations, with matching repository filenames:
+
+| Version | Name |
+| --- | --- |
+| 20261008131245 | secure_billing_admin_grants |
+| 20261008131618 | verified_idempotent_payments |
+| 20261008151619 | account_billing_scope |
+| 20261008151656 | atomic_event_credits |
+| 20261008153223 | account_asset_limits |
+| 20261008153245 | account_billing_view |
+| 20261008153340 | account_wide_entitlement_grants |
+| 20261008153502 | frozen_public_retention |
+| 20261008153650 | live_retention_and_archive_bookkeeping |
+| 20261008153839 | billing_expiry_state |
+| 20261008153944 | scheduled_archive_sweep |
+| 20261008153958 | latest_scoring_row_timestamps |
+| 20261008154245 | retain_draft_creation_visibility |
+| 20261008154611 | guard_credit_reuse_and_paid_tier |
+| 20261008154853 | ensure_fresh_account_asset_triggers |
+
+The new private billing schema holds checked functions, payment receipts/outbox state, and event-credit usage. Public additions are protected billing fields and event retention fields; generated database types were updated. No existing official snapshots, contestant registrations, manual points, or staff membership history were removed.
+
+### Verification and remaining provider checks
+
+- Live, rolled-back SQL sections passed: billing owner/admin permissions and audit reasons; service-only payment activation and duplicate retries; account-wide asset/credit enforcement and calendar behavior; retention visibility/frozen dates/owner history/sweep; server attempt timestamps with one contestant.
+- Live privilege inspection confirms authenticated users cannot update tier, credits or billing ownership, cannot call payment activation, and can call only the checked admin wrapper. The service role can call payment activation.
+- GitHub CI after the pit update passed lint, 77 unit tests, SQL suites, migration rehearsal, TypeScript, and the production build. Additional Stripe-boundary and official-pit-loader tests were added for final verification. Legacy workflow fixtures have explicit complimentary billing defaults only inside their isolated test database; billing tests retain real zero-credit defaults.
+- The workspace execution server was unavailable. Source changes used the connected GitHub API with expected-parent leases, live migrations used Supabase, and executable checks ran through GitHub Actions. No local shell/test execution is claimed.
+- Real Stripe purchase/refund flows, deployed environment values, actual n8n delivery/deduplication, and physical TV/mobile use still require provider/manual verification. No real charge was made and Phase 4 should not be called commercially accepted until those checks pass.

@@ -612,6 +612,25 @@ describe("Custom Bye Allocation and Playable Match Progression", () => {
     expect(playable[2].racer1?.entryId).toBe("e3");
     expect(playable[2].racer2?.entryId).toBe("e6");
   });
+
+  it("preserves locked byes and pairings when bracketLocked is enabled", () => {
+    const lockedLadder = buildBracketLadder(entries, [], {
+      bracketSize: 8,
+      byeEntryIds: ["e2", "e4", "e5"],
+      bracketLocked: true,
+    });
+
+    const byeMatches = lockedLadder.rounds[0].matchups.filter(isByeMatch);
+    expect(byeMatches).toHaveLength(3);
+    expect(byeMatches.map((m) => m.winnerId)).toEqual(
+      expect.arrayContaining(["e2", "e4", "e5"])
+    );
+
+    // Racer 1 and Racer 3 are paired
+    const playable = getPlayableMatchups(lockedLadder);
+    expect(playable[0].racer1?.entryId).toBe("e1");
+    expect(playable[0].racer2?.entryId).toBe("e3");
+  });
 });
 
 

@@ -151,6 +151,10 @@ export async function setBracketByes(
   }
 
   const currentConfig = (cls.scoring_config as Record<string, any>) || {};
+  if (currentConfig.bracketLocked) {
+    return { success: false, error: "Bracket byes are locked. Unlock before changing." };
+  }
+
   const nextConfig = {
     ...currentConfig,
     byeEntryIds,
@@ -171,4 +175,45 @@ export async function setBracketByes(
   revalidatePath(`/s`, "layout");
   return { success: true };
 }
+
+export async function setBracketLocked(
+  trackId: string,
+  eventId: string,
+  eventClassId: string,
+  locked: boolean
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+  const { data: cls, error: fetchError } = await supabase
+    .from("event_classes")
+    .select("scoring_config")
+    .eq("id", eventClassId)
+    .eq("event_id", eventId)
+    .single();
+
+  if (fetchError || !cls) {
+    return { success: false, error: fetchError?.message || "Class not found" };
+  }
+
+  const currentConfig = (cls.scoring_config as Record<string, any>) || {};
+  const nextConfig = {
+    ...currentConfig,
+    bracketLocked: locked,
+  };
+
+  const { error: updateError } = await supabase
+    .from("event_classes")
+    .update({ scoring_config: nextConfig })
+    .eq("id", eventClassId)
+    .eq("event_id", eventId);
+
+  if (updateError) {
+    return { success: false, error: updateError.message };
+  }
+
+  revalidatePath(`/dashboard/tracks/${trackId}/events/${eventId}/scoring`);
+  revalidatePath(`/r`, "layout");
+  revalidatePath(`/s`, "layout");
+  return { success: true };
+}
+
 

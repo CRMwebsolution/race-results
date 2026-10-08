@@ -12,10 +12,10 @@ import {prepareEvent} from '@/lib/offline/prepare';
 import {flushPrepared,retryPrepared,resolveConflict} from '@/lib/offline/sync';
 import {SortHeading} from '@/components/sort-heading';
 import {explainError,ActionFeedback} from '@/components/action-feedback';
-import {saveAttempt, setBracketMatchWinner, setBracketPasses, setBracketByes} from './actions';
+import {saveAttempt, setBracketMatchWinner, setBracketPasses, setBracketByes, setBracketLocked} from './actions';
 import {BracketView} from '@/components/bracket-view';
 import {isByeMatch, drawRandomByes} from '@/scoring/bracket';
-import {Trophy, ChevronLeft, ChevronRight, CheckCircle, Clock, Flag, Dices, Shuffle, Eye, EyeOff} from 'lucide-react';
+import {Trophy, ChevronLeft, ChevronRight, CheckCircle, Clock, Flag, Dices, Shuffle, Eye, EyeOff, Lock, Unlock} from 'lucide-react';
 import {finalizeEventStandings} from '../settings/actions';
 
 export type EventType={id:string;name:string;working_revision:number;status:string};
@@ -33,6 +33,7 @@ export function ScoringWorkspace({accountId,canComplete=false,offlineOnly=false,
  const [saving,setSaving]=useState<string[]>([]),[completing,setCompleting]=useState(false),[completeError,setCompleteError]=useState('');
  const [overrideWinners,setOverrideWinners]=useState<Record<string,Record<string,string|null>>>({});
  const [overrideByes,setOverrideByes]=useState<Record<string,string[]>>({});
+ const [overrideLocked,setOverrideLocked]=useState<Record<string,boolean>>({});
  const [selectedMatchId,setSelectedMatchId]=useState<string|null>(null);
  const [showFullGrid,setShowFullGrid]=useState(false);
  const [extraPasses,setExtraPasses]=useState<Record<string,number>>({});
@@ -69,14 +70,6 @@ export function ScoringWorkspace({accountId,canComplete=false,offlineOnly=false,
    const res=await setBracketMatchWinner(trackId,event.id,activeClass.id,matchId,winnerEntryId);
    if(!res.success)setCompleteError(res.error||'Failed to update bracket winner');
   }catch(e:any){setCompleteError(e?.message||'Failed to update bracket winner');}
- }
- async function handleSetByes(byeIds:string[]){
-  if(!activeClass)return;
-  setOverrideByes(prev=>({...prev,[activeClass.id]:byeIds}));
-  try{
-   const res=await setBracketByes(trackId,event.id,activeClass.id,byeIds);
-   if(!res.success)setCompleteError(res.error||'Failed to update bracket byes');
-  }catch(e:any){setCompleteError(e?.message||'Failed to update bracket byes');}
  }
  const bracketLadder=useMemo(()=>{
   if(!activeClass||activeClass.scoring_type!=='head_to_head')return null;
@@ -120,6 +113,39 @@ export function ScoringWorkspace({accountId,canComplete=false,offlineOnly=false,
  const activeMatchIndex=activeMatch?playableMatches.findIndex(m=>m.id===activeMatch.id):-1;
  const prevMatchId=activeMatchIndex>0?playableMatches[activeMatchIndex-1].id:null;
  const nextMatchId=activeMatchIndex>=0&&activeMatchIndex<playableMatches.length-1?playableMatches[activeMatchIndex+1].id:null;
+ const isExplicitlyLocked=activeClass?(overrideLocked[activeClass.id]??Boolean(activeClass.scoring_config?.bracketLocked)):false;
+ const raceHasStarted=useMemo(()=>{
+  if(!activeClass||activeClass.scoring_type!=='head_to_head')return false;
+  const hasAttempts=attempts.some(
+   a=>a.event_class_id===activeClass.id&&(Boolean(a.raw_input)||a.status!=='pending'||a.elapsed_ms!=null)
+  );
+  if(hasAttempts)return true;
+  const hasCompletedMatch=playableMatches.some(m=>m.isComplete);
+  if(hasCompletedMatch)return true;
+  const hasManualWinners=Boolean(
+   (overrideWinners[activeClass.id]&&Object.keys(overrideWinners[activeClass.id]).length>0)||
+   (activeClass.scoring_config?.manualWinners&&Object.keys(activeClass.scoring_config.manualWinners).length>0)
+  );
+  return hasManualWinners;
+ },[activeClass,attempts,playableMatches,overrideWinners]);
+ const isBracketLocked=isExplicitlyLocked||raceHasStarted;
+
+ async function handleSetByes(byeIds:string[]){
+  if(!activeClass||isBracketLocked)return;
+  setOverrideByes(prev=>({...prev,[activeClass.id]:byeIds}));
+  try{
+   const res=await setBracketByes(trackId,event.id,activeClass.id,byeIds);
+   if(!res.success)setCompleteError(res.error||'Failed to update bracket byes');
+  }catch(e:any){setCompleteError(e?.message||'Failed to update bracket byes');}
+ }
+ async function handleToggleLock(locked:boolean){
+  if(!activeClass)return;
+  setOverrideLocked(prev=>({...prev,[activeClass.id]:locked}));
+  try{
+   const res=await setBracketLocked(trackId,event.id,activeClass.id,locked);
+   if(!res.success)setCompleteError(res.error||'Failed to update bracket lock status');
+  }catch(e:any){setCompleteError(e?.message||'Failed to update bracket lock status');}
+ }
  async function handleAdjustPasses(newCount:number){
   if(!activeClass)return;
   setExtraPasses(prev=>({...prev,[activeClass.id]:newCount}));
@@ -550,72 +576,11 @@ export function ScoringWorkspace({accountId,canComplete=false,offlineOnly=false,
         </button>
        )}
       </div>
-
-      {/* Bye Allocation Card (Owner Decides / Draws from Hat) */}
-      {bracketLadder.numByes != null && bracketLadder.numByes > 0 && (
-       <div className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs">
-        <div className="flex items-center gap-2.5 min-w-0">
-         <div className="p-2 bg-amber-500/20 text-amber-400 rounded-lg flex-shrink-0">
-          <Dices className="w-4 h-4" />
-         </div>
-         <div className="min-w-0">
-          <p className="font-bold text-amber-400">
-           🎩 Bye Allocation ({bracketLadder.numByes} {bracketLadder.numByes === 1 ? 'Bye' : 'Byes'})
-          </p>
-          <p className="text-slate-400 text-[11px] truncate">
-           Assigned to: <span className="font-semibold text-white">
-            {bracketLadder.byeEntryIds && bracketLadder.byeEntryIds.length
-              ? bracketLadder.byeEntryIds
-                  .map(id => classEntries.find(e => e.id === id)?.display_name || id)
-                  .join(', ')
-              : `${classEntries[0]?.display_name || 'Seed #1'} (Top Seed)`}
-           </span>
-          </p>
-         </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-         <button
-          type="button"
-          onClick={() => {
-           const randomIds = drawRandomByes(classEntries, bracketLadder.numByes!);
-           void handleSetByes(randomIds);
-          }}
-          className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition flex items-center gap-1.5 shadow"
-          title="Randomly draw bye recipient from a hat"
-         >
-          <Shuffle className="w-3.5 h-3.5" /> 🎲 Draw From Hat
-         </button>
-         <select
-          value={bracketLadder.byeEntryIds?.[0] || ''}
-          onChange={e => {
-           if (e.target.value) void handleSetByes([e.target.value]);
-          }}
-          className="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-slate-200 text-xs font-medium"
-         >
-          <option value="">Choose racer for bye...</option>
-          {classEntries.map(e => (
-           <option key={e.id} value={e.id}>
-            {e.display_name} (Seed #{e.seed ?? '—'})
-           </option>
-          ))}
-         </select>
-         {bracketLadder.byeEntryIds && bracketLadder.byeEntryIds.length > 0 && (
-          <button
-           type="button"
-           onClick={() => void handleSetByes([])}
-           className="text-slate-400 hover:text-white text-[11px] underline"
-          >
-           Reset to #1 Seed
-          </button>
-         )}
-        </div>
-       </div>
-      )}
      </div>
 
      {/* 2. Tournament Bracket Tree Pairings (Placed BELOW the scoring field for the owner) */}
      <div className="p-4 sm:p-6 bg-slate-900 border border-slate-800 rounded-2xl space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
        <div>
         <h3 className="font-black text-amber-400 text-base sm:text-lg flex items-center gap-2">
          <Trophy className="w-5 h-5 text-amber-500" /> Tournament Bracket Tree ({bracketLadder.bracketSize}-Car Field{bracketLadder.hasLosersBracket ? ' · Double Elimination' : ''})
@@ -624,12 +589,146 @@ export function ScoringWorkspace({accountId,canComplete=false,offlineOnly=false,
          Click any matchup card in the tree to jump to it in the scoring field above.
         </p>
        </div>
-       {bracketLadder.championId && (
-        <span className="px-3 py-1 bg-amber-500 text-slate-950 font-black rounded-lg text-xs uppercase tracking-wider">
-         🏆 Champion: {bracketLadder.resultsByEntryId[bracketLadder.championId]?.displayName}
-        </span>
-       )}
+       <div className="flex flex-wrap items-center gap-2">
+        {bracketLadder.championId && (
+         <span className="px-3 py-1 bg-amber-500 text-slate-950 font-black rounded-lg text-xs uppercase tracking-wider">
+          🏆 Champion: {bracketLadder.resultsByEntryId[bracketLadder.championId]?.displayName}
+         </span>
+        )}
+       </div>
       </div>
+
+      {/* Bye Allocation & Pairings Lock Status Card */}
+      {bracketLadder.numByes != null && bracketLadder.numByes > 0 ? (
+       isBracketLocked ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-slate-950/80 border border-slate-800 rounded-xl text-xs">
+         <div className="flex items-center gap-2.5 text-slate-300 min-w-0">
+          <span className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex-shrink-0">
+           <Lock className="w-4 h-4" />
+          </span>
+          <div className="min-w-0">
+           <p className="font-bold text-emerald-400 flex items-center gap-1.5">
+            {raceHasStarted ? '🏁 Race In Progress · Bracket & Byes Locked' : '🔒 Bracket & Byes Locked In'}
+           </p>
+           <p className="text-slate-400 text-[11px] truncate">
+            Bye ({bracketLadder.numByes}): <span className="font-semibold text-white">
+             {bracketLadder.byeEntryIds && bracketLadder.byeEntryIds.length
+               ? bracketLadder.byeEntryIds
+                   .map(id => classEntries.find(e => e.id === id)?.display_name || id)
+                   .join(', ')
+               : `${classEntries[0]?.display_name || 'Seed #1'} (Top Seed)`}
+            </span>
+           </p>
+          </div>
+         </div>
+         {!raceHasStarted && (
+          <button
+           type="button"
+           onClick={() => void handleToggleLock(false)}
+           className="px-3 py-1.5 text-xs text-slate-300 hover:text-white border border-slate-700 bg-slate-900 hover:bg-slate-800 rounded-lg flex items-center gap-1.5 transition font-semibold"
+           title="Unlock byes to re-draw before racing begins"
+          >
+           <Unlock className="w-3.5 h-3.5" /> Unlock Byes
+          </button>
+         )}
+        </div>
+       ) : (
+        <div className="p-3.5 bg-amber-950/20 border border-amber-500/30 rounded-xl space-y-2.5 text-xs">
+         <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+           <div className="p-2 bg-amber-500/20 text-amber-400 rounded-lg flex-shrink-0">
+            <Dices className="w-4 h-4" />
+           </div>
+           <div className="min-w-0">
+            <p className="font-bold text-amber-400">
+             🎩 Pre-Race Setup: Bye Allocation ({bracketLadder.numByes} {bracketLadder.numByes === 1 ? 'Bye' : 'Byes'})
+            </p>
+            <p className="text-slate-300 text-[11px] truncate">
+             Assigned to: <span className="font-semibold text-white">
+              {bracketLadder.byeEntryIds && bracketLadder.byeEntryIds.length
+                ? bracketLadder.byeEntryIds
+                    .map(id => classEntries.find(e => e.id === id)?.display_name || id)
+                    .join(', ')
+                : `${classEntries[0]?.display_name || 'Seed #1'} (Top Seed)`}
+             </span>
+            </p>
+           </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+           <button
+            type="button"
+            onClick={() => {
+             const randomIds = drawRandomByes(classEntries, bracketLadder.numByes!);
+             void handleSetByes(randomIds);
+            }}
+            className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition flex items-center gap-1.5 shadow"
+            title="Randomly draw bye recipient from a hat"
+           >
+            <Shuffle className="w-3.5 h-3.5" /> 🎲 Draw From Hat
+           </button>
+
+           <select
+            value={bracketLadder.byeEntryIds?.[0] || ''}
+            onChange={e => {
+             if (e.target.value) void handleSetByes([e.target.value]);
+            }}
+            className="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-slate-200 text-xs font-medium"
+           >
+            <option value="">Choose racer for bye...</option>
+            {classEntries.map(e => (
+             <option key={e.id} value={e.id}>
+              {e.display_name} (Seed #{e.seed ?? '—'})
+             </option>
+            ))}
+           </select>
+
+           {bracketLadder.byeEntryIds && bracketLadder.byeEntryIds.length > 0 && (
+            <button
+             type="button"
+             onClick={() => void handleSetByes([])}
+             className="text-slate-400 hover:text-white text-[11px] underline"
+            >
+             Reset to #1 Seed
+            </button>
+           )}
+
+           <button
+            type="button"
+            onClick={() => void handleToggleLock(true)}
+            className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-black transition flex items-center gap-1.5 shadow"
+            title="Lock in byes so the board cannot be accidentally reset"
+           >
+            <Lock className="w-3.5 h-3.5" /> 🔒 Lock In Byes
+           </button>
+          </div>
+         </div>
+         <p className="text-[11px] text-amber-300/80">
+          💡 Draw or pick who gets the bye, then click <strong>&ldquo;Lock In Byes&rdquo;</strong> to secure the board before racing begins. Once locked or when race scores are entered, the randomizer is removed so accidental touches cannot disrupt the board.
+         </p>
+        </div>
+       )
+      ) : (
+       <div className="flex items-center justify-between p-2.5 bg-slate-950/60 border border-slate-800 rounded-xl text-xs text-slate-400">
+        <span className="flex items-center gap-1.5 font-medium">
+         <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+         Full {bracketLadder.bracketSize}-car field · No byes required
+        </span>
+        {isBracketLocked ? (
+         <span className="flex items-center gap-1 text-emerald-400 font-bold">
+          <Lock className="w-3 h-3" /> Pairings Locked
+         </span>
+        ) : (
+         <button
+          type="button"
+          onClick={() => void handleToggleLock(true)}
+          className="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold transition flex items-center gap-1"
+         >
+          <Lock className="w-3 h-3" /> Lock In Pairings
+         </button>
+        )}
+       </div>
+      )}
 
       <BracketView
        ladder={bracketLadder}

@@ -13,6 +13,12 @@ export default async function EventOverviewPage({
 }) {
   const {ownerId:trackId,ownerType,ownerColumn,ownerPath,eventId}=raceContext(await params);
   const supabase = await createClient();
+  const {data:event,error:eventError}=await supabase.from("events").select("slug").eq("id",eventId).eq(ownerColumn,trackId).maybeSingle();
+  if(eventError) throw new Error(eventError.message);
+  if(!event) redirect(ownerPath);
+  const {data:track}=ownerType==="track" ? await supabase.from("tracks").select("slug").eq("id",trackId).single() : {data:null};
+  const pitPath=ownerType==="series" ? `/s/${trackId}/races/${event.slug}/pit-display` : `/r/${track?.slug}/${event.slug}/pit-display`;
+
 
   const { data: classes } = await readAll(supabase
     .from("event_classes")
@@ -79,6 +85,7 @@ export default async function EventOverviewPage({
           </div>
         </div>
 
+        <Link href={pitPath} target="_blank" rel="noopener noreferrer" className="inline-block rounded-xl border border-amber-500 px-5 py-3 font-bold text-amber-400">Open Pit Display ↗</Link>
         {/* Classes Setup */}
         <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
           <div className="flex items-center justify-between mb-6">

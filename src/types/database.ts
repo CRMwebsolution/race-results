@@ -28,6 +28,7 @@ export type Database = {
       }
       attempts: {
         Row: {
+          updated_at: string | null
           distance_mm: number | null
           elapsed_ms: number | null
           entry_id: string
@@ -40,6 +41,7 @@ export type Database = {
           status: string
         }
         Insert: {
+          updated_at?: string | null
           distance_mm?: number | null
           elapsed_ms?: number | null
           entry_id: string
@@ -52,6 +54,7 @@ export type Database = {
           status: string
         }
         Update: {
+          updated_at?: string | null
           distance_mm?: number | null
           elapsed_ms?: number | null
           entry_id?: string

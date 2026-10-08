@@ -32,40 +32,27 @@ export function PitDisplay({
   classes,
   initialEntries,
   initialAttempts,
-  judgeScores=[],
+  judgeScores=[], latestClassId, officialResults, officialVersion,
 }: {
   event: EventType;
   classes: ClassType[];
   initialEntries: EntryType[];
   initialAttempts: AttemptType[];
   judgeScores?:JudgeInput[];
+  latestClassId: string;
+  officialResults?:OfficialRow[];officialVersion?:number;
 }) {
   const [sortOrder,setSortOrder]=useState<ResultOrder>("rank");
   const [reverse,setReverse]=useState(false);
-  const [activeClassId, setActiveClassId] = useState<string>("");
+  const [selectedClassId, setSelectedClassId] = useState<string>("");
+  const [following, setFollowing] = useState(true);
+  const activeClassId=following || !classes.some(c=>c.id===selectedClassId) ? latestClassId || classes[0]?.id || "" : selectedClassId;
   const [connected, setConnected] = useState(false);
   const [isRefreshing, startTransition] = useTransition();
   const currentEvent = useRef(event);
   currentEvent.current = event;
   
   const router = useRouter();
-
-  // Auto-select class with most recent activity or first class
-  useEffect(() => {
-    if (activeClassId === "") {
-      // Find class with the most attempts if we don't have a clear "current"
-      let bestClass = classes[0]?.id ?? "";
-      let maxAttempts = -1;
-      for (const c of classes) {
-        const attempts = initialAttempts.filter(a => a.event_class_id === c.id).length;
-        if (attempts > maxAttempts) {
-          maxAttempts = attempts;
-          bestClass = c.id;
-        }
-      }
-      setActiveClassId(bestClass);
-    }
-  }, [classes, activeClassId, initialAttempts]);
 
   useEffect(() => {
     return watchPublicEvent(createClient(), event.id, () => currentEvent.current,
@@ -97,7 +84,8 @@ export function PitDisplay({
           rawInput: a.raw_input,
         }));
 
-      const score = scoreClass(activeClass.scoring_type, entryAttempts, activeClass.scoring_config, activeClass.scoring_version,judges);
+      const official=officialResults?.find(r=>r.id===entry.id);
+      const score = officialResults ? (official?.score ?? {eligible:official?.final_rank!=null,primary:null,direction:"asc" as const,tieBreakers:[],label:official?.final_rank!=null ? `Official rank ${official.final_rank} (original score not retained)` : "Unranked",details:{}}) : scoreClass(activeClass.scoring_type, entryAttempts, activeClass.scoring_config, activeClass.scoring_version,judges);
 
       return {
         entry,
@@ -106,13 +94,13 @@ export function PitDisplay({
         orderNum: entry.order_num,
         entryId: entry.id,
         attempts: entryAttempts,
-        rank: null,
-        tied: false,
+        rank: official?.final_rank ?? null,
+        tied: official?.tied ?? false,
       };
     });
 
-    return rankEntries(entriesWithScore);
-  }, [activeClass, activeEntries, initialAttempts, judgeScores]);
+    return officialResults ? entriesWithScore : rankEntries(entriesWithScore);
+  }, [activeClass, activeEntries, initialAttempts, judgeScores, officialResults]);
 
   const displayRows=sortResults(rankedEntries,sortOrder,reverse);
   
@@ -135,12 +123,15 @@ export function PitDisplay({
         </div>
       </div>
 
+      {officialResults && <p className="text-xl text-emerald-400">Official results · Version {officialVersion}</p>}
+      {event.status === "live" && !connected && <p role="status" className="text-slate-300">Checking for updates. This display will reconnect automatically.</p>}
       {/* Class Selector - Huge tap targets */}
       <div className="flex flex-wrap gap-3">
+        <button onClick={()=>setFollowing(true)} aria-pressed={following} className="px-6 py-4 rounded-xl text-2xl font-bold border border-amber-500 text-amber-400">{following ? "Following live class" : "Follow live class"}</button>
         {classes.map((c) => (
           <button
             key={c.id}
-            onClick={() => setActiveClassId(c.id)}
+            onClick={() => { setSelectedClassId(c.id); setFollowing(false); }}
             className={`px-6 py-4 rounded-xl text-2xl font-bold uppercase tracking-wider transition ${
               activeClassId === c.id
                 ? "bg-amber-500 text-black shadow-[0_0_20px_rgba(245,158,11,0.4)] scale-105"

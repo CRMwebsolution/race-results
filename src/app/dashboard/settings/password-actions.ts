@@ -12,7 +12,7 @@ export async function changePassword(f:FormData){
  const {data,error:credentialError}=await verify.auth.signInWithPassword({email:user.email!,password:current});
  if(credentialError||data.user?.id!==user.id)redirect('/dashboard/settings?error=Current password is incorrect');
  if(data.session)await verify.auth.signOut({scope:'local'});
- const {error}=await db.auth.updateUser({password,current_password:current});
+ const {error}=await db.auth.updateUser({password,current_password:current} as any);
  if(error)redirect(`/dashboard/settings?error=${encodeURIComponent(error.message)}`);
  redirect('/dashboard/settings?message=Password changed successfully');
 }

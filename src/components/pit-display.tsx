@@ -127,7 +127,7 @@ export function PitDisplay({
       {event.status === "live" && !connected && <p role="status" className="text-slate-300">Checking for updates. This display will reconnect automatically.</p>}
       {/* Class Selector - Huge tap targets */}
       <div className="flex flex-wrap gap-3">
-        <button onClick={()=>setFollowing(true)} aria-pressed={following} className="px-6 py-4 rounded-xl text-2xl font-bold border border-amber-500 text-amber-400">{following ? "Following live class" : "Follow live class"}</button>
+        {event.status==='live' && <button onClick={()=>setFollowing(true)} aria-pressed={following} className="px-6 py-4 rounded-xl text-2xl font-bold border border-amber-500 text-amber-400">{following ? "Following live class" : "Follow live class"}</button>}
         {classes.map((c) => (
           <button
             key={c.id}

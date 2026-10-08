@@ -45,7 +45,7 @@ export default async function BillingPage({searchParams}: {searchParams:Promise<
           <CreditCard className="w-8 h-8 text-amber-500" />
           <span>Billing & Access</span>
         </h1>
-        <p className="text-slate-400 mt-2">Manage access across your tracks and series. Purchases are one-time; season passes do not renew automatically.</p>
+        <p className="text-slate-400 mt-2">Manage access across your tracks and series. Purchases are one-time; season passes do not renew automatically. Buying a different season plan replaces your current season plan. Buying the same plan adds one year. Event Passes preserve your season plan.</p>
       </div>
 
       {params.error && <p role="alert" className="text-red-400">{params.error}</p>}

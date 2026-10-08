@@ -7,10 +7,12 @@ async function grantAccess(form: FormData) {
   const supabase = await createClient();
   const expiry = String(form.get("expires") || "");
   const quota = Number(form.get("credits"));
+  const expires=expiry ? new Date(expiry + "T23:59:59Z") : null;
+  if(expires && !Number.isFinite(expires.valueOf())) redirect("/admin/organizations?error=Choose+a+valid+expiration+date");
   if (!Number.isSafeInteger(quota) || quota < 0) redirect("/admin/organizations?error=Enter+a+whole+number+of+credits");
   const { error } = await supabase.rpc("admin_grant_entitlement", {
     p_org_id: String(form.get("orgId")), p_tier: String(form.get("tier")),
-    p_quota: quota, p_end_date: expiry ? new Date(expiry + "T23:59:59Z").toISOString() : null,
+    p_quota: quota, p_end_date: expires?.toISOString() || null,
     p_reason: String(form.get("reason") || ""), p_limits_exempt: form.get("exempt") === "on",
   });
   if (error) redirect("/admin/organizations?error=" + encodeURIComponent(error.message));
@@ -27,7 +29,7 @@ export default async function AdminOrganizationsPage({ searchParams }: { searchP
     .select("id,name,active_tier,event_quota,subscription_end_date,limits_exempt,tracks(id,name),series(id,name)").order("name");
   return <div className="space-y-6 max-w-5xl mx-auto">
     <h1 className="text-2xl font-bold">Account access</h1>
-    <p>Grant plans without payment. These grants are recorded with your reason.</p>
+    <p>Grant plans without payment across the owning account’s tracks and series. These grants are recorded with your reason.</p>
     {(params.error || error) && <p role="alert" className="text-red-400">{params.error || error?.message}</p>}
     {params.success && <p role="status" className="text-emerald-400">{params.success}</p>}
     {orgs?.map(org => <section key={org.id} className="rounded-xl border border-slate-700 p-5 space-y-3">

@@ -14,7 +14,7 @@ export default async function RaceStaff({params,searchParams}:{params:Promise<Ra
  if(!canManage)redirect(`${ownerPath}/events/${eventId}/scoring`);
  const [{data:invites,error:ie},{data:staff,error:se},{data:classes,error:ce}]=await Promise.all([
   readAll(db.from('race_staff_invitations').select('*').eq('event_id',eventId).order('created_at',{ascending:false})),
-  readAll(db.from('race_staff').select('*').eq('event_id',eventId).eq('active',true)),
+  readAll(db.from('race_staff').select('*').eq('event_id',eventId).eq('active',true),['event_id','user_id']),
   readAll(db.from('event_classes').select('id,name').eq('event_id',eventId).eq('scoring_type','judged_points').order('order_num'))
  ]);
  if(ie||se||ce)throw new Error((ie||se||ce)!.message);

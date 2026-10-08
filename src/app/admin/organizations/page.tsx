@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { ExternalLink, CreditCard } from "lucide-react";
+import { revalidatePath } from "next/cache";
 
 export default async function AdminOrganizationsPage() {
   const supabase = await createClient();
@@ -48,15 +49,50 @@ export default async function AdminOrganizationsPage() {
                   </div>
                 </td>
                 <td className="px-6 py-4">
-                  <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-widest bg-slate-800 text-slate-400 border border-slate-700">
-                    Billing setup pending
+                  <span className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-widest border ${
+                    org.active_tier === 'premium' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                    org.active_tier === 'standard' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                    'bg-slate-800 text-slate-400 border-slate-700'
+                  }`}>
+                    {org.active_tier || 'free'}
                   </span>
+                  <div className="text-xs text-slate-500 mt-1">Quota: {org.event_quota || 0}</div>
                 </td>
                 <td className="px-6 py-4 text-right">
-                  <button disabled title="Tier controls are not implemented yet" className="text-slate-500 flex items-center justify-end space-x-2 w-full cursor-not-allowed">
-                    <CreditCard className="w-4 h-4" />
-                    <span className="text-xs font-semibold">Limits pending</span>
-                  </button>
+                  <form action={async (formData) => {
+                    'use server';
+                    const supabase = await createClient();
+                    const tier = formData.get('tier') as string;
+                    const orgId = formData.get('orgId') as string;
+                    const action = formData.get('admin_action') as string;
+                    
+                    if (action === 'bypass') {
+                      await supabase.rpc('grant_organization_entitlement', {
+                        p_org_id: orgId, p_tier: 'premium', p_quota: 9999, p_end_date: '2099-12-31'
+                      });
+                    } else if (action === 'set_tier') {
+                      await supabase.rpc('grant_organization_entitlement', {
+                        p_org_id: orgId, p_tier: tier, p_quota: 100, p_end_date: '2099-12-31'
+                      });
+                    }
+                    revalidatePath('/', 'layout');
+                  }}>
+                    <input type="hidden" name="orgId" value={org.id} />
+                    <div className="flex items-center justify-end space-x-2">
+                      <select name="tier" className="bg-slate-800 border border-slate-700 text-slate-300 text-xs rounded px-2 py-1">
+                        <option value="free">Free</option>
+                        <option value="event_pass">Event Pass</option>
+                        <option value="standard">Standard</option>
+                        <option value="premium">Premium</option>
+                      </select>
+                      <button name="admin_action" value="set_tier" className="text-xs font-semibold px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-white transition">
+                        Set
+                      </button>
+                      <button name="admin_action" value="bypass" className="text-xs font-semibold px-2 py-1 bg-amber-500/20 text-amber-500 hover:bg-amber-500/30 border border-amber-500/30 rounded transition" title="Grant unlimited lifetime premium access">
+                        Bypass Limits
+                      </button>
+                    </div>
+                  </form>
                 </td>
               </tr>
             ))}

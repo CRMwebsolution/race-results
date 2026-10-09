@@ -58,7 +58,12 @@ export default async function EventSettingsPage({ params, searchParams }: { sear
           <RaceStatusForm status={event?.status||"draft"} revision={event?.working_revision||0} action={updateStatus}/><p className="mt-3 text-sm text-slate-400">To finish and publish official results, use Complete race on the Enter results screen.</p>
         </div>
       </div>
-      <form action={deleteEvent} className="space-y-3 mb-8 p-4 border border-red-900 rounded"><h2 className="font-bold">Delete or withdraw event</h2><p>Empty events are deleted. Events with racers or official results are withdrawn; their history is retained.</p><label className="block"><input required type="checkbox" name="confirm"/> I confirm this event should be removed from the schedule.</label><button className="p-3 bg-red-950 rounded">Delete / withdraw event</button></form>
+      <form action={deleteEvent} className="space-y-3 mb-8 p-4 border border-red-900 bg-red-950/20 rounded-xl">
+        <h2 className="font-bold text-red-400">Delete event</h2>
+        <p className="text-sm text-slate-400">Permanently delete this event and all its classes, contestants, attempts, and official results. This action cannot be undone.</p>
+        <label className="block text-sm text-slate-300"><input required type="checkbox" name="confirm" className="mr-2"/> I confirm this event should be permanently deleted.</label>
+        <button className="p-3 bg-red-950 text-red-200 border border-red-800 rounded-lg font-bold hover:bg-red-900 transition">Delete Event</button>
+      </form>
     </div>
   );
 }

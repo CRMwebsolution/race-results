@@ -66,7 +66,7 @@ export default async function PublicTrackLayout({
         <p className="text-xs font-medium text-slate-600 flex items-center justify-center space-x-1.5">
           <span>Powered by</span>
           <span className="font-extrabold text-slate-400 tracking-tight">
-            Track<span className="text-amber-500/70">Score</span>
+            Race<span className="text-amber-500/70">Holler</span>
           </span>
         </p>
       </footer>

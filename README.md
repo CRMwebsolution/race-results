@@ -1,6 +1,6 @@
-# TrackScore
+# RaceHoller
 
-TrackScore is a standalone multi-tenant SaaS platform for track and venue owners to configure race events, record official results, publish live standings, and manage single meets or full seasons.
+RaceHoller is a standalone multi-tenant SaaS platform for track and venue owners to configure race events, record official results, publish live standings, and manage single meets or full seasons.
 
 This repository implements the authoritative specification defined in `docs/TrackScore-Product-Engineering-Blueprint.md`.
 

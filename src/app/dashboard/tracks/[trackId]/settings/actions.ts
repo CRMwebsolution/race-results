@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import {scoreClass} from '@/scoring';
 
 export async function updateTrackSettings(trackId: string, defaultClasses: any[]) {
@@ -27,4 +28,14 @@ export async function updateTrackSettings(trackId: string, defaultClasses: any[]
   revalidatePath(`/dashboard/tracks/${trackId}/settings`);
   
   return { success: true };
+}
+
+export async function deleteTrack(trackId: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("tracks").delete().eq("id", trackId);
+  if (error) {
+    return { success: false, error: error.message };
+  }
+  revalidatePath("/dashboard");
+  redirect("/dashboard");
 }

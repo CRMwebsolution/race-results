@@ -8,7 +8,13 @@ export function SpectatorQR({path,eventName,className}: {path: string; eventName
   const dialog=useRef<HTMLDialogElement>(null), titleId=useId();
   const [url,setUrl]=useState(''), [image,setImage]=useState(''), [error,setError]=useState('');
   async function open() {
-    const target=new URL(path,window.location.origin).href;
+    const targetUrl = new URL(path, window.location.origin);
+    const parts = targetUrl.pathname.split('/');
+    const slug = parts.length > 2 ? parts[2] : 'raceholler';
+    targetUrl.searchParams.set('utm_source', slug);
+    targetUrl.searchParams.set('utm_medium', 'qr');
+    targetUrl.searchParams.set('utm_campaign', 'spectator');
+    const target = targetUrl.href;
     setUrl(target);setImage('');setError('');dialog.current?.showModal();
     try {setImage(await QRCode.toDataURL(target,{width:512,margin:4,errorCorrectionLevel:'M',color:{dark:'#000000',light:'#ffffff'}}));}
     catch {setError('The QR code could not be created. Close this window and try again.');}
@@ -38,3 +44,4 @@ export function SpectatorQR({path,eventName,className}: {path: string; eventName
     </dialog>
   </>;
 }
+

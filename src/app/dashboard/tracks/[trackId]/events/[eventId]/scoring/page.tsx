@@ -47,7 +47,27 @@ export default async function EventScoringPage({
         p_status: "live",
         p_expected_revision: event!.working_revision
       });
-      if (error) redirect(ownerPath + "/events/" + eventId + "/scoring?message=" + encodeURIComponent(error.message));
+      if (error) {
+        if (error.message.includes("credit") || error.message.includes("quota")) {
+          await fetch("https://n8n.southernautomate.com/webhook/a8aecd54-4eb6-4243-9c19-daf7c939c69c", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              type: "quota_denied",
+              action: "go_live",
+              table: "events",
+              timestamp: new Date().toISOString(),
+              record: {
+                event_id: eventId,
+                event_name: event!.name,
+                owner_id: trackId,
+                user_id: user?.id
+              }
+            })
+          }).catch(console.error);
+        }
+        redirect(ownerPath + "/events/" + eventId + "/scoring?message=" + encodeURIComponent(error.message));
+      }
       import("next/cache").then(m => m.revalidatePath("/dashboard", "layout"));
       redirect(ownerPath + "/events/" + eventId + "/scoring");
     }
@@ -131,6 +151,8 @@ export default async function EventScoringPage({
     />
   );
 }
+
+
 
 
 

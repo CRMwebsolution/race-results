@@ -7,6 +7,7 @@ import { readAll } from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { LiveLeaderboard } from "./live-leaderboard";
+import { SpectatorQR } from "@/components/spectator-qr";
 import {spectatorPointsMode} from '@/lib/spectator-points';
 
 export default async function PublicEventPage({
@@ -45,7 +46,7 @@ export default async function PublicEventPage({
    if(!snapshot)throw new Error("Official results version is unavailable");
    const payload=snapshot.payload as any;
    const points=await publicRaceChampionship(supabase,payload.event,payload.entries,payload.classes,payload.registrations);
-   return <div className="space-y-4"><p>Official results · Version {snapshot.version}{snapshot.reconstructed ? " · Reconstructed historical ranks" : ` · ${snapshot.finalized_at}`}</p><nav className="flex flex-wrap gap-3">{Array.from({length:snapshot.version},(_,i)=><Link key={i} href={`?version=${i+1}`}>Version {i+1}</Link>)}<Link href={currentPath}>Current results</Link></nav><LiveLeaderboard event={{...payload.event,status:"completed",spectator_points_mode:mode}} classes={payload.classes} initialEntries={payload.entries} initialAttempts={payload.attempts} officialResults={payload.results as OfficialRow[]} officialVersion={snapshot.version} judgeScores={judgeInput(payload.judge_scores||[])} championship={points}/>{event.competition_season_id&&championship}</div>;
+   return <div className="space-y-4">`n      <div className="flex flex-wrap items-center gap-3">`n        <SpectatorQR path={currentPath} eventName={event.name} />`n        <Link href={`${currentPath}/pit-display`} className="p-3 border border-slate-700 rounded-lg font-semibold bg-slate-800 hover:bg-slate-700 transition">Pit View</Link>`n      </div>`n      <p className="text-slate-300 font-semibold text-lg">Official results · Version {snapshot.version}{snapshot.reconstructed ? " · Reconstructed historical ranks" : ` · ${new Date(snapshot.finalized_at!).toLocaleString("en-US", {dateStyle:"medium",timeStyle:"short"})}`}</p><nav className="flex flex-wrap gap-3">{Array.from({length:snapshot.version},(_,i)=><Link key={i} href={`?version=${i+1}`}>Version {i+1}</Link>)}<Link href={currentPath}>Current results</Link></nav><LiveLeaderboard event={{...payload.event,status:"completed",spectator_points_mode:mode}} classes={payload.classes} initialEntries={payload.entries} initialAttempts={payload.attempts} officialResults={payload.results as OfficialRow[]} officialVersion={snapshot.version} judgeScores={judgeInput(payload.judge_scores||[])} championship={points}/>{event.competition_season_id&&championship}</div>;
   }
   // Fetch all classes
   const { data: classes } = await readAll(supabase
@@ -55,9 +56,9 @@ export default async function PublicEventPage({
     .order("order_num", { ascending: true }));
 
   if (!classes || classes.length === 0) {
-    return (
+    return (
       <div className="py-20 text-center text-slate-500">
-        No results available yet.
+        No results available yet.
       </div>
     );
   }
@@ -70,7 +71,7 @@ export default async function PublicEventPage({
   ]);
   const points=await publicRaceChampionship(supabase,event,entries,classes);
   return (
-    <div className="space-y-6"><LiveLeaderboard
+    <div className="space-y-6">`n      <div className="flex flex-wrap items-center gap-3">`n        <SpectatorQR path={currentPath} eventName={event.name} />`n        <Link href={`${currentPath}/pit-display`} className="p-3 border border-slate-700 rounded-lg font-semibold bg-slate-800 hover:bg-slate-700 transition">Pit View</Link>`n      </div>`n      <LiveLeaderboard
       key={event.id}
       event={{...event,spectator_points_mode:mode}}
       classes={classes}
@@ -81,4 +82,7 @@ export default async function PublicEventPage({
     />{event.competition_season_id&&championship}</div>
   );
 }
+
+
+
 

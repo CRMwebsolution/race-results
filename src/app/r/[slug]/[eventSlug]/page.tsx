@@ -1,88 +1,222 @@
-import {publicRaceChampionship} from "@/championship/public-race";
-import {PublicCompetition} from "@/components/public-competition";
-import {judgeInput} from "@/scoring/multi-judge";
-import {officialResult,OfficialRow} from "@/lib/official-results";
+import { publicRaceChampionship } from "@/championship/public-race";
+import { PublicCompetition } from "@/components/public-competition";
+import { judgeInput } from "@/scoring/multi-judge";
+import { officialResult, OfficialRow } from "@/lib/official-results";
 import Link from "next/link";
 import { readAll } from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { LiveLeaderboard } from "./live-leaderboard";
 import { SpectatorQR } from "@/components/spectator-qr";
-import {spectatorPointsMode} from '@/lib/spectator-points';
+import { spectatorPointsMode } from "@/lib/spectator-points";
 
 export default async function PublicEventPage({
-  params,searchParams,
+  params,
+  searchParams,
 }: {
-  searchParams:Promise<{version?:string}>;
+  searchParams: Promise<{ version?: string }>;
   params: Promise<{ slug?: string; seriesId?: string; eventSlug: string }>;
 }) {
   const { slug, seriesId, eventSlug } = await params;
   const supabase = await createClient();
 
-  const {data:track}=slug?await supabase.from("tracks").select("id").eq("slug",slug).single():{data:null};
-  if(!seriesId&&!track)notFound();
-  const {data:event}=await supabase.from("events").select("*").eq(seriesId?'series_id':'track_id',seriesId||track!.id).eq('slug',eventSlug).single();if(!event)notFound();
-  const mode=await spectatorPointsMode(supabase,{seriesId:event.series_id||undefined,trackId:event.track_id||undefined});
-  const currentPath=seriesId?`/s/${seriesId}/races/${eventSlug}`:`/r/${slug}/${eventSlug}`;
+  const { data: track } = slug
+    ? await supabase.from("tracks").select("id").eq("slug", slug).single()
+    : { data: null };
+  if (!seriesId && !track) notFound();
+
+  const { data: event } = await supabase
+    .from("events")
+    .select("*")
+    .eq(seriesId ? "series_id" : "track_id", seriesId || track!.id)
+    .eq("slug", eventSlug)
+    .single();
+  if (!event) notFound();
+
+  const mode = await spectatorPointsMode(supabase, {
+    seriesId: event.series_id || undefined,
+    trackId: event.track_id || undefined,
+  });
+  const currentPath = seriesId
+    ? `/s/${seriesId}/races/${eventSlug}`
+    : `/r/${slug}/${eventSlug}`;
+
+  // Fetch track timezone if applicable
+  const { data: eventTrack } = event.track_id
+    ? await supabase
+        .from("tracks")
+        .select("timezone")
+        .eq("id", event.track_id)
+        .single()
+    : { data: null };
+  const tz = eventTrack?.timezone || "America/New_York";
 
   if (event.status === "scheduled" || event.status === "draft") {
     return (
       <div className="max-w-2xl mx-auto mt-12 p-8 text-center border border-slate-800 rounded-2xl bg-slate-900/60">
         <div className="w-16 h-16 bg-slate-800 text-slate-500 flex items-center justify-center rounded-2xl mx-auto mb-6">
-          <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          <svg
+            className="w-8 h-8"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
         </div>
         <h2 className="text-xl font-bold text-white mb-2">Race Not Started</h2>
-        <p className="text-slate-400">The schedule and roster for this event will be available once the race organizer goes live.</p>
+        <p className="text-slate-400">
+          The schedule and roster for this event will be available once the race
+          organizer goes live.
+        </p>
       </div>
     );
   }
-  const championship=<PublicCompetition trackId={event.track_id||undefined} seriesId={event.series_id||undefined} selected={event.competition_season_id||undefined}/>;
+  
+  const championship = (
+    <PublicCompetition
+      trackId={event.track_id || undefined}
+      seriesId={event.series_id || undefined}
+      selected={event.competition_season_id || undefined}
+    />
+  );
 
-
-
-  const requested=Number((await searchParams).version)||undefined;
-  if(event.status==="completed"||requested){
-   const snapshot=await officialResult(supabase,event.id,requested);
-   if(!snapshot)throw new Error("Official results version is unavailable");
-   const payload=snapshot.payload as any;
-   const points=await publicRaceChampionship(supabase,payload.event,payload.entries,payload.classes,payload.registrations);
-   return <div className="space-y-4">`n      <div className="flex flex-wrap items-center gap-3">`n        <SpectatorQR path={currentPath} eventName={event.name} />`n        <Link href={`${currentPath}/pit-display`} className="p-3 border border-slate-700 rounded-lg font-semibold bg-slate-800 hover:bg-slate-700 transition">Pit View</Link>`n      </div>`n      <p className="text-slate-300 font-semibold text-lg">Official results · Version {snapshot.version}{snapshot.reconstructed ? " · Reconstructed historical ranks" : ` · ${new Date(snapshot.finalized_at!).toLocaleString("en-US", {dateStyle:"medium",timeStyle:"short"})}`}</p><nav className="flex flex-wrap gap-3">{Array.from({length:snapshot.version},(_,i)=><Link key={i} href={`?version=${i+1}`}>Version {i+1}</Link>)}<Link href={currentPath}>Current results</Link></nav><LiveLeaderboard event={{...payload.event,status:"completed",spectator_points_mode:mode}} classes={payload.classes} initialEntries={payload.entries} initialAttempts={payload.attempts} officialResults={payload.results as OfficialRow[]} officialVersion={snapshot.version} judgeScores={judgeInput(payload.judge_scores||[])} championship={points}/>{event.competition_season_id&&championship}</div>;
+  const requested = Number((await searchParams).version) || undefined;
+  if (event.status === "completed" || requested) {
+    const snapshot = await officialResult(supabase, event.id, requested);
+    if (!snapshot) throw new Error("Official results version is unavailable");
+    const payload = snapshot.payload as any;
+    const points = await publicRaceChampionship(
+      supabase,
+      payload.event,
+      payload.entries,
+      payload.classes,
+      payload.registrations
+    );
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <SpectatorQR path={currentPath} eventName={event.name} />
+          <Link
+            href={`${currentPath}/pit-display`}
+            className="p-3 border border-slate-700 rounded-lg font-semibold bg-slate-800 hover:bg-slate-700 transition"
+          >
+            Pit View
+          </Link>
+        </div>
+        <p className="text-slate-300 font-semibold text-lg">
+          Official results · Version {snapshot.version}
+          {snapshot.reconstructed
+            ? " · Reconstructed historical ranks"
+            : ` · ${new Date(snapshot.finalized_at!).toLocaleString("en-US", {
+                timeZone: tz,
+                dateStyle: "medium",
+                timeStyle: "short",
+              })}`}
+        </p>
+        <nav className="flex flex-wrap gap-3">
+          {Array.from({ length: snapshot.version }, (_, i) => (
+            <Link key={i} href={`?version=${i + 1}`}>
+              Version {i + 1}
+            </Link>
+          ))}
+          <Link href={currentPath}>Current results</Link>
+        </nav>
+        <LiveLeaderboard
+          event={{
+            ...payload.event,
+            status: "completed",
+            spectator_points_mode: mode,
+          }}
+          classes={payload.classes}
+          initialEntries={payload.entries}
+          initialAttempts={payload.attempts}
+          officialResults={payload.results as OfficialRow[]}
+          officialVersion={snapshot.version}
+          judgeScores={judgeInput(payload.judge_scores || [])}
+          championship={points}
+        />
+        {event.competition_season_id && championship}
+      </div>
+    );
   }
+  
   // Fetch all classes
-  const { data: classes } = await readAll(supabase
-    .from("event_classes")
-    .select("id, name, scoring_type, scoring_version, scoring_config, order_num, competition_class_id")
-    .eq("event_id", event.id)
-    .order("order_num", { ascending: true }));
+  const { data: classes } = await readAll(
+    supabase
+      .from("event_classes")
+      .select(
+        "id, name, scoring_type, scoring_version, scoring_config, order_num, competition_class_id"
+      )
+      .eq("event_id", event.id)
+      .order("order_num", { ascending: true })
+  );
 
   if (!classes || classes.length === 0) {
-    return (
+    return (
       <div className="py-20 text-center text-slate-500">
-        No results available yet.
+        No results available yet.
       </div>
     );
   }
 
-  const classIds=classes.map(c=>c.id);
-  const [{data:entries},{data:attempts},{data:judges}]=await Promise.all([
-    readAll(supabase.from("entries").select("id, event_class_id, display_name, seed, order_num, registration_id").in("event_class_id",classIds).order("order_num",{ascending:true})),
-    readAll(supabase.from("attempts").select("id, event_class_id, entry_id, ordinal, status, elapsed_ms, distance_mm, penalty_ms, raw_input").in("event_class_id",classIds).order("ordinal",{ascending:true})),
-    readAll(supabase.from("judge_scores").select("*").in("event_class_id",classIds)),
-  ]);
-  const points=await publicRaceChampionship(supabase,event,entries,classes);
+  const classIds = classes.map((c) => c.id);
+  const [{ data: entries }, { data: attempts }, { data: judges }] =
+    await Promise.all([
+      readAll(
+        supabase
+          .from("entries")
+          .select("id, event_class_id, display_name, seed, order_num, registration_id")
+          .in("event_class_id", classIds)
+          .order("order_num", { ascending: true })
+      ),
+      readAll(
+        supabase
+          .from("attempts")
+          .select(
+            "id, event_class_id, entry_id, ordinal, status, elapsed_ms, distance_mm, penalty_ms, raw_input"
+          )
+          .in("event_class_id", classIds)
+          .order("ordinal", { ascending: true })
+      ),
+      readAll(
+        supabase.from("judge_scores").select("*").in("event_class_id", classIds)
+      ),
+    ]);
+    
+  const points = await publicRaceChampionship(
+    supabase,
+    event,
+    entries,
+    classes
+  );
+  
   return (
-    <div className="space-y-6">`n      <div className="flex flex-wrap items-center gap-3">`n        <SpectatorQR path={currentPath} eventName={event.name} />`n        <Link href={`${currentPath}/pit-display`} className="p-3 border border-slate-700 rounded-lg font-semibold bg-slate-800 hover:bg-slate-700 transition">Pit View</Link>`n      </div>`n      <LiveLeaderboard
-      key={event.id}
-      event={{...event,spectator_points_mode:mode}}
-      classes={classes}
-      initialEntries={entries || []}
-      initialAttempts={attempts || []}
-      judgeScores={judgeInput(judges)}
-      championship={points}
-    />{event.competition_season_id&&championship}</div>
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center gap-3">
+        <SpectatorQR path={currentPath} eventName={event.name} />
+        <Link
+          href={`${currentPath}/pit-display`}
+          className="p-3 border border-slate-700 rounded-lg font-semibold bg-slate-800 hover:bg-slate-700 transition"
+        >
+          Pit View
+        </Link>
+      </div>
+      <LiveLeaderboard
+        key={event.id}
+        event={{ ...event, spectator_points_mode: mode }}
+        classes={classes}
+        initialEntries={entries || []}
+        initialAttempts={attempts || []}
+        judgeScores={judgeInput(judges)}
+        championship={points}
+      />
+      {event.competition_season_id && championship}
+    </div>
   );
 }
-
-
-
-

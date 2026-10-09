@@ -65,7 +65,7 @@ export function Footer() {
               <p className="font-bold text-white uppercase text-[11px] tracking-wider">Support</p>
               <ul className="space-y-1.5">
                 <li>
-                  <a href="mailto:support@raceholler.com" className="hover:text-amber-400 transition">support@raceholler.com</a>
+                  <Link href="/contact" className="hover:text-amber-400 transition">Contact Us</Link>
                 </li>
                 <li className="flex items-center gap-1.5 text-slate-500 pt-0.5">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
@@ -86,11 +86,12 @@ export function Footer() {
             <span>·</span>
             <Link href="/refunds" className="hover:text-slate-300 transition">Refunds</Link>
             <span>·</span>
-            <a href="mailto:support@raceholler.com" className="hover:text-slate-300 transition">Contact</a>
+            <Link href="/contact" className="hover:text-slate-300 transition">Contact</Link>
           </div>
         </div>
       </div>
     </footer>
   );
 }
+
 

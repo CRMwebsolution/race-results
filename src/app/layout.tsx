@@ -6,6 +6,7 @@ import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://raceholler.com"),
   title: "RaceHoller - Standalone Race Results SaaS",
   description: "Deterministic race scoring, live standings, and multi-tenant track management.",
 };
@@ -28,4 +29,5 @@ export default function RootLayout({
     </html>
   );
 }
+
 

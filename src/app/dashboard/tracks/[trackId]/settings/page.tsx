@@ -59,10 +59,16 @@ export default async function TrackSettingsPage({ params, searchParams }: { para
           <TrackDefaultClasses trackId={track.id} defaultClasses={track.default_classes as any[]} />
         </div>
         <form action={saveDetails} className="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4"><h2 className="text-xl font-bold">Track details</h2>{[["name","Track name",track.name],["shorthand","Short name",track.shorthand],["state","State (two letters)",track.state],["timezone","Timezone",track.timezone]].map(([name,label,value])=><label key={name} className="block">{label}<input name={name!} defaultValue={value||""} required={name!=="shorthand"} className="block w-full p-3 bg-slate-950 border rounded"/></label>)}<label className="block">Address<textarea name="address" defaultValue={track.address||""} className="block w-full p-3 bg-slate-950 border rounded" rows={3}/></label><p className="text-sm text-slate-400">Public address: /r/{track.slug}</p><SpectatorPointsField value={track.spectator_points_mode}/><button className="p-3 rounded bg-amber-500 text-slate-950">Save track details</button></form>
-        <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6 space-y-4">`n          <h2 className="text-xl font-bold text-red-500">Danger Zone</h2>`n          <p className="text-sm text-red-400">Permanently delete this track and all its events, classes, and results. This action cannot be undone.</p>`n          <DeleteTrackButton trackId={track.id} />`n        </div>`n      </main>
+        <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6 space-y-4">
+          <h2 className="text-xl font-bold text-red-500">Danger Zone</h2>
+          <p className="text-sm text-red-400">Permanently delete this track and all its events, classes, and results. This action cannot be undone.</p>
+          <DeleteTrackButton trackId={track.id} />
+        </div>
+      </main>
     </div>
   );
 }
+
 
 
 

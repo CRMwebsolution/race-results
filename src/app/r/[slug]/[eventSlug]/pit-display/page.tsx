@@ -9,5 +9,7 @@ export default async function PitDisplayPage({params}:{params:Promise<{slug:stri
  if(trackError) throw new Error("Could not load track");if(!track) notFound();
  const {data:event,error}=await db.from("events").select("*").eq("track_id",track.id).eq("slug",eventSlug).maybeSingle();
  if(error) throw new Error("Could not load race");if(!event) notFound();
+ if(event.status==="scheduled" || event.status==="draft") return <div className="p-8 text-center text-slate-400">Race details will be available once the event goes live.</div>;
  return <PitDisplay {...await pitRace(db,event)}/>;
 }
+

@@ -37,6 +37,41 @@ export default async function EventScoringPage({
   const trackSlug = (event.tracks as any)?.slug;
   const eventSlug = event.slug;
 
+  if (event.status === "scheduled" || event.status === "draft") {
+    async function goLive(f: FormData) {
+      "use server";
+      const db = await createClient();
+      const { error } = await db.rpc("set_race_event_status", {
+        p_event_id: eventId,
+        p_status: "live",
+        p_expected_revision: event!.working_revision
+      });
+      if (error) redirect(ownerPath + "/events/" + eventId + "/scoring?message=" + encodeURIComponent(error.message));
+      import("next/cache").then(m => m.revalidatePath("/dashboard", "layout"));
+      redirect(ownerPath + "/events/" + eventId + "/scoring");
+    }
+    
+    return (
+      <div className="max-w-xl mx-auto mt-12 p-8 bg-slate-900 border border-slate-800 rounded-2xl text-center space-y-6">
+        <div className="w-16 h-16 bg-amber-500/20 text-amber-500 flex items-center justify-center rounded-2xl mx-auto">
+          <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        </div>
+        <div>
+          <h2 className="text-2xl font-bold text-white mb-2">Ready to Race?</h2>
+          <p className="text-slate-400">Going live will open the Scoring Workspace and broadcast results to the public spectator view.</p>
+        </div>
+        <div className="bg-amber-500/10 border border-amber-500/20 text-amber-500 p-4 rounded-xl text-sm font-semibold">
+          This action consumes 1 Event Credit. The scoring workspace will remain editable for 72 hours.
+        </div>
+        <form action={goLive}>
+          <button className="w-full py-3 px-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl transition">
+            Go Live & Launch Scoring
+          </button>
+        </form>
+        {message && <div className="text-rose-400 text-sm mt-4">{message}</div>}
+      </div>
+    );
+  }
 
   if(event.status==="completed") {const snapshot=await officialResult(supabase,event.id);if(!snapshot)throw new Error("Official snapshot unavailable");const p=snapshot.payload as any;return <div className="p-4 w-full"><ActionFeedback message={message}/><p>Official results · Version {snapshot.version}</p><LiveLeaderboard event={{...p.event,status:"completed"}} classes={p.classes} initialEntries={p.entries} initialAttempts={p.attempts} officialResults={p.results} officialVersion={snapshot.version} judgeScores={judgeInput(p.judge_scores||[])}/></div>;}
   // Fetch all classes
@@ -84,3 +119,5 @@ export default async function EventScoringPage({
     />
   );
 }
+
+

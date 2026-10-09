@@ -23,6 +23,18 @@ export default async function PublicEventPage({
   const {data:event}=await supabase.from("events").select("*").eq(seriesId?'series_id':'track_id',seriesId||track!.id).eq('slug',eventSlug).single();if(!event)notFound();
   const mode=await spectatorPointsMode(supabase,{seriesId:event.series_id||undefined,trackId:event.track_id||undefined});
   const currentPath=seriesId?`/s/${seriesId}/races/${eventSlug}`:`/r/${slug}/${eventSlug}`;
+
+  if (event.status === "scheduled" || event.status === "draft") {
+    return (
+      <div className="max-w-2xl mx-auto mt-12 p-8 text-center border border-slate-800 rounded-2xl bg-slate-900/60">
+        <div className="w-16 h-16 bg-slate-800 text-slate-500 flex items-center justify-center rounded-2xl mx-auto mb-6">
+          <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        </div>
+        <h2 className="text-xl font-bold text-white mb-2">Race Not Started</h2>
+        <p className="text-slate-400">The schedule and roster for this event will be available once the race organizer goes live.</p>
+      </div>
+    );
+  }
   const championship=<PublicCompetition trackId={event.track_id||undefined} seriesId={event.series_id||undefined} selected={event.competition_season_id||undefined}/>;
 
 
@@ -69,3 +81,4 @@ export default async function PublicEventPage({
     />{event.competition_season_id&&championship}</div>
   );
 }
+

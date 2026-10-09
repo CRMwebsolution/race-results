@@ -30,11 +30,15 @@ export default async function NewSeriesPage() {
     const db = await createClient();
     const isNewOrg = orgId === "new_org";
 
+    const pointsMode = (formData.get("points_mode") as string) || "championship";
+    const trackPoints = pointsMode !== "none";
+
     const { data, error } = await db.rpc("create_series_with_organization", {
       p_series_name: name,
       p_series_description: description,
       p_org_id: isNewOrg ? undefined : orgId,
       p_org_name: isNewOrg ? orgName : undefined,
+      p_track_points: trackPoints,
     });
 
     if (error || !data) {

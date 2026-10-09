@@ -46,7 +46,14 @@ export default async function SeriesHubPage({ params }: { params: Promise<{ seri
             <ArrowLeft className="w-4 h-4" />
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">{series.name}</h1>
+            <div className="flex items-center space-x-2">
+              <h1 className="text-2xl font-bold text-white tracking-tight">{series.name}</h1>
+              {series.spectator_points_mode === 'none' && (
+                <span className="text-[11px] font-bold bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full border border-slate-700">
+                  Races &amp; Results Only
+                </span>
+              )}
+            </div>
             <p className="text-sm text-slate-400">Series Management Hub</p>
           </div>
         </div>
@@ -68,7 +75,11 @@ export default async function SeriesHubPage({ params }: { params: Promise<{ seri
         </div>
       </div>
 
-      <Link href={`/dashboard/series/${seriesId}/seasons`} className="inline-block p-4 bg-amber-500 text-slate-950 rounded font-bold">Series seasons & registrations</Link>
+      {series.spectator_points_mode !== 'none' && (
+        <Link href={`/dashboard/series/${seriesId}/seasons`} className="inline-block p-4 bg-amber-500 text-slate-950 rounded font-bold">
+          Series seasons &amp; registrations
+        </Link>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
         {/* Master Classes */}
@@ -130,47 +141,73 @@ export default async function SeriesHubPage({ params }: { params: Promise<{ seri
         </div>
 
         {/* Points & Rules */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-bold text-lg text-white flex items-center space-x-2">
-              <Trophy className="w-5 h-5 text-emerald-500" />
-              <span>Default Points System</span>
-            </h2>
-            <Link 
-              href={`/dashboard/series/${seriesId}/points`}
-              className="text-xs bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded border border-slate-700 transition"
-            >
-              Edit Rules
-            </Link>
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-bold text-lg text-white flex items-center space-x-2">
+                <Trophy className={`w-5 h-5 ${series.spectator_points_mode === 'none' ? 'text-slate-500' : 'text-emerald-500'}`} />
+                <span>Points System</span>
+              </h2>
+              {series.spectator_points_mode === 'none' ? (
+                <span className="text-[11px] font-bold bg-slate-800 text-slate-400 px-2.5 py-1 rounded border border-slate-700">Disabled</span>
+              ) : (
+                <Link 
+                  href={`/dashboard/series/${seriesId}/points`}
+                  className="text-xs bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded border border-slate-700 transition"
+                >
+                  Edit Rules
+                </Link>
+              )}
+            </div>
+
+            {series.spectator_points_mode === 'none' ? (
+              <p className="text-sm text-slate-400">
+                Points tracking is turned off for this series. Individual event results are recorded without calculating overall standings.
+              </p>
+            ) : pointsRules?.length === 0 ? (
+              <p className="text-sm text-slate-500 italic">No point allocations defined.</p>
+            ) : (
+              <ul className="space-y-2">
+                {pointsRules?.map(pr => (
+                  <li key={pr.id} className="flex justify-between items-center text-sm bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                    <span className="text-slate-400">
+                      {pr.rank_start === pr.rank_end 
+                        ? `Rank ${pr.rank_start}` 
+                        : pr.rank_end >= 999 
+                          ? `Rank ${pr.rank_start} & below` 
+                          : `Ranks ${pr.rank_start} - ${pr.rank_end}`}
+                    </span>
+                    <span className="font-bold text-emerald-400">+{pr.points} pts</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-          {pointsRules?.length === 0 ? (
-            <p className="text-sm text-slate-500 italic">No point allocations defined.</p>
-          ) : (
-            <ul className="space-y-2">
-              {pointsRules?.map(pr => (
-                <li key={pr.id} className="flex justify-between items-center text-sm bg-slate-950 p-2.5 rounded-lg border border-slate-800">
-                  <span className="text-slate-400">
-                    {pr.rank_start === pr.rank_end 
-                      ? `Rank ${pr.rank_start}` 
-                      : pr.rank_end >= 999 
-                        ? `Rank ${pr.rank_start} & below` 
-                        : `Ranks ${pr.rank_start} - ${pr.rank_end}`}
-                  </span>
-                  <span className="font-bold text-emerald-400">+{pr.points} pts</span>
-                </li>
-              ))}
-            </ul>
+
+          {series.spectator_points_mode === 'none' && (
+            <div className="mt-4 pt-3 border-t border-slate-800/80">
+              <Link 
+                href={`/dashboard/series/${seriesId}/settings`}
+                className="text-xs text-amber-400 hover:text-amber-300 transition"
+              >
+                Turn on championship points in Settings →
+              </Link>
+            </div>
           )}
         </div>
 
-        {/* Master Roster */}
+        {/* Season Management */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col items-center justify-center text-center space-y-4">
           <div className="w-12 h-12 bg-purple-500/10 border border-purple-500/20 rounded-full flex items-center justify-center text-purple-400">
             <Users className="w-6 h-6" />
           </div>
           <div>
             <h2 className="font-bold text-lg text-white">Season Management</h2>
-            <p className="text-xs text-slate-400 max-w-xs mx-auto mt-1">Manage series registrations, classes, races, points rules, explained points edits, and standings for each year. Contestants sign up separately at every race.</p>
+            <p className="text-xs text-slate-400 max-w-xs mx-auto mt-1">
+              {series.spectator_points_mode === 'none'
+                ? "Manage yearly series schedules and contestant rosters without calculating overall championship points."
+                : "Manage series registrations, classes, races, points rules, and standings for each year."}
+            </p>
           </div>
           <Link 
             href={seasons.length===1?`/dashboard/series/${seriesId}/seasons/${seasons[0].id}`:`/dashboard/series/${seriesId}/seasons`}

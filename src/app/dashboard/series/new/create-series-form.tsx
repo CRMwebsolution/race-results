@@ -7,6 +7,7 @@ export function CreateSeriesForm({ orgList, action }: { orgList: {id: string, na
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedOrg, setSelectedOrg] = useState(orgList.length > 0 ? orgList[0].id : "new_org");
+  const [pointsMode, setPointsMode] = useState<"championship" | "none">("championship");
 
   async function handleSubmit(formData: FormData) {
     setIsPending(true);
@@ -79,6 +80,46 @@ export function CreateSeriesForm({ orgList, action }: { orgList: {id: string, na
             />
           </div>
         )}
+      </div>
+
+      <div className="pt-2 border-t border-slate-800">
+        <label className="block text-sm font-semibold text-slate-300 mb-2">Points &amp; Standings Mode</label>
+        <p className="text-xs text-slate-500 mb-3">Choose whether this series tracks championship points across races, or just focuses on race-day results.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className={`p-4 rounded-xl border cursor-pointer transition flex flex-col justify-between ${pointsMode === "championship" ? "bg-amber-500/10 border-amber-500/50 text-white" : "bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700"}`}>
+            <div className="flex items-center space-x-2.5 mb-2">
+              <input 
+                type="radio" 
+                name="points_mode" 
+                value="championship" 
+                checked={pointsMode === "championship"} 
+                onChange={() => setPointsMode("championship")}
+                className="text-amber-500 focus:ring-amber-500 w-4 h-4"
+              />
+              <span className="font-bold text-sm text-slate-200">Track Season Points</span>
+            </div>
+            <p className="text-xs text-slate-400">
+              Calculate points per race, manage seasons, and publish overall series championship standings.
+            </p>
+          </label>
+
+          <label className={`p-4 rounded-xl border cursor-pointer transition flex flex-col justify-between ${pointsMode === "none" ? "bg-amber-500/10 border-amber-500/50 text-white" : "bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700"}`}>
+            <div className="flex items-center space-x-2.5 mb-2">
+              <input 
+                type="radio" 
+                name="points_mode" 
+                value="none" 
+                checked={pointsMode === "none"} 
+                onChange={() => setPointsMode("none")}
+                className="text-amber-500 focus:ring-amber-500 w-4 h-4"
+              />
+              <span className="font-bold text-sm text-slate-200">Races &amp; Results Only</span>
+            </div>
+            <p className="text-xs text-slate-400">
+              Skip championship points. Just organize traveling race meets, classes, and individual event results.
+            </p>
+          </label>
+        </div>
       </div>
       
       <div className="pt-6 mt-2 border-t border-slate-800 flex justify-end">

@@ -70,8 +70,7 @@ export type Database = {
           actor_id: string | null
           after_data: Json | null
           before_data: Json | null
-          address: string | null
-            created_at: string
+          created_at: string
           id: string
           organization_id: string | null
           target_id: string | null
@@ -83,8 +82,7 @@ export type Database = {
           actor_id?: string | null
           after_data?: Json | null
           before_data?: Json | null
-          address?: string | null
-            created_at?: string
+          created_at?: string
           id?: string
           organization_id?: string | null
           target_id?: string | null
@@ -96,8 +94,7 @@ export type Database = {
           actor_id?: string | null
           after_data?: Json | null
           before_data?: Json | null
-          address?: string | null
-            created_at?: string
+          created_at?: string
           id?: string
           organization_id?: string | null
           target_id?: string | null
@@ -124,8 +121,7 @@ export type Database = {
       class_templates: {
         Row: {
           active: boolean
-          address: string | null
-            created_at: string
+          created_at: string
           entry_fee_text: string | null
           id: string
           name: string
@@ -138,8 +134,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
-          address?: string | null
-            created_at?: string
+          created_at?: string
           entry_fee_text?: string | null
           id?: string
           name: string
@@ -152,8 +147,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
-          address?: string | null
-            created_at?: string
+          created_at?: string
           entry_fee_text?: string | null
           id?: string
           name?: string
@@ -265,8 +259,7 @@ export type Database = {
       competition_points_changes: {
         Row: {
           actor_id: string
-          address: string | null
-            created_at: string
+          created_at: string
           event_id: string | null
           id: string
           mode: string
@@ -278,8 +271,7 @@ export type Database = {
         }
         Insert: {
           actor_id: string
-          address?: string | null
-            created_at?: string
+          created_at?: string
           event_id?: string | null
           id?: string
           mode: string
@@ -291,8 +283,7 @@ export type Database = {
         }
         Update: {
           actor_id?: string
-          address?: string | null
-            created_at?: string
+          created_at?: string
           event_id?: string | null
           id?: string
           mode?: string
@@ -361,8 +352,7 @@ export type Database = {
       competition_registrations: {
         Row: {
           class_id: string
-          address: string | null
-            created_at: string
+          created_at: string
           display_name: string
           id: string
           joined_on: string
@@ -373,8 +363,7 @@ export type Database = {
         }
         Insert: {
           class_id: string
-          address?: string | null
-            created_at?: string
+          created_at?: string
           display_name: string
           id?: string
           joined_on: string
@@ -385,8 +374,7 @@ export type Database = {
         }
         Update: {
           class_id?: string
-          address?: string | null
-            created_at?: string
+          created_at?: string
           display_name?: string
           id?: string
           joined_on?: string
@@ -465,8 +453,7 @@ export type Database = {
       }
       competition_seasons: {
         Row: {
-          address: string | null
-            created_at: string
+          created_at: string
           ends_on: string | null
           id: string
           legacy_track_season_id: string | null
@@ -477,8 +464,7 @@ export type Database = {
           track_id: string | null
         }
         Insert: {
-          address?: string | null
-            created_at?: string
+          created_at?: string
           ends_on?: string | null
           id?: string
           legacy_track_season_id?: string | null
@@ -489,8 +475,7 @@ export type Database = {
           track_id?: string | null
         }
         Update: {
-          address?: string | null
-            created_at?: string
+          created_at?: string
           ends_on?: string | null
           id?: string
           legacy_track_season_id?: string | null
@@ -526,24 +511,21 @@ export type Database = {
       }
       competitors: {
         Row: {
-          address: string | null
-            created_at: string
+          created_at: string
           display_name: string
           id: string
           track_id: string
           updated_at: string
         }
         Insert: {
-          address?: string | null
-            created_at?: string
+          created_at?: string
           display_name: string
           id?: string
           track_id: string
           updated_at?: string
         }
         Update: {
-          address?: string | null
-            created_at?: string
+          created_at?: string
           display_name?: string
           id?: string
           track_id?: string
@@ -722,13 +704,6 @@ export type Database = {
             referencedRelation: "class_templates"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "event_classes_track_id_event_id_fkey"
-            columns: ["track_id", "event_id"]
-            isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["track_id", "id"]
-          },
         ]
       }
       event_result_versions: {
@@ -790,8 +765,7 @@ export type Database = {
           archived_at: string | null
           competition_season_id: string | null
           completed_at: string | null
-          address: string | null
-            created_at: string
+          created_at: string
           defaults_initialized: boolean
           id: string
           local_date: string
@@ -813,8 +787,7 @@ export type Database = {
           archived_at?: string | null
           competition_season_id?: string | null
           completed_at?: string | null
-          address?: string | null
-            created_at?: string
+          created_at?: string
           defaults_initialized?: boolean
           id?: string
           local_date: string
@@ -836,8 +809,7 @@ export type Database = {
           archived_at?: string | null
           competition_season_id?: string | null
           completed_at?: string | null
-          address?: string | null
-            created_at?: string
+          created_at?: string
           defaults_initialized?: boolean
           id?: string
           local_date?: string
@@ -1037,8 +1009,7 @@ export type Database = {
       organization_memberships: {
         Row: {
           active: boolean
-          address: string | null
-            created_at: string
+          created_at: string
           id: string
           organization_id: string
           role: string
@@ -1047,8 +1018,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
-          address?: string | null
-            created_at?: string
+          created_at?: string
           id?: string
           organization_id: string
           role: string
@@ -1057,8 +1027,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
-          address?: string | null
-            created_at?: string
+          created_at?: string
           id?: string
           organization_id?: string
           role?: string
@@ -1080,8 +1049,7 @@ export type Database = {
           active_tier: string
           billing_email: string
           billing_owner_id: string | null
-          address: string | null
-            created_at: string
+          created_at: string
           event_quota: number
           id: string
           limits_exempt: boolean
@@ -1094,8 +1062,7 @@ export type Database = {
           active_tier?: string
           billing_email: string
           billing_owner_id?: string | null
-          address?: string | null
-            created_at?: string
+          created_at?: string
           event_quota?: number
           id?: string
           limits_exempt?: boolean
@@ -1108,8 +1075,7 @@ export type Database = {
           active_tier?: string
           billing_email?: string
           billing_owner_id?: string | null
-          address?: string | null
-            created_at?: string
+          created_at?: string
           event_quota?: number
           id?: string
           limits_exempt?: boolean
@@ -1122,26 +1088,22 @@ export type Database = {
       }
       platform_admins: {
         Row: {
-          address: string | null
-            created_at: string | null
+          created_at: string | null
           user_id: string
         }
         Insert: {
-          address?: string | null
-            created_at?: string | null
+          created_at?: string | null
           user_id: string
         }
         Update: {
-          address?: string | null
-            created_at?: string | null
+          created_at?: string | null
           user_id?: string
         }
         Relationships: []
       }
       profiles: {
         Row: {
-          address: string | null
-            created_at: string
+          created_at: string
           display_name: string | null
           email: string
           full_name: string | null
@@ -1154,8 +1116,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          address?: string | null
-            created_at?: string
+          created_at?: string
           display_name?: string | null
           email: string
           full_name?: string | null
@@ -1168,8 +1129,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          address?: string | null
-            created_at?: string
+          created_at?: string
           display_name?: string | null
           email?: string
           full_name?: string | null
@@ -1193,8 +1153,7 @@ export type Database = {
       }
       race_operation_receipts: {
         Row: {
-          address: string | null
-            created_at: string
+          created_at: string
           event_id: string
           operation_id: string
           request: Json
@@ -1202,8 +1161,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          address?: string | null
-            created_at?: string
+          created_at?: string
           event_id: string
           operation_id: string
           request: Json
@@ -1211,8 +1169,7 @@ export type Database = {
           user_id: string
         }
         Update: {
-          address?: string | null
-            created_at?: string
+          created_at?: string
           event_id?: string
           operation_id?: string
           request?: Json
@@ -1232,24 +1189,21 @@ export type Database = {
       race_staff: {
         Row: {
           active: boolean
-          address: string | null
-            created_at: string
+          created_at: string
           event_id: string
           role: string
           user_id: string
         }
         Insert: {
           active?: boolean
-          address?: string | null
-            created_at?: string
+          created_at?: string
           event_id: string
           role: string
           user_id: string
         }
         Update: {
           active?: boolean
-          address?: string | null
-            created_at?: string
+          created_at?: string
           event_id?: string
           role?: string
           user_id?: string
@@ -1269,8 +1223,7 @@ export type Database = {
           accepted_at: string | null
           accepted_by: string | null
           class_id: string | null
-          address: string | null
-            created_at: string
+          created_at: string
           created_by: string
           email: string
           event_id: string
@@ -1285,8 +1238,7 @@ export type Database = {
           accepted_at?: string | null
           accepted_by?: string | null
           class_id?: string | null
-          address?: string | null
-            created_at?: string
+          created_at?: string
           created_by: string
           email: string
           event_id: string
@@ -1301,8 +1253,7 @@ export type Database = {
           accepted_at?: string | null
           accepted_by?: string | null
           class_id?: string | null
-          address?: string | null
-            created_at?: string
+          created_at?: string
           created_by?: string
           email?: string
           event_id?: string
@@ -1391,8 +1342,7 @@ export type Database = {
       }
       seasons: {
         Row: {
-          address: string | null
-            created_at: string | null
+          created_at: string | null
           end_date: string | null
           id: string
           name: string
@@ -1400,8 +1350,7 @@ export type Database = {
           track_id: string
         }
         Insert: {
-          address?: string | null
-            created_at?: string | null
+          created_at?: string | null
           end_date?: string | null
           id?: string
           name: string
@@ -1409,8 +1358,7 @@ export type Database = {
           track_id: string
         }
         Update: {
-          address?: string | null
-            created_at?: string | null
+          created_at?: string | null
           end_date?: string | null
           id?: string
           name?: string
@@ -1429,8 +1377,7 @@ export type Database = {
       }
       series: {
         Row: {
-          address: string | null
-            created_at: string
+          created_at: string
           description: string | null
           id: string
           name: string
@@ -1440,8 +1387,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          address?: string | null
-            created_at?: string
+          created_at?: string
           description?: string | null
           id?: string
           name: string
@@ -1451,8 +1397,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          address?: string | null
-            created_at?: string
+          created_at?: string
           description?: string | null
           id?: string
           name?: string
@@ -1474,8 +1419,7 @@ export type Database = {
       series_bonuses: {
         Row: {
           bonus_type: string
-          address: string | null
-            created_at: string
+          created_at: string
           frequency: string
           id: string
           points: number
@@ -1484,8 +1428,7 @@ export type Database = {
         }
         Insert: {
           bonus_type: string
-          address?: string | null
-            created_at?: string
+          created_at?: string
           frequency?: string
           id?: string
           points: number
@@ -1494,8 +1437,7 @@ export type Database = {
         }
         Update: {
           bonus_type?: string
-          address?: string | null
-            created_at?: string
+          created_at?: string
           frequency?: string
           id?: string
           points?: number
@@ -1570,8 +1512,7 @@ export type Database = {
       series_manual_awards: {
         Row: {
           actor_id: string
-          address: string | null
-            created_at: string
+          created_at: string
           event_id: string
           id: string
           points: number
@@ -1582,8 +1523,7 @@ export type Database = {
         }
         Insert: {
           actor_id: string
-          address?: string | null
-            created_at?: string
+          created_at?: string
           event_id: string
           id?: string
           points: number
@@ -1594,8 +1534,7 @@ export type Database = {
         }
         Update: {
           actor_id?: string
-          address?: string | null
-            created_at?: string
+          created_at?: string
           event_id?: string
           id?: string
           points?: number
@@ -1669,22 +1608,19 @@ export type Database = {
       }
       series_racers: {
         Row: {
-          address: string | null
-            created_at: string
+          created_at: string
           display_name: string
           id: string
           series_id: string
         }
         Insert: {
-          address?: string | null
-            created_at?: string
+          created_at?: string
           display_name: string
           id?: string
           series_id: string
         }
         Update: {
-          address?: string | null
-            created_at?: string
+          created_at?: string
           display_name?: string
           id?: string
           series_id?: string
@@ -1746,8 +1682,7 @@ export type Database = {
       series_rosters: {
         Row: {
           competitor_id: string | null
-          address: string | null
-            created_at: string
+          created_at: string
           display_name: string
           id: string
           series_class_id: string
@@ -1756,8 +1691,7 @@ export type Database = {
         }
         Insert: {
           competitor_id?: string | null
-          address?: string | null
-            created_at?: string
+          created_at?: string
           display_name: string
           id?: string
           series_class_id: string
@@ -1766,8 +1700,7 @@ export type Database = {
         }
         Update: {
           competitor_id?: string | null
-          address?: string | null
-            created_at?: string
+          created_at?: string
           display_name?: string
           id?: string
           series_class_id?: string
@@ -1815,8 +1748,7 @@ export type Database = {
       track_memberships: {
         Row: {
           active: boolean
-          address: string | null
-            created_at: string
+          created_at: string
           id: string
           role: string
           track_id: string
@@ -1825,8 +1757,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
-          address?: string | null
-            created_at?: string
+          created_at?: string
           id?: string
           role: string
           track_id: string
@@ -1835,8 +1766,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
-          address?: string | null
-            created_at?: string
+          created_at?: string
           id?: string
           role?: string
           track_id?: string
@@ -1856,7 +1786,7 @@ export type Database = {
       tracks: {
         Row: {
           address: string | null
-            created_at: string
+          created_at: string
           default_classes: Json
           id: string
           name: string
@@ -1870,7 +1800,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
-            created_at?: string
+          created_at?: string
           default_classes?: Json
           id?: string
           name: string
@@ -1884,7 +1814,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
-            created_at?: string
+          created_at?: string
           default_classes?: Json
           id?: string
           name?: string
@@ -2075,15 +2005,26 @@ export type Database = {
         }
         Returns: string
       }
-      create_series_with_organization: {
-        Args: {
-          p_org_id?: string
-          p_org_name?: string
-          p_series_description: string
-          p_series_name: string
-        }
-        Returns: Json
-      }
+      create_series_with_organization:
+        | {
+            Args: {
+              p_org_id?: string
+              p_org_name?: string
+              p_series_description: string
+              p_series_name: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_org_id?: string
+              p_org_name?: string
+              p_series_description: string
+              p_series_name: string
+              p_track_points?: boolean
+            }
+            Returns: Json
+          }
       create_track_event: {
         Args: {
           p_local_date: string
@@ -2515,4 +2456,3 @@ export const Constants = {
     },
   },
 } as const
-

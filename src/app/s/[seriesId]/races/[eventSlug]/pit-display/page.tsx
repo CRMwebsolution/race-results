@@ -8,5 +8,7 @@ export default async function PitDisplayPage({params}:{params:Promise<{seriesId:
  
  const {data:event,error}=await db.from("events").select("*").eq("series_id",seriesId).eq("slug",eventSlug).maybeSingle();
  if(error) throw new Error("Could not load race");if(!event) notFound();
- return <PitDisplay {...await pitRace(db,event)}/>;
+ if(event.status==='scheduled' || event.status==='draft') return <div className='p-8 text-center text-slate-400'>Race details will be available once the event goes live.</div>;
+ return <PitDisplay {...await pitRace(db,event)} backUrl={`/s/${seriesId}/races/${eventSlug}`} />;
 }
+

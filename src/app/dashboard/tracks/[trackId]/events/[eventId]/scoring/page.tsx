@@ -7,6 +7,7 @@ import { readAll } from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { ScoringWorkspace } from "./scoring-workspace";
+import Link from "next/link";
 
 export default async function EventScoringPage({
   params,searchParams,
@@ -68,7 +69,18 @@ export default async function EventScoringPage({
             Go Live & Launch Scoring
           </button>
         </form>
-        {message && <div className="text-rose-400 text-sm mt-4">{message}</div>}
+        {message && (
+          <div className="text-rose-400 text-sm mt-4 p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl">
+            {message}
+            {(message.includes("credit") || message.includes("Pass")) && (
+              <div className="mt-3">
+                <Link href="/dashboard/billing" className="px-4 py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 rounded-lg inline-block font-semibold transition">
+                  Manage Billing & Credits
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   }
@@ -119,5 +131,6 @@ export default async function EventScoringPage({
     />
   );
 }
+
 
 

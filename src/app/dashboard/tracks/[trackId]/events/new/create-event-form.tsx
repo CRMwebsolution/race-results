@@ -16,7 +16,8 @@ export function CreateEventForm({ trackId }: { trackId: string }) {
       if (result?.error) {
         setError(result.error);
       }
-    } catch (e) {
+    } catch (e: any) {
+        if (e.message === "NEXT_REDIRECT") throw e;
       setError("An unexpected error occurred.");
     } finally {
       setIsPending(false);
@@ -99,3 +100,4 @@ export function CreateEventForm({ trackId }: { trackId: string }) {
     </form>
   );
 }
+

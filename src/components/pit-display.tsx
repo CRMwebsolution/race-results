@@ -34,7 +34,7 @@ export function PitDisplay({
   classes,
   initialEntries,
   initialAttempts,
-  judgeScores=[], latestClassId, officialResults, officialVersion,
+  judgeScores=[], latestClassId, officialResults, officialVersion, backUrl,
 }: {
   event: EventType;
   classes: ClassType[];
@@ -42,7 +42,7 @@ export function PitDisplay({
   initialAttempts: AttemptType[];
   judgeScores?:JudgeInput[];
   latestClassId: string;
-  officialResults?:OfficialRow[];officialVersion?:number;
+  officialResults?:OfficialRow[];officialVersion?:number;backUrl?:string;
 }) {
   const [sortOrder,setSortOrder]=useState<ResultOrder>("rank");
   const [reverse,setReverse]=useState(false);
@@ -128,13 +128,19 @@ export function PitDisplay({
   const displayRows=sortResults(rankedEntries,sortOrder,reverse);
   
   return (
-    <div className="min-h-screen bg-black text-white p-4 sm:p-8 font-sans flex flex-col space-y-8">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black text-white p-4 sm:p-8 font-sans flex flex-col space-y-8 min-h-screen">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-        <div>
-          <h1 className="text-4xl font-extrabold tracking-tight text-amber-500 uppercase">{event.name}</h1>
-          <div className="flex items-center space-x-3 mt-2 text-xl">
-            <span className="font-bold text-slate-300">PIT DISPLAY</span>
+        <div className="flex items-center space-x-6">
+          {backUrl && (
+            <a href={backUrl} className="p-3 bg-slate-900 hover:bg-slate-800 rounded-xl border border-slate-700 transition">
+              <svg className="w-6 h-6 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+            </a>
+          )}
+          <div>
+            <h1 className="text-4xl font-extrabold tracking-tight text-amber-500 uppercase">{event.name}</h1>
+            <div className="flex items-center space-x-3 mt-2 text-xl">
+              <span className="font-bold text-slate-300">PIT DISPLAY</span>
             {event.status === "live" && (
               <span className="flex items-center space-x-2 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-sm font-bold text-red-400 uppercase tracking-widest animate-pulse">
                 <span className="w-2 h-2 rounded-full bg-red-500"></span>
@@ -144,6 +150,7 @@ export function PitDisplay({
             {isRefreshing && <Loader2 className="w-5 h-5 text-amber-500 animate-spin" />}
           </div>
         </div>
+      </div>
       </div>
 
       {officialResults && <p className="text-xl text-emerald-400">Official results · Version {officialVersion}</p>}
@@ -232,3 +239,9 @@ export function PitDisplay({
     </div>
   );
 }
+
+
+
+
+
+

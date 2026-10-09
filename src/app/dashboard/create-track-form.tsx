@@ -115,7 +115,7 @@ export function CreateTrackForm({ compact = false }: { compact?: boolean }) {
               <select
                 name="state"
                 className="w-full px-4 py-2.5 bg-slate-950/80 border border-slate-800 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50"
-                defaultValue="TX"
+                defaultValue="NC"
               >
                 <option value="">Select State</option>
                 {["AL", "AR", "CA", "FL", "GA", "IL", "IN", "KY", "LA", "MI", "MO", "MS", "NC", "NY", "OH", "OK", "PA", "SC", "TN", "TX", "VA"].map(st => (

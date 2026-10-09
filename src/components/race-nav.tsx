@@ -9,5 +9,5 @@ export function RaceNav({base,publicPath,eventName,judgeOnly=false}:{base:string
   const href=`${base}${path?'/'+path:''}`;
   const active=path?pathname===href:pathname===base||pathname.startsWith(base+'/classes/');
   return <Link key={path} href={href} aria-current={active?'page':undefined} className={`rounded-lg px-4 py-3 text-sm font-semibold border-b-4 transition ${active?'bg-amber-500 text-slate-950 border-amber-600':'text-slate-300 border-transparent hover:bg-slate-800'}`}>{label}</Link>;
- })}<Link href={publicPath} className="rounded-lg px-4 py-3 text-sm font-semibold text-slate-300 border-b-4 border-transparent hover:bg-slate-800">View results</Link><SpectatorQR path={publicPath} eventName={eventName} className="rounded-lg px-4 py-3 text-sm font-semibold text-slate-300 border-b-4 border-transparent hover:bg-slate-800"/></nav>;
+ })}<Link href={publicPath} className="rounded-lg px-4 py-3 text-sm font-semibold text-slate-300 border-b-4 border-transparent hover:bg-slate-800">View results</Link><Link href={`${publicPath}/pit-display`} className="rounded-lg px-4 py-3 text-sm font-semibold text-slate-300 border-b-4 border-transparent hover:bg-slate-800">Pit View</Link><SpectatorQR path={publicPath} eventName={eventName} className="rounded-lg px-4 py-3 text-sm font-semibold text-slate-300 border-b-4 border-transparent hover:bg-slate-800"/></nav>;
 }

@@ -5,10 +5,24 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
 
+const siteTitle = "RaceHoller - Standalone Race Results SaaS";
+const siteDescription = "Follow live race results and championship standings with RaceHoller. Manage events, score every run, and publish official results for tracks and racing series.";
+
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://raceholler.com"),
-  title: "RaceHoller - Standalone Race Results SaaS",
-  description: "Deterministic race scoring, live standings, and multi-tenant track management.",
+  title: siteTitle,
+  description: siteDescription,
+  openGraph: {
+    title: siteTitle,
+    description: siteDescription,
+    siteName: "RaceHoller",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: siteTitle,
+    description: siteDescription,
+  },
 };
 
 export default function RootLayout({

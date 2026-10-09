@@ -37,7 +37,7 @@ export default function ContactPage() {
             </svg>
           </div>
           <h2 className="text-2xl font-bold text-white">Message Sent!</h2>
-          <p className="text-slate-300">Thanks for reaching out. We'll get back to you as soon as possible.</p>
+          <p className="text-slate-300">Thanks for reaching out. We&apos;ll get back to you as soon as possible.</p>
           <div className="pt-4">
             <Link href="/" className="inline-block px-6 py-3 bg-slate-800 hover:bg-slate-700 rounded-xl font-bold transition">Return Home</Link>
           </div>
@@ -45,7 +45,7 @@ export default function ContactPage() {
       ) : (
         <form action={handleSubmit} className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 space-y-6 shadow-xl">
           <p className="text-slate-400 text-sm mb-6">
-            Have questions about RaceHoller, or want a custom website for your own track or series? Fill out the form below and we'll be in touch!
+            Have questions about RaceHoller, or want a custom website for your own track or series? Fill out the form below and we&apos;ll be in touch!
           </p>
 
           {result?.error && (

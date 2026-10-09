@@ -59,7 +59,7 @@ export default async function TrackDashboardPage({ params }: { params: Promise<{
             <p className="text-slate-400 text-sm mt-1 mb-4">Manage single-day events and races for this venue.</p>
             <TipBubble className="max-w-xl">
               <strong className="block mb-1">Creating an Event</strong>
-              An Event represents a single day of racing. After creating an event, click into it to add "Classes" (like Pro Mod, Bracket, etc.) and register competitors for them.
+              An Event represents a single day of racing. After creating an event, click into it to add &quot;Classes&quot; (like Pro Mod, Bracket, etc.) and register competitors for them.
             </TipBubble>
           </div>
           <div className="flex flex-wrap gap-3">

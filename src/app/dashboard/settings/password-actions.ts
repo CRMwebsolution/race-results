@@ -4,7 +4,7 @@ import {redirect} from 'next/navigation';
 export async function changePassword(f:FormData){
  const db=await createClient();const {data:{user}}=await db.auth.getUser();if(!user)redirect('/login?error=Sign in before changing your password');
  const password=String(f.get('new_password')||''),confirmation=String(f.get('confirm_password')||''),current=String(f.get('current_password')||'');
- if(password.length<12||password!==confirmation)redirect('/dashboard/settings?error=Use at least 12 characters and matching new passwords');
+ if(password.length<6||password!==confirmation)redirect('/dashboard/settings?error=Use at least 6 characters and matching new passwords');
  if(!current)redirect('/dashboard/settings?error=Enter your current password');
  // Verify credentials without replacing this browser's cookies/session.
  const {createClient:makeClient}=await import('@supabase/supabase-js');

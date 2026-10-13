@@ -1,5 +1,27 @@
 # Agent Updates Log
 
+## 2026-10-13 11:50 AM EDT — Antigravity
+
+### What it did
+1. **Admin Organizations Schema Cache Relationship Fix**:
+   - Fixed runtime error `Could not find a relationship between 'organization_memberships' and 'profiles' in the schema cache` on `/admin/organizations`.
+   - Decoupled the PostgREST nested query (`organization_memberships(profiles(...))`) in `src/app/admin/organizations/page.tsx` since `organization_memberships.user_id` references `auth.users(id)` rather than having an explicit direct FK to `public.profiles(id)`.
+   - Queried member profiles separately and resolved the owning account display name and email safely in-memory, also supporting fallback to `billing_owner_id`.
+
+2. **Password Length Reduction**:
+   - Reduced minimum password length requirement on `/dashboard/settings` from 12 characters to 6 characters in `src/app/dashboard/settings/password-actions.ts` and `src/app/dashboard/settings/page.tsx`.
+
+### Database changes
+- None.
+
+### Other relevant changes
+- Tests run:
+  - Vitest test suite: 21 files, 109 tests passed (`npm test`).
+  - TypeScript typecheck: clean (`npm run typecheck`).
+  - Production build: `npm run build` succeeded.
+- Known issues:
+  - None.
+
 ## 2026-10-13 11:11 AM EDT — Antigravity
 
 ### What it did

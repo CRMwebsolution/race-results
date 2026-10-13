@@ -58,9 +58,30 @@ export default async function AdminOrganizationsPage({
       billing_owner_id,
       tracks(id, name),
       series(id, name),
-      organization_memberships(role, active, user_id, profiles(email, full_name))
+      organization_memberships(role, active, user_id)
     `)
     .order("name");
+
+  const userIds = Array.from(
+    new Set(
+      (orgs || [])
+        .flatMap((o) => [
+          o.billing_owner_id,
+          ...((o.organization_memberships as any[]) || []).map((m) => m.user_id),
+        ])
+        .filter(Boolean) as string[]
+    )
+  );
+
+  const { data: profiles } =
+    userIds.length > 0
+      ? await supabase
+          .from("profiles")
+          .select("id, email, full_name")
+          .in("id", userIds)
+      : { data: [] };
+
+  const profileMap = new Map((profiles || []).map((p) => [p.id, p]));
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-20">
@@ -101,7 +122,8 @@ export default async function AdminOrganizationsPage({
           const ownerMembership = (org.organization_memberships as any[])?.find(
             (m) => m.role === "owner" && m.active
           );
-          const ownerProfile = ownerMembership?.profiles;
+          const ownerId = ownerMembership?.user_id || org.billing_owner_id;
+          const ownerProfile = ownerId ? profileMap.get(ownerId) : null;
 
           return (
             <section

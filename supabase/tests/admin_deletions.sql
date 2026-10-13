@@ -8,12 +8,12 @@ insert into public.platform_admins(user_id) values('ad000000-0000-4000-8000-0000
 -- Setup promoter user
 insert into auth.users(id, email) values('fa000000-0000-4000-8000-000000000099', 'promoter@raceholler.test');
 insert into public.profiles(id, email, full_name, active_tier, event_quota)
-values('fa000000-0000-4000-8000-000000000099', 'promoter@raceholler.test', 'Pete Promoter', 'standard', 5)
-on conflict (id) do update set full_name = 'Pete Promoter', active_tier = 'standard', event_quota = 5;
+values('fa000000-0000-4000-8000-000000000099', 'promoter@raceholler.test', 'Pete Promoter', 'premium', 5)
+on conflict (id) do update set full_name = 'Pete Promoter', active_tier = 'premium', event_quota = 5;
 
 -- Setup fixtures
 insert into public.organizations(id, name, billing_email, billing_owner_id, active_tier, event_quota)
-values('ee100000-0000-4000-8000-000000000001', 'Speedway Org', 'promoter@raceholler.test', 'fa000000-0000-4000-8000-000000000099', 'standard', 5);
+values('ee100000-0000-4000-8000-000000000001', 'Speedway Org', 'promoter@raceholler.test', 'fa000000-0000-4000-8000-000000000099', 'premium', 5);
 
 insert into public.organization_memberships(organization_id, user_id, role)
 values('ee100000-0000-4000-8000-000000000001', 'fa000000-0000-4000-8000-000000000099', 'owner');
@@ -31,7 +31,7 @@ insert into public.event_classes(event_id, track_id, name, scoring_type, order_n
 values('ee400000-0000-4000-8000-000000000001', 'ee200000-0000-4000-8000-000000000001', 'Pro Stock', 'fastest_pass', 1);
 
 insert into billing_private.event_usage(event_id, organization_id, billing_scope, tier, charged)
-values('ee400000-0000-4000-8000-000000000001', 'ee100000-0000-4000-8000-000000000001', 'fa000000-0000-4000-8000-000000000099', 'standard', false);
+values('ee400000-0000-4000-8000-000000000001', 'ee100000-0000-4000-8000-000000000001', 'fa000000-0000-4000-8000-000000000099', 'premium', false);
 
 -- Act as admin
 set local role authenticated;

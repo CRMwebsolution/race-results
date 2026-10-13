@@ -41,7 +41,9 @@ try {
   for (const file of testFiles.filter(file => !requested.length || requested.includes(file))) {
     // Existing workflow fixtures have explicit complimentary billing access in this isolated database.
     // Billing/retention tests exercise real zero-credit defaults instead.
-    await db.exec(`alter table public.organizations alter column limits_exempt set default ${file.startsWith('billing_') || file.startsWith('retention') ? 'false' : 'true'}`);
+    const isBillingTest = file.startsWith('billing_') || file.startsWith('account_billing');
+    await db.exec(`alter table public.organizations alter column limits_exempt set default ${isBillingTest ? 'false' : 'true'}`);
+    await db.exec(`alter table public.profiles alter column limits_exempt set default ${isBillingTest ? 'false' : 'true'}`);
     let results;
     try { results = await db.exec(await readFile(new URL(file, tests), "utf8")); }
     catch (error) { throw new Error(`Test ${file}: ${error.message} (${error.code}, ${error.where ?? ""})`); }

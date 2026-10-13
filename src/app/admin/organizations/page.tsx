@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Building2, ArrowRight } from "lucide-react";
+import { AdminDeleteButton } from "@/components/admin/admin-delete-button";
 
 async function grantAccess(form: FormData) {
   "use server";
@@ -159,20 +160,57 @@ export default async function AdminOrganizationsPage({
                   <span className="text-xs font-semibold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
                     {org.event_quota} credits
                   </span>
+                  <AdminDeleteButton
+                    itemType="organization"
+                    itemId={org.id}
+                    expectedName={org.name}
+                    buttonLabel="Delete Org"
+                    size="sm"
+                  />
                 </div>
               </div>
 
-              <div className="text-sm text-slate-300">
-                <span className="text-slate-400">Assets: </span>
-                {org.tracks.map((t) => t.name).concat(org.series.map((s) => s.name)).join(" · ") || (
-                  <span className="text-slate-500 italic">No assets yet</span>
+              <div className="text-sm text-slate-300 space-y-2">
+                <div>
+                  <span className="text-slate-400 font-semibold">Tracks: </span>
+                  {org.tracks.length > 0 ? (
+                    <span className="inline-flex flex-wrap gap-2 items-center mt-1">
+                      {org.tracks.map((t) => (
+                        <span key={t.id} className="inline-flex items-center gap-2 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800 text-xs text-white">
+                          <span>{t.name}</span>
+                          <AdminDeleteButton itemType="track" itemId={t.id} expectedName={t.name} buttonLabel="Delete" size="sm" />
+                        </span>
+                      ))}
+                    </span>
+                  ) : (
+                    <span className="text-slate-500 italic">None</span>
+                  )}
+                </div>
+                <div>
+                  <span className="text-slate-400 font-semibold">Series: </span>
+                  {org.series.length > 0 ? (
+                    <span className="inline-flex flex-wrap gap-2 items-center mt-1">
+                      {org.series.map((s) => (
+                        <span key={s.id} className="inline-flex items-center gap-2 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800 text-xs text-white">
+                          <span>{s.name}</span>
+                          <AdminDeleteButton itemType="series" itemId={s.id} expectedName={s.name} buttonLabel="Delete" size="sm" />
+                        </span>
+                      ))}
+                    </span>
+                  ) : (
+                    <span className="text-slate-500 italic">None</span>
+                  )}
+                </div>
+                {(org.subscription_end_date || org.limits_exempt) && (
+                  <div className="text-xs text-slate-400 pt-1">
+                    {org.subscription_end_date &&
+                      "Expires " +
+                        new Date(org.subscription_end_date).toLocaleDateString("en-US", {
+                          timeZone: "UTC",
+                        })}
+                    {org.limits_exempt && (org.subscription_end_date ? " · Limits waived" : "Limits waived")}
+                  </div>
                 )}
-                {org.subscription_end_date &&
-                  " · Expires " +
-                    new Date(org.subscription_end_date).toLocaleDateString("en-US", {
-                      timeZone: "UTC",
-                    })}
-                {org.limits_exempt && " · Limits waived"}
               </div>
 
               <form action={grantAccess} className="flex flex-wrap items-end gap-3 pt-3 border-t border-slate-800 text-xs">

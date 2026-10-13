@@ -41,7 +41,7 @@ set local request.jwt.claim.sub = 'ac000000-0000-4000-8000-000000000001';
 
 select public.admin_grant_account_entitlement(
   'ac000000-0000-4000-8000-000000000002',
-  'standard',
+  'premium',
   5,
   now() + interval '1 year',
   'Welcome trial grant from Cody',
@@ -53,7 +53,7 @@ begin
   if not exists (
     select 1 from public.profiles
     where id = 'ac000000-0000-4000-8000-000000000002'
-      and active_tier = 'standard'
+      and active_tier = 'premium'
       and event_quota = 5
   ) then
     raise exception 'Account grant failed to update profile';

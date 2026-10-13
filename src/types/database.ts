@@ -1875,6 +1875,42 @@ export type Database = {
         Args: Record<string, never>
         Returns: Json
       }
+      admin_delete_account: {
+        Args: {
+          p_cascade_organizations?: boolean
+          p_confirm_name: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      admin_delete_event: {
+        Args: {
+          p_confirm_name: string
+          p_event_id: string
+        }
+        Returns: Json
+      }
+      admin_delete_organization: {
+        Args: {
+          p_confirm_name: string
+          p_org_id: string
+        }
+        Returns: Json
+      }
+      admin_delete_series: {
+        Args: {
+          p_confirm_name: string
+          p_series_id: string
+        }
+        Returns: Json
+      }
+      admin_delete_track: {
+        Args: {
+          p_confirm_name: string
+          p_track_id: string
+        }
+        Returns: Json
+      }
       admin_grant_account_entitlement: {
         Args: {
           p_end_date?: string | null

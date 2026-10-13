@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { UserPlus, Gift, ShieldAlert, Search } from "lucide-react";
+import { AdminDeleteButton } from "@/components/admin/admin-delete-button";
 
 async function grantAccountAccess(form: FormData) {
   "use server";
@@ -421,6 +422,16 @@ export default async function AdminAccountsPage({
                         <span className="text-slate-500 italic">No tracks or series created yet</span>
                       )}
                     </div>
+                  </div>
+
+                  <div>
+                    <AdminDeleteButton
+                      itemType="account"
+                      itemId={profile.id}
+                      expectedName={profile.email}
+                      itemLabel={profile.full_name ? `${profile.full_name} (${profile.email})` : profile.email}
+                      buttonLabel="Delete Account"
+                    />
                   </div>
                 </div>
 

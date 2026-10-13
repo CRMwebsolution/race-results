@@ -1,5 +1,43 @@
 # Agent Updates Log
 
+## 2026-10-13 12:12 PM EDT — Antigravity
+
+### What it did
+1. **Admin Cascade Deletion with Typed-Name Fail-Safes**:
+   - Added platform admin capability to permanently delete **Events**, **Organizations**, **Series**, **Tracks**, and **Accounts**.
+   - Enforced strict fail-safe typing protection: the admin must type the exact item name (or account email) to unlock the delete button on both client and server RPC boundaries.
+   - Built reusable interactive client component `src/components/admin/admin-delete-button.tsx` with modal confirmation, live name match verification, and destructive status warnings.
+   - Built server actions in `src/app/admin/actions.ts` calling secure PostgreSQL `security definer` RPCs restricted to platform admins (`is_platform_admin`).
+   - For accounts, cascaded owned organizations, cleaned up profile data in PostgreSQL, and removed the user from Supabase Auth (`auth.admin.deleteUser`).
+2. **Dedicated Admin Entity Views & Navigation**:
+   - Added dedicated `/admin/tracks` page with search and track cascade deletion.
+   - Added dedicated `/admin/series` page with search and series cascade deletion.
+   - Added dedicated `/admin/events` page with search, status filters (live, completed, scheduled, draft), and event cascade deletion.
+   - Added delete buttons directly on `/admin/accounts` and `/admin/organizations` cards (including inline deletion for affiliated tracks and series).
+   - Updated `/admin/layout.tsx` sidebar with direct links to Overview, Accounts, Organizations, Tracks, Series, and Events.
+   - Updated `/admin/page.tsx` Overview dashboard with live counts and quick links for all 5 entities.
+
+### Database changes
+- Migration: `supabase/migrations/20261013160000_admin_cascade_deletions.sql`
+  - Ensured `on delete cascade` / `on delete set null` foreign keys across `billing_private.payment_receipts`, `race_staff_invitations`, `judge_assignments`, `events`, `event_classes`, `entries`, `competition_classes`, `competition_points_changes`, `competition_result_versions`, `competition_points_rules`, and `competition_bonuses`.
+  - Added trigger `set_deleting_organization` on `public.organizations` and `set_deleting_profiles` on `public.profiles` to set `raceholler.deleting_parent` and bypass race lock checks during cascade deletion.
+  - Updated `public.check_organization_asset_limits()` to read tier entitlements from the owning account profile (`public.profiles`).
+  - Created RPCs:
+    - `public.admin_delete_event(uuid, text)`
+    - `public.admin_delete_track(uuid, text)`
+    - `public.admin_delete_series(uuid, text)`
+    - `public.admin_delete_organization(uuid, text)`
+    - `public.admin_delete_account(uuid, text, boolean)`
+
+### Other relevant changes
+- Tests run:
+  - Vitest test suite: 21 files, 109 tests passed (`npm test`).
+  - TypeScript typecheck: 0 errors (`npm run typecheck`).
+  - PGlite database tests: `admin_deletions.sql`, `account_billing.sql`, `billing_credits.sql`, `billing_payments.sql`, `billing_permissions.sql`, `retention.sql` passed.
+  - Production build: `npm run build` compiled 30 routes successfully.
+- Known issues:
+  - None.
+
 ## 2026-10-13 11:50 AM EDT — Antigravity
 
 ### What it did

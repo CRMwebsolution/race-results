@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import { ArrowLeft, Plus, Edit2, Save, X, Trash2 } from "lucide-react";
 import { redirect } from "next/navigation";
+import { TipBubble, TipHighlight, GuidedStepBadge } from "@/components/tip-provider";
 
 export default async function SeriesClassesPage(props: { params: Promise<{ seriesId: string }>, searchParams: Promise<{ edit_class_id?: string; error?: string; message?:string }> }) {
   const { seriesId } = await props.params;
@@ -90,17 +91,26 @@ export default async function SeriesClassesPage(props: { params: Promise<{ serie
     <div className="max-w-4xl mx-auto space-y-6 p-4 sm:p-8">
       <ActionFeedback error={actionParams.error} message={actionParams.message}/>
       <div className="flex items-center space-x-3">
-        <Link 
-          href={`/dashboard/series/${seriesId}`}
-          className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
-        >
-          <ArrowLeft className="w-4 h-4" />
-        </Link>
+        <TipHighlight step="5" label='"<-" Back to series' active={Boolean(classes && classes.length > 0)}>
+          <Link 
+            href={`/dashboard/series/${seriesId}`}
+            className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Link>
+        </TipHighlight>
         <div>
           <h1 className="text-2xl font-bold text-white">Master Classes</h1>
           <p className="text-sm text-slate-400">{series?.name}</p>
         </div>
       </div>
+
+      <TipBubble title="Master Classes · Steps 4 & 5">
+        <p className="text-xs text-amber-200/90 leading-relaxed">
+          <strong className="text-white">Step 4:</strong> Fill out the form on the right to create your master classes and configure scoring rules. <br/>
+          <strong className="text-white">Step 5:</strong> Once classes are created, click the <strong className="text-amber-400">&ldquo;&larr;&rdquo;</strong> back button above to return to the Series Hub.
+        </p>
+      </TipBubble>
       
       <div className="grid md:grid-cols-2 gap-8">
         <div className="space-y-4">
@@ -147,11 +157,12 @@ export default async function SeriesClassesPage(props: { params: Promise<{ serie
         
         <div>
           <form action={editClassId ? updateMasterClass : addMasterClass} className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 sticky top-24">
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
               <h2 className="font-bold text-lg text-white flex items-center space-x-2">
                 {editClassId ? <Edit2 className="w-4 h-4 text-amber-500" /> : <Plus className="w-4 h-4 text-amber-500" />}
                 <span>{editClassId ? 'Edit Master Class' : 'Add Master Class'}</span>
               </h2>
+              {!editClassId && <GuidedStepBadge step="4" label="Create classes form" />}
               {editClassId && (
                 <Link href={`/dashboard/series/${seriesId}/classes`} className="text-slate-500 hover:text-slate-300">
                   <X className="w-5 h-5" />

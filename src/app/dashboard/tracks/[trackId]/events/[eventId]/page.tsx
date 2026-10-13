@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { Plus, Users, Timer, Settings, Trophy } from "lucide-react";
 import { redirect } from "next/navigation";
+import { TipBubble, TipHighlight } from "@/components/tip-provider";
 
 export default async function EventOverviewPage({
   params,
@@ -13,7 +14,7 @@ export default async function EventOverviewPage({
 }) {
   const {ownerId:trackId,ownerType,ownerColumn,ownerPath,eventId}=raceContext(await params);
   const supabase = await createClient();
-  const {data:event,error:eventError}=await supabase.from("events").select("slug").eq("id",eventId).eq(ownerColumn,trackId).maybeSingle();
+  const {data:event,error:eventError}=await supabase.from("events").select("slug, competition_season_id").eq("id",eventId).eq(ownerColumn,trackId).maybeSingle();
   if(eventError) throw new Error(eventError.message);
   if(!event) redirect(ownerPath);
   const {data:track}=ownerType==="track" ? await supabase.from("tracks").select("slug").eq("id",trackId).single() : {data:null};
@@ -37,6 +38,21 @@ export default async function EventOverviewPage({
   return (
     <div className="flex-1 overflow-y-auto w-full">
       <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
+        {ownerType === 'series' ? (
+          <TipBubble title="Start a Race in Series · Steps 2 & 3">
+            <p className="text-xs text-amber-200/90 leading-relaxed">
+              <strong className="text-white">Step 2:</strong> Go to <strong className="text-amber-400">&ldquo;Date &amp; status&rdquo;</strong> to make sure your series season is assigned. <br/>
+              <strong className="text-white">Step 3:</strong> Click <strong className="text-amber-400">&ldquo;Manage Roster&rdquo;</strong> to add contestants and link series-registered drivers!
+            </p>
+          </TipBubble>
+        ) : (
+          <TipBubble title="Race Setup · Step 14">
+            <p className="text-xs text-amber-200/90 leading-relaxed">
+              Next step: click <strong className="text-amber-400">&ldquo;Manage Roster&rdquo;</strong> to add your contestants and organize your classes for race day.
+            </p>
+          </TipBubble>
+        )}
+
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Link
@@ -57,31 +73,45 @@ export default async function EventOverviewPage({
           </Link>
 
           <div className="flex flex-col sm:flex-row gap-4">
-            <Link
-              href={`${ownerPath}/events/${eventId}/entries`}
-              className="flex-1 flex items-center space-x-4 p-6 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 transition group"
+            <TipHighlight
+              step={ownerType === 'series' ? "3" : "14"}
+              label={ownerType === 'series' ? '"Contestants"' : '"Manage roster"'}
+              active={ownerType !== 'series' || Boolean(event.competition_season_id)}
+              className="flex-1"
             >
-              <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
-                <Users className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-bold text-white">Manage Roster</h3>
-                <p className="text-xs text-slate-400 mt-1">{totalEntries} registered entries</p>
-              </div>
-            </Link>
+              <Link
+                href={`${ownerPath}/events/${eventId}/entries`}
+                className="w-full flex items-center space-x-4 p-6 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 transition group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white">Manage Roster</h3>
+                  <p className="text-xs text-slate-400 mt-1">{totalEntries} registered entries</p>
+                </div>
+              </Link>
+            </TipHighlight>
 
-            <Link
-              href={`${ownerPath}/events/${eventId}/settings`}
-              className="flex-1 flex items-center space-x-4 p-6 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 transition group"
+            <TipHighlight
+              step="2"
+              label='"Date & status"'
+              active={ownerType === 'series' && !event.competition_season_id}
+              className="flex-1"
             >
-               <div className="w-10 h-10 rounded-xl bg-slate-500/10 flex items-center justify-center text-slate-400 group-hover:scale-110 transition-transform">
-                <Settings className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-bold text-white">Event Settings</h3>
-                <p className="text-xs text-slate-400 mt-1">Status & Details</p>
-              </div>
-            </Link>
+              <Link
+                href={`${ownerPath}/events/${eventId}/settings`}
+                className="w-full flex items-center space-x-4 p-6 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 transition group"
+              >
+                 <div className="w-10 h-10 rounded-xl bg-slate-500/10 flex items-center justify-center text-slate-400 group-hover:scale-110 transition-transform">
+                  <Settings className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white">Date &amp; Status</h3>
+                  <p className="text-xs text-slate-400 mt-1">Settings &amp; Season</p>
+                </div>
+              </Link>
+            </TipHighlight>
           </div>
         </div>
 

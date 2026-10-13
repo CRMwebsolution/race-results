@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
+import { TipHighlight } from "@/components/tip-provider";
 
 export function CreateSeriesForm({ orgList, action }: { orgList: {id: string, name: string}[], action: any }) {
   const [isPending, setIsPending] = useState(false);
@@ -123,14 +124,16 @@ export function CreateSeriesForm({ orgList, action }: { orgList: {id: string, na
       </div>
       
       <div className="pt-6 mt-2 border-t border-slate-800 flex justify-end">
-        <button 
-          type="submit" 
-          disabled={isPending}
-          className="bg-amber-500 hover:bg-amber-400 text-amber-950 font-bold px-8 py-3 rounded-xl transition disabled:opacity-50 flex items-center"
-        >
-          {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-          Create Series
-        </button>
+        <TipHighlight step="2" label='"Create series"'>
+          <button 
+            type="submit" 
+            disabled={isPending}
+            className="bg-amber-500 hover:bg-amber-400 text-amber-950 font-bold px-8 py-3 rounded-xl transition disabled:opacity-50 flex items-center"
+          >
+            {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            Create Series
+          </button>
+        </TipHighlight>
       </div>
     </form>
   );

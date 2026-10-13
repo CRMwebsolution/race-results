@@ -8,6 +8,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import {TrackDefaultClasses} from "@/components/track-default-classes";
 import {DeleteTrackButton} from "./delete-track-button";
+import {TipBubble, TipHighlight, GuidedStepBadge} from "@/components/tip-provider";
 
 export default async function TrackSettingsPage({ params, searchParams }: { params: Promise<{ trackId: string }>; searchParams: Promise<{saved?: string}> }) {
   const { trackId } = await params;
@@ -38,12 +39,14 @@ export default async function TrackSettingsPage({ params, searchParams }: { para
       <header className="border-b border-slate-800 bg-slate-900/60 backdrop-blur sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <Link
-              href={`/dashboard/tracks/${track.id}`}
-              className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </Link>
+            <TipHighlight step="7" label='"<-" Back to track'>
+              <Link
+                href={`/dashboard/tracks/${track.id}`}
+                className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </Link>
+            </TipHighlight>
             <h1 className="font-bold text-white">Track Settings</h1>
           </div>
         </div>
@@ -51,8 +54,17 @@ export default async function TrackSettingsPage({ params, searchParams }: { para
 
       <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-8 space-y-8">
         <ActionFeedback message={saved?"Track settings saved":undefined}/>
+        <TipBubble title="Track Setup · Steps 6 & 7">
+          <p className="text-xs text-amber-200/90 leading-relaxed">
+            <strong className="text-white">Step 6:</strong> Configure your default classes below. They will be automatically cloned into any new event you create. <br/>
+            <strong className="text-white">Step 7:</strong> Once done, click the <strong className="text-amber-400">&ldquo;&larr;&rdquo;</strong> back button above to return to your track and create your first race!
+          </p>
+        </TipBubble>
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-          <h2 className="text-xl font-bold text-white mb-6">Default Classes</h2>
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <h2 className="text-xl font-bold text-white">Default Classes</h2>
+            <GuidedStepBadge step="6" label="Create default classes" />
+          </div>
           <p className="text-slate-400 text-sm mb-6">
             Select the classes this track runs by default. They will be automatically added to any new event you create.
           </p>

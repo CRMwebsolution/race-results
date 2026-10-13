@@ -2,6 +2,7 @@
 
 import {useState} from 'react';
 import {eligibleRaceRegistrations, registrationLabel, type RaceClass, type SeriesRegistration} from '@/lib/race-registration';
+import {GuidedStepBadge} from './tip-provider';
 
 const inputStyle = 'block w-full min-w-0 bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-white text-sm';
 
@@ -16,6 +17,13 @@ export function RaceEntryForm({classes, registrations, raceDate, hasSeries, chos
   const eligible = eligibleRaceRegistrations(registrations, selectedClass?.competition_class_id || null, raceDate);
 
   return <form action={action} className="space-y-4 bg-slate-900 p-5 border border-slate-800 rounded-xl">
+    <div className="flex items-center justify-between flex-wrap gap-2">
+      <h3 className="font-bold text-white text-base">Contestant Registration</h3>
+      <GuidedStepBadge
+        step={hasSeries ? "5" : "15"}
+        label={hasSeries ? "Add contestant & select series registration" : "Add contestants & classes"}
+      />
+    </div>
     <p className="text-sm text-slate-400">Sign up each contestant for this race in the order they will run. Series membership does not sign anyone up for a race.</p>
     <label className="block text-sm font-semibold">Class
       <select name="event_class_id" value={classId} className={inputStyle} onChange={event => {setClassId(event.target.value); setRegistrationId(''); setName('');}}>
@@ -55,18 +63,24 @@ export function RaceRegistrationCorrection({entries, classes, registrations, act
   const [entryId, setEntryId] = useState(entries[0]?.id || '');
   const entry = entries.find(e => e.id === entryId);
   const competitionClass = classes.find(c => c.id === entry?.event_class_id)?.competition_class_id;
-  return <details className="p-4 border rounded space-y-3">
-    <summary className="font-semibold">Correct a contestant’s series registration link</summary>
-    <p className="text-sm text-slate-400">Use this if a contestant was added as a local by mistake, or linked to the wrong vehicle. It changes the membership link on this race entry; it does not enroll anyone in the series. Membership dates still determine points eligibility.</p>
+  return <details className="p-4 border border-amber-500/40 rounded-xl space-y-3 bg-slate-900/40">
+    <summary className="font-semibold cursor-pointer text-amber-400 hover:text-amber-300">
+      🔗 Connect a racer accidentally added as a one-timer to a series-registered contestant
+    </summary>
+    <p className="text-sm text-slate-300 bg-amber-500/10 p-3 rounded-lg border border-amber-500/20">
+      <strong>Accidentally added a series racer as a one-timer/local?</strong> Use this tool to connect that racer entry to their official series registration. This ensures their finishes, passes, and championship points are properly credited to their season standing.
+    </p>
     {entries.length ? <form action={action} className="space-y-3">
-      <label className="block">Race contestant<select name="entry_id" value={entryId} onChange={e => setEntryId(e.target.value)} className={inputStyle}>
+      <label className="block text-sm font-semibold">Race contestant entry<select name="entry_id" value={entryId} onChange={e => setEntryId(e.target.value)} className={inputStyle}>
         {entries.map(e => <option key={e.id} value={e.id}>{e.display_name} · {classes.find(c => c.id === e.event_class_id)?.name}</option>)}
       </select></label>
-      <label className="block">Series registration<select key={entryId} name="registration_id" defaultValue={entry?.registration_id || ''} className={inputStyle}>
+      <label className="block text-sm font-semibold">Connect to series registration<select key={entryId} name="registration_id" defaultValue={entry?.registration_id || ''} className={inputStyle}>
         <option value="">One-race contestant · no series points</option>
         {registrations.filter(r => r.class_id === competitionClass).map(r => <option key={r.id} value={r.id}>{registrationLabel(r)}</option>)}
       </select></label>
-      <button className="p-3 border rounded">Save registration link</button>
-    </form> : <p>Add a contestant before correcting a registration link.</p>}
+      <button className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-sm transition">
+        Connect racer to series registration
+      </button>
+    </form> : <p className="text-sm text-slate-400">Add a contestant before connecting to a series registration.</p>}
   </details>;
 }

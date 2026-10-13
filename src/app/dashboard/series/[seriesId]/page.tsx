@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { ArrowLeft, Calendar, Settings, Trophy, Users } from "lucide-react";
 import { notFound } from "next/navigation";
+import { TipBubble, TipHighlight } from "@/components/tip-provider";
 
 export default async function SeriesHubPage({ params }: { params: Promise<{ seriesId: string }> }) {
   const { seriesId } = await params;
@@ -75,6 +76,32 @@ export default async function SeriesHubPage({ params }: { params: Promise<{ seri
         </div>
       </div>
 
+      {!classes || classes.length === 0 ? (
+        <TipBubble title="Series Setup · Step 3">
+          <p className="text-xs text-amber-200/90 leading-relaxed">
+            <strong className="text-white">Step 3:</strong> Click <strong className="text-amber-400">&ldquo;Manage Classes&rdquo;</strong> in the Master Classes card to create your series racing classes and scoring rules.
+          </p>
+        </TipBubble>
+      ) : !events || events.length === 0 ? (
+        <TipBubble title="Series Setup · Step 6">
+          <p className="text-xs text-amber-200/90 leading-relaxed">
+            <strong className="text-white">Step 6:</strong> Classes configured! Next, click <strong className="text-amber-400">&ldquo;Manage Schedule&rdquo;</strong> in Schedule &amp; Venues to create your season, add event dates, and enroll contestants.
+          </p>
+        </TipBubble>
+      ) : (!pointsRules || pointsRules.length === 0) && series.spectator_points_mode !== 'none' ? (
+        <TipBubble title="Series Setup · Step 11">
+          <p className="text-xs text-amber-200/90 leading-relaxed">
+            <strong className="text-white">Step 11:</strong> Set up your points system! Click <strong className="text-amber-400">&ldquo;Edit Rules&rdquo;</strong> under Points System to configure placement point values.
+          </p>
+        </TipBubble>
+      ) : (
+        <TipBubble title="Start a Race in this Series">
+          <p className="text-xs text-amber-200/90 leading-relaxed">
+            To run a race, click the event in the <strong className="text-white">Schedule &amp; Venues</strong> card below. Make sure its season is assigned in <strong className="text-amber-400">&ldquo;Date &amp; status&rdquo;</strong>, select registered racers in <strong className="text-amber-400">&ldquo;Contestants&rdquo;</strong>, then click <strong className="text-amber-400">&ldquo;Enter results&rdquo;</strong> &rarr; <strong className="text-amber-400">&ldquo;Go Live &amp; Launch Scoring&rdquo;</strong>!
+          </p>
+        </TipBubble>
+      )}
+
       {series.spectator_points_mode !== 'none' && (
         <Link href={`/dashboard/series/${seriesId}/seasons`} className="inline-block p-4 bg-amber-500 text-slate-950 rounded font-bold">
           Series seasons &amp; registrations
@@ -89,12 +116,14 @@ export default async function SeriesHubPage({ params }: { params: Promise<{ seri
               <Settings className="w-5 h-5 text-amber-500" />
               <span>Master Classes</span>
             </h2>
-            <Link 
-              href={`/dashboard/series/${seriesId}/classes`}
-              className="text-xs bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded border border-slate-700 transition"
-            >
-              Manage Classes
-            </Link>
+            <TipHighlight step="3" label='"Master classes"' active={!classes || classes.length === 0}>
+              <Link 
+                href={`/dashboard/series/${seriesId}/classes`}
+                className="text-xs bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded border border-slate-700 transition"
+              >
+                Manage Classes
+              </Link>
+            </TipHighlight>
           </div>
           {classes?.length === 0 ? (
             <p className="text-sm text-slate-500 italic">No master classes defined.</p>
@@ -116,22 +145,26 @@ export default async function SeriesHubPage({ params }: { params: Promise<{ seri
               <Calendar className="w-5 h-5 text-blue-500" />
               <span>Schedule & Venues</span>
             </h2>
-            <Link 
-              href={`/dashboard/series/${seriesId}/schedule`}
-              className="text-xs bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded border border-slate-700 transition"
-            >
-              Manage Schedule
-            </Link>
+            <TipHighlight step="6" label='"Manage schedule"' active={Boolean(classes && classes.length > 0 && (!events || events.length === 0))}>
+              <Link 
+                href={`/dashboard/series/${seriesId}/schedule`}
+                className="text-xs bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded border border-slate-700 transition"
+              >
+                Manage Schedule
+              </Link>
+            </TipHighlight>
           </div>
           {events?.length === 0 ? (
             <p className="text-sm text-slate-500 italic">No events scheduled.</p>
           ) : (
             <ul className="space-y-2">
-              {events?.map(ev => (
+              {events?.map((ev, idx) => (
                 <li key={ev.id} className="flex justify-between items-center text-sm bg-slate-950 p-2.5 rounded-lg border border-slate-800">
                   <div>
-                    <Link href={`/dashboard/series/${seriesId}/events/${ev.id}`} className="font-bold text-amber-400">{ev.name}</Link>
-                    <div className="text-xs text-slate-500">{ev.venue_description} • {ev.local_date}</div>
+                    <TipHighlight step="1" label="Click event to start" active={idx === 0}>
+                      <Link href={`/dashboard/series/${seriesId}/events/${ev.id}`} className="font-bold text-amber-400 hover:underline">{ev.name}</Link>
+                    </TipHighlight>
+                    <div className="text-xs text-slate-500 mt-1">{ev.venue_description} • {ev.local_date}</div>
                   </div>
                   <span className="text-[10px] uppercase font-bold text-slate-400 bg-slate-800 px-2 py-1 rounded">{ev.status}</span>
                 </li>
@@ -151,12 +184,14 @@ export default async function SeriesHubPage({ params }: { params: Promise<{ seri
               {series.spectator_points_mode === 'none' ? (
                 <span className="text-[11px] font-bold bg-slate-800 text-slate-400 px-2.5 py-1 rounded border border-slate-700">Disabled</span>
               ) : (
-                <Link 
-                  href={`/dashboard/series/${seriesId}/points`}
-                  className="text-xs bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded border border-slate-700 transition"
-                >
-                  Edit Rules
-                </Link>
+                <TipHighlight step="11" label='"Points system"' active={Boolean(classes && classes.length > 0 && (!pointsRules || pointsRules.length === 0))}>
+                  <Link 
+                    href={`/dashboard/series/${seriesId}/points`}
+                    className="text-xs bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded border border-slate-700 transition"
+                  >
+                    Edit Rules
+                  </Link>
+                </TipHighlight>
               )}
             </div>
 

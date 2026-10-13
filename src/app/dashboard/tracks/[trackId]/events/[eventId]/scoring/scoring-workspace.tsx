@@ -17,6 +17,7 @@ import {BracketView} from '@/components/bracket-view';
 import {isByeMatch, drawRandomByes} from '@/scoring/bracket';
 import {Trophy, ChevronLeft, ChevronRight, CheckCircle, Clock, Flag, Dices, Shuffle, Eye, EyeOff, Lock, Unlock} from 'lucide-react';
 import {finalizeEventStandings} from '../settings/actions';
+import {TipBubble, TipHighlight} from '@/components/tip-provider';
 
 export type EventType={id:string;name:string;working_revision:number;status:string};
 export type ClassType={id:string;name:string;scoring_type:string;scoring_version?:number;scoring_config:any;order_num:number};
@@ -241,9 +242,23 @@ export function ScoringWorkspace({accountId,canComplete=false,offlineOnly=false,
     </div>
    )}
    <Link href={`${base}/entries?class=${activeClassId}`} className="p-3 border rounded-lg">Add contestant</Link>
-   {canComplete&&<button onClick={()=>void complete()} onMouseDown={e=>e.preventDefault()} disabled={completing} className="p-3 rounded-lg bg-emerald-600 text-white font-bold">{completing?'Saving and completing…':'Complete race'}</button>}
+   {canComplete&&<TipHighlight step={ownerType === 'series' ? "6" : "19"} label='"Complete race"'><button onClick={()=>void complete()} onMouseDown={e=>e.preventDefault()} disabled={completing} className="p-3 rounded-lg bg-emerald-600 text-white font-bold">{completing?'Saving and completing…':'Complete race'}</button></TipHighlight>}
    <p role="status" className="w-full text-sm text-slate-400">{status}</p>
   </nav>
+  <div className="px-4">
+   <TipBubble title={event.status === 'completed' ? 'Race Completed' : 'Live Scoring Workspace'}>
+     {event.status === 'completed' ? (
+       <p className="text-xs text-amber-200/90 leading-relaxed">
+         This race has been marked complete and official standings are published to the public spectator page.
+       </p>
+     ) : (
+       <p className="text-xs text-amber-200/90 leading-relaxed">
+         <strong className="text-white">{ownerType === 'series' ? 'Enter times/results' : 'Step 18'}:</strong> Enter times and results for each pass in the grid below. Scores update and broadcast live to spectators. <br/>
+         <strong className="text-white">{ownerType === 'series' ? 'Step 6' : 'Step 19'}:</strong> When all racing is done, click <strong className="text-emerald-400">&ldquo;Complete race&rdquo;</strong> to officially finalize and publish results.
+       </p>
+     )}
+   </TipBubble>
+  </div>
   <div className="px-4"><ActionFeedback error={completeError}/></div>
   {prepared?.outbox.filter((o,i,a)=>(o.state!=='queued'||o.error)&&a.findIndex(x=>x.entryId===o.entryId&&x.ordinal===o.ordinal)===i).map(o=><div key={o.id} role="alert" className="mx-4 p-3 border rounded space-y-2"><p>{initialEntries.find(e=>e.id===o.entryId)?.display_name}, pass {o.ordinal}: {o.state==='conflict'?'Another scorekeeper changed this result. Choose which score to keep.':`This score is saved on your device. ${explainError(o.error||'Reconnect and try saving again.')}`} Your entry: {o.raw}</p>{o.state==='conflict'?<div className="flex flex-wrap gap-3"><button className="p-3 border rounded" onClick={()=>accountId&&void resolveConflict(accountId,event.id,o.entryId,o.ordinal,false).catch(e=>setCompleteError(explainError(e.message)))}>Keep the other saved score</button><button className="p-3 border rounded" onClick={()=>accountId&&void resolveConflict(accountId,event.id,o.entryId,o.ordinal,true).catch(e=>setCompleteError(explainError(e.message)))}>Keep my score</button></div>:<button className="p-3 border rounded" onClick={()=>accountId&&void retryPrepared(accountId,event.id).catch(()=>{})}>Try saving again</button>}</div>)}
   {Object.keys(errors).length>0&&<p role="alert" className="p-4 text-red-400">{[...new Set(Object.values(errors))].join(' ')} Your entries are kept.</p>}

@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { PlusCircle, Loader2, CheckCircle2, Globe } from "lucide-react";
 import { registerTrackAction, type ActionState } from "./actions";
 import { generateTrackSlug } from "@/lib/slug";
+import { TipHighlight, GuidedStepBadge } from "@/components/tip-provider";
 
 export function CreateTrackForm({ compact = false }: { compact?: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -34,16 +35,18 @@ export function CreateTrackForm({ compact = false }: { compact?: boolean }) {
             Configure your race venue, public link, and timezone.
           </p>
         </div>}
-        <button
-          type="button"
-          onClick={() => setIsOpen(!isOpen)}
-          aria-expanded={isOpen}
-          aria-controls="create-track-fields"
-          className={`px-4 py-2 font-semibold rounded-xl text-sm transition flex items-center space-x-1.5 ${compact ? "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700" : "bg-amber-500 hover:bg-amber-400 text-slate-950"}`}
-        >
-          <PlusCircle className="w-4 h-4" />
-          <span>{isOpen ? "Close Form" : compact ? "Create another track" : "New Track"}</span>
-        </button>
+        <TipHighlight step="1" label='"New track"' active={!isOpen && !compact}>
+          <button
+            type="button"
+            onClick={() => setIsOpen(!isOpen)}
+            aria-expanded={isOpen}
+            aria-controls="create-track-fields"
+            className={`px-4 py-2 font-semibold rounded-xl text-sm transition flex items-center space-x-1.5 ${compact ? "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700" : "bg-amber-500 hover:bg-amber-400 text-slate-950"}`}
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>{isOpen ? "Close Form" : compact ? "Create another track" : "New Track"}</span>
+          </button>
+        </TipHighlight>
       </div>
 
       {state.success && (
@@ -61,6 +64,11 @@ export function CreateTrackForm({ compact = false }: { compact?: boolean }) {
 
       {isOpen && (
         <form id="create-track-fields" action={formAction} className={compact ? "p-5 bg-slate-900 border border-slate-800 rounded-xl space-y-4" : "mt-4 pt-4 border-t border-slate-800 space-y-4"}>
+          {!compact && (
+            <div className="mb-2">
+              <GuidedStepBadge step="2" label="Fill out the track form" />
+            </div>
+          )}
           {compact && <h3 className="text-lg font-bold">Create another track</h3>}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -143,14 +151,16 @@ export function CreateTrackForm({ compact = false }: { compact?: boolean }) {
           </div>
 
           <div className="flex justify-end pt-2">
-            <button
-              type="submit"
-              disabled={isPending || !trackName.trim()}
-              className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-sm transition flex items-center space-x-2 disabled:opacity-50 shadow-md shadow-amber-500/20"
-            >
-              {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-              <span>{isPending ? "Registering..." : "Register Track"}</span>
-            </button>
+            <TipHighlight step="3" label='"Register track"'>
+              <button
+                type="submit"
+                disabled={isPending || !trackName.trim()}
+                className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-sm transition flex items-center space-x-2 disabled:opacity-50 shadow-md shadow-amber-500/20"
+              >
+                {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+                <span>{isPending ? "Registering..." : "Register Track"}</span>
+              </button>
+            </TipHighlight>
           </div>
         </form>
       )}

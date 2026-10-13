@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { finalizeEventStandings } from "./actions";
+import { TipBubble, TipHighlight, GuidedStepBadge } from "@/components/tip-provider";
 
 export default async function EventSettingsPage({ params, searchParams }: { searchParams: Promise<{ error?: string;message?:string }>; params: Promise<{ trackId?: string; seriesId?: string; eventId: string }> }) {
   const {ownerId:trackId,ownerType,ownerColumn,ownerPath,eventId}=raceContext(await params);
@@ -44,10 +45,34 @@ export default async function EventSettingsPage({ params, searchParams }: { sear
   return (
     <div className="p-4 sm:p-8 max-w-2xl mx-auto w-full">
       <h2 className="text-2xl font-bold text-white mb-6">Event Settings</h2>
-      
+      {ownerType === 'series' && (
+        <TipBubble title="Series Race · Step 2: Date & Status">
+          <p className="text-xs text-amber-200/90 leading-relaxed">
+            <strong className="text-white">Step 2:</strong> Make sure a series season is assigned to this race below. Once assigned, click <strong className="text-amber-400">&ldquo;Contestants&rdquo;</strong> in the navigation bar to add racers and link registered drivers!
+          </p>
+        </TipBubble>
+      )}
       <ActionFeedback error={actionError} message={message}/><Link href={`${ownerPath}/events/${eventId}/staff`} className="block mb-6 p-3 border rounded-lg text-amber-400">Manage staff &amp; judge invitations</Link>
-      <form action={editEvent} className="space-y-4 mb-8"><h2 className="text-xl font-bold">Event details</h2><input type="hidden" name="revision" value={event?.working_revision}/><label className="block">Name<input required name="name" defaultValue={event?.name} className="block w-full min-w-0 p-3 rounded bg-slate-900 border w-full"/></label><label className="block">Race date<input required type="date" name="date" defaultValue={event?.local_date} className="block w-full min-w-0 p-3 rounded bg-slate-900 border w-full"/></label>{ownerType==="series"&&<label className="block">Venue and location<textarea name="venue_description" required defaultValue={event?.venue_description||""} className="block w-full min-w-0 p-3 rounded bg-slate-900 border w-full"/></label>}<button className="p-3 rounded bg-amber-500 text-slate-950">Save details</button></form>
-      <section className="space-y-3 mb-6"><h2 className="font-bold">{ownerType==='series'?'Series season':'Optional track series'}</h2><p>Current series season: {seasons.find(s=>s.id===event?.competition_season_id)?.name||'None'}</p><Link href={`${ownerPath}/seasons`} className="text-amber-400">Manage series seasons and registrations</Link>{seasons.length>0&&<form action={setSeason} className="space-y-3"><label>Series season<select name="season_id" required defaultValue={event?.competition_season_id||''} className="block w-full min-w-0 p-3 bg-slate-900 border rounded"><option value="">Choose series season</option>{seasons.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label><button className="p-3 border rounded">Assign series season</button></form>}</section>
+      <form action={editEvent} className="space-y-4 mb-8"><h2 className="text-xl font-bold">Event details</h2><input type="hidden" name="revision" value={event?.working_revision}/><label className="block">Name<input required name="name" defaultValue={event?.name} className="block w-full min-w-0 p-3 rounded bg-slate-900 border w-full"/></label><label className="block">Race date<input required type="date" name="date" defaultValue={event?.local_date} className="block w-full min-w-0 p-3 rounded bg-slate-900 border w-full"/></label>{ownerType==="series"&&<label className="block">Venue and location<textarea name="venue_description" required defaultValue={event?.venue_description||""} className="block w-full min-w-0 p-3 rounded bg-slate-900 border w-full"/></label>}<button className="p-3 rounded bg-amber-500 text-slate-950 font-bold">Save details</button></form>
+      <section className="space-y-3 mb-6 p-4 bg-slate-900 border rounded-xl">
+        <div className="flex items-center justify-between">
+          <h2 className="font-bold text-lg text-white">{ownerType==='series'?'Series season':'Optional track series'}</h2>
+          {ownerType === 'series' && <GuidedStepBadge step="Step 2" label="Make sure series season is assigned" />}
+        </div>
+        <p className="text-sm">Current series season: <strong className="text-amber-400">{seasons.find(s=>s.id===event?.competition_season_id)?.name||'None'}</strong></p>
+        <Link href={`${ownerPath}/seasons`} className="text-xs text-amber-400 underline block">Manage series seasons and registrations</Link>
+        {seasons.length>0&&<form action={setSeason} className="space-y-3 pt-2">
+          <label className="block text-sm">Series season
+            <select name="season_id" required defaultValue={event?.competition_season_id||''} className="block w-full min-w-0 p-3 bg-slate-950 border rounded mt-1">
+              <option value="">Choose series season</option>
+              {seasons.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </label>
+          <TipHighlight step="2" label='"Assign series season"'>
+            <button className="p-3 bg-amber-500 text-slate-950 font-bold rounded">Assign series season</button>
+          </TipHighlight>
+        </form>}
+      </section>
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-6">
         <div>
           <h3 className="font-bold text-lg text-white mb-2">Event Status</h3>

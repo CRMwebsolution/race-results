@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Flag, CalendarDays, Plus, Calendar, ExternalLink } from "lucide-react";
-import {TipBubble} from "@/components/tip-provider";
+import {TipBubble, TipHighlight} from "@/components/tip-provider";
 
 export default async function TrackDashboardPage({ params }: { params: Promise<{ trackId: string }> }) {
   const { trackId } = await params;
@@ -15,7 +15,7 @@ export default async function TrackDashboardPage({ params }: { params: Promise<{
 
   const { data: track } = await supabase
     .from("tracks")
-    .select("id, name, slug, shorthand, timezone")
+    .select("id, name, slug, shorthand, timezone, default_classes")
     .eq("id", trackId)
     .single();
 
@@ -27,6 +27,9 @@ export default async function TrackDashboardPage({ params }: { params: Promise<{
     .select("id, name, slug, local_date, status, published_revision")
     .eq("track_id", trackId)
     .order("local_date", { ascending: false }));
+
+  const hasDefaultClasses = Boolean(track?.default_classes && Array.isArray(track.default_classes) && track.default_classes.length > 0);
+  const hasEvents = Boolean(events && events.length > 0);
 
   return (
     <div className="flex-1 flex flex-col">
@@ -57,25 +60,42 @@ export default async function TrackDashboardPage({ params }: { params: Promise<{
           <div>
             <h1 className="text-2xl font-bold text-white">Events & Meets</h1>
             <p className="text-slate-400 text-sm mt-1 mb-4">Manage single-day events and races for this venue.</p>
-            <TipBubble className="max-w-xl">
-              <strong className="block mb-1">Creating an Event</strong>
-              An Event represents a single day of racing. After creating an event, click into it to add &quot;Classes&quot; (like Pro Mod, Bracket, etc.) and register competitors for them.
-            </TipBubble>
+            
+            {!hasDefaultClasses && !hasEvents ? (
+              <TipBubble title="Track Setup · Step 5" className="max-w-xl">
+                <strong className="block text-white mb-1">Step 5: Configure Default Classes First</strong>
+                Before creating your first race, click <strong className="text-amber-400">&ldquo;Track Settings&rdquo;</strong> to configure your Default Classes. These will automatically copy into every new event you create!
+              </TipBubble>
+            ) : !hasEvents ? (
+              <TipBubble title="Track Setup · Step 8" className="max-w-xl">
+                <strong className="block text-white mb-1">Step 8: Schedule Your First Race</strong>
+                Default classes are ready! Click <strong className="text-amber-400">&ldquo;Create Event&rdquo;</strong> to choose your race date and set up your event.
+              </TipBubble>
+            ) : (
+              <TipBubble title="Track Setup · Step 13" className="max-w-xl">
+                <strong className="block text-white mb-1">Step 13: Open Your Race Event</strong>
+                Click on your newly created event below to manage contestants, review classes, and start scoring!
+              </TipBubble>
+            )}
           </div>
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href={`/dashboard/tracks/${track.id}/settings`}
-              className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold py-2 px-4 rounded-xl flex items-center space-x-2 transition"
-            >
-              <span>Track Settings</span>
-            </Link>
-            <Link
-              href={`/dashboard/tracks/${track.id}/events/new`}
-              className="bg-amber-500 hover:bg-amber-400 text-amber-950 font-bold py-2 px-4 rounded-xl flex items-center space-x-2 transition"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Create Event</span>
-            </Link>
+          <div className="flex flex-wrap gap-3 items-center">
+            <TipHighlight step="5" label='"Track settings"' active={!hasDefaultClasses && !hasEvents}>
+              <Link
+                href={`/dashboard/tracks/${track.id}/settings`}
+                className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold py-2 px-4 rounded-xl flex items-center space-x-2 transition"
+              >
+                <span>Track Settings</span>
+              </Link>
+            </TipHighlight>
+            <TipHighlight step="8" label='"Create event"' active={hasDefaultClasses && !hasEvents}>
+              <Link
+                href={`/dashboard/tracks/${track.id}/events/new`}
+                className="bg-amber-500 hover:bg-amber-400 text-amber-950 font-bold py-2 px-4 rounded-xl flex items-center space-x-2 transition"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Create Event</span>
+              </Link>
+            </TipHighlight>
           </div>
         </div>
 
@@ -86,48 +106,51 @@ export default async function TrackDashboardPage({ params }: { params: Promise<{
             <p className="text-sm text-slate-400 mt-2 max-w-md mx-auto">
               Create your first event to set up classes, enroll competitors, and start scoring passes.
             </p>
-            <div className="mt-6 p-4 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-xl inline-block max-w-md text-sm text-left">
-              <strong>Tip:</strong> Before creating your first event, we highly recommend going to <Link href={`/dashboard/tracks/${track.id}/settings`} className="underline font-semibold hover:text-amber-400">Track Settings</Link> to configure your Default Classes. These will be automatically copied into any new event you create!
-            </div>
+            {!hasDefaultClasses && (
+              <div className="mt-6 p-4 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-xl inline-block max-w-md text-sm text-left">
+                <strong>Tip:</strong> Before creating your first event, we highly recommend going to <Link href={`/dashboard/tracks/${track.id}/settings`} className="underline font-semibold hover:text-amber-400">Track Settings</Link> to configure your Default Classes. These will be automatically copied into any new event you create!
+              </div>
+            )}
           </div>
         ) : (
           <div className="grid gap-4">
-            {events.map((event) => (
-              <Link
-                href={`/dashboard/tracks/${track.id}/events/${event.id}`}
-                key={event.id}
-                className="bg-slate-900/60 border border-slate-800 hover:border-amber-500/50 p-5 rounded-2xl transition flex items-center justify-between group"
-              >
-                <div className="space-y-1">
-                  <div className="flex flex-wrap gap-3">
-                    <h2 className="text-lg font-bold text-white group-hover:text-amber-400 transition">
-                      {event.name}
-                    </h2>
-                    <span
-                      className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
-                        event.status === "live"
-                          ? "bg-red-500/10 text-red-400 border-red-500/20"
-                          : event.status === "completed"
-                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                          : "bg-slate-800 text-slate-400 border-slate-700"
-                      }`}
-                    >
-                      {event.status}
-                    </span>
+            {events.map((event, idx) => (
+              <TipHighlight key={event.id} step="13" label="Click event" active={idx === 0} className="w-full">
+                <Link
+                  href={`/dashboard/tracks/${track.id}/events/${event.id}`}
+                  className="bg-slate-900/60 border border-slate-800 hover:border-amber-500/50 p-5 rounded-2xl transition flex items-center justify-between group w-full"
+                >
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap gap-3">
+                      <h2 className="text-lg font-bold text-white group-hover:text-amber-400 transition">
+                        {event.name}
+                      </h2>
+                      <span
+                        className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                          event.status === "live"
+                            ? "bg-red-500/10 text-red-400 border-red-500/20"
+                            : event.status === "completed"
+                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                            : "bg-slate-800 text-slate-400 border-slate-700"
+                        }`}
+                      >
+                        {event.status}
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-4 text-sm text-slate-400">
+                      <span className="flex items-center space-x-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                        <span>{event.local_date}</span>
+                      </span>
+                      <span className="text-slate-600">&bull;</span>
+                      <span className="font-mono text-xs text-slate-500">/r/{track.slug}/{event.slug}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-4 text-sm text-slate-400">
-                    <span className="flex items-center space-x-1.5">
-                      <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                      <span>{event.local_date}</span>
-                    </span>
-                    <span className="text-slate-600">&bull;</span>
-                    <span className="font-mono text-xs text-slate-500">/r/{track.slug}/{event.slug}</span>
+                  <div className="text-slate-500 group-hover:text-amber-500 transition">
+                    &rarr;
                   </div>
-                </div>
-                <div className="text-slate-500 group-hover:text-amber-500 transition">
-                  &rarr;
-                </div>
-              </Link>
+                </Link>
+              </TipHighlight>
             ))}
           </div>
         )}

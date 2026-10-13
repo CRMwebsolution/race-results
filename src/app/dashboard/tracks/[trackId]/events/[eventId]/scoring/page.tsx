@@ -5,9 +5,10 @@ import {officialResult} from "@/lib/official-results";
 import {LiveLeaderboard} from "@/app/r/[slug]/[eventSlug]/live-leaderboard";
 import { readAll } from "@/lib/read-all";
 import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
 import { ScoringWorkspace } from "./scoring-workspace";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { TipBubble, TipHighlight } from "@/components/tip-provider";
 
 export default async function EventScoringPage({
   params,searchParams,
@@ -74,6 +75,11 @@ export default async function EventScoringPage({
     
     return (
       <div className="max-w-xl mx-auto mt-12 p-8 bg-slate-900 border border-slate-800 rounded-2xl text-center space-y-6">
+        <TipBubble title={ownerType === 'series' ? "Go Live & Launch Scoring · Step 5" : "Scoring Workspace · Launch Live · Step 17"}>
+          <p className="text-xs text-amber-200/90 leading-relaxed">
+            Click <strong className="text-amber-400">&ldquo;Go Live &amp; Launch Scoring&rdquo;</strong> to open the timing grid and broadcast real-time times to spectators.
+          </p>
+        </TipBubble>
         <div className="w-16 h-16 bg-amber-500/20 text-amber-500 flex items-center justify-center rounded-2xl mx-auto">
           <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
         </div>
@@ -85,9 +91,11 @@ export default async function EventScoringPage({
           This action consumes 1 Event Credit. The scoring workspace will remain editable for 72 hours.
         </div>
         <form action={goLive}>
-          <button className="w-full py-3 px-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl transition">
-            Go Live & Launch Scoring
-          </button>
+          <TipHighlight step={ownerType === 'series' ? "5" : "17"} label='"Go live and launch scoring"' className="w-full">
+            <button className="w-full py-3 px-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl transition">
+              Go Live & Launch Scoring
+            </button>
+          </TipHighlight>
         </form>
         {message && (
           <div className="text-rose-400 text-sm mt-4 p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl">

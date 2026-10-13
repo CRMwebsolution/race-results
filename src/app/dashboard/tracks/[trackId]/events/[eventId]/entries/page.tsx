@@ -8,6 +8,7 @@ import Link from "next/link";
 import { Timer } from "lucide-react";
 import {RaceEntryForm, RaceRegistrationCorrection} from "@/components/race-entry-form";
 import { InlineOrderInput } from "./InlineOrderInput";
+import { TipBubble, TipHighlight } from "@/components/tip-provider";
 
 export default async function ManageEntriesPage({ params, searchParams }: { params: Promise<{ trackId?: string; seriesId?: string; eventId: string }>, searchParams: Promise<{ error?: string;message?:string;class?:string }> }) {
   const {ownerId:trackId,ownerType,ownerColumn,ownerPath,eventId}=raceContext(await params);
@@ -116,6 +117,22 @@ export default async function ManageEntriesPage({ params, searchParams }: { para
 
   return (
     <div className="p-4 sm:p-8 max-w-3xl mx-auto w-full space-y-8">
+      {ownerType === 'series' ? (
+        <TipBubble title="Contestants & Series Registration · Steps 3 & 4">
+          <p className="text-xs text-amber-200/90 leading-relaxed">
+            <strong className="text-white">Step 3:</strong> Fill out the form below to add contestants and select registered racers in the <strong className="text-white">&ldquo;Series registration&rdquo;</strong> section. <br/>
+            <strong className="text-white">Step 4:</strong> Once contestants are added, click <strong className="text-amber-400">&ldquo;Enter results&rdquo;</strong> to launch scoring!
+          </p>
+        </TipBubble>
+      ) : (
+        <TipBubble title="Roster Setup · Steps 15 & 16">
+          <p className="text-xs text-amber-200/90 leading-relaxed">
+            <strong className="text-white">Step 15:</strong> Add contestants and/or classes as needed using the form below. <br/>
+            <strong className="text-white">Step 16:</strong> Once done adding contestants, click <strong className="text-amber-400">&ldquo;Enter results&rdquo;</strong> to launch the scoring workspace!
+          </p>
+        </TipBubble>
+      )}
+
       <h2 className="text-2xl font-bold">Add a contestant for this race</h2>
       {ownerType === 'series' && !event?.competition_season_id && <p className="p-4 border border-amber-500 rounded text-sm">This calendar event has no series season assigned. <Link href={`${ownerPath}/events/${eventId}/settings`} className="text-amber-400 underline">Assign a series season in Date &amp; status</Link> to link registered members and award series points. You can still add one-race contestants.</p>}
       <ActionFeedback error={error==='duplicate_order'?'That running-order number is already in use. Choose another number.':error} message={message}/>
@@ -130,13 +147,15 @@ export default async function ManageEntriesPage({ params, searchParams }: { para
           >
             <span>Add Class</span>
           </Link>
-          <Link 
-            href={`${ownerPath}/events/${eventId}/scoring`}
-            className="flex items-center space-x-2 bg-amber-500 hover:bg-amber-400 text-amber-950 font-bold px-4 py-2 rounded-lg transition"
-          >
-            <Timer className="w-4 h-4" />
-            <span>Enter results</span>
-          </Link>
+          <TipHighlight step={ownerType === 'series' ? "4" : "16"} label='"Enter results"'>
+            <Link 
+              href={`${ownerPath}/events/${eventId}/scoring`}
+              className="flex items-center space-x-2 bg-amber-500 hover:bg-amber-400 text-amber-950 font-bold px-4 py-2 rounded-lg transition"
+            >
+              <Timer className="w-4 h-4" />
+              <span>Enter results</span>
+            </Link>
+          </TipHighlight>
         </div>
       </div>
 

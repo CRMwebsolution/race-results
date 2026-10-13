@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Flag, MapPin, Shield, User, ExternalLink, Calendar } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { CreateTrackForm } from "./create-track-form";
-import {TipBubble} from "@/components/tip-provider";
+import {TipBubble, TipHighlight} from "@/components/tip-provider";
 
 type TrackInfo = {
   id: string;
@@ -132,11 +132,18 @@ export default async function DashboardPage() {
               <p className="text-sm text-slate-400 mt-1 mb-4">
                 Signed in as <span className="text-amber-400 font-mono">{user.email}</span>
               </p>
-              <TipBubble className="max-w-xl">
-                <strong className="block mb-1">Welcome to RaceHoller!</strong>
-                Use this dashboard to manage your tracks, create events, and assign roles. 
-                If you travel, you can create a Series to group events across multiple tracks. 
-                You can turn these tips off in the Help menu.
+              <TipBubble title="Official Workflow Guide" className="max-w-xl">
+                <div className="space-y-2 text-xs text-amber-200/90 leading-relaxed">
+                  <p>
+                    <strong className="text-white">Track Workflow:</strong> Click <strong className="text-amber-400">&ldquo;New Track&rdquo;</strong> (Step 1) &rarr; fill out the form (Step 2) &rarr; click <strong className="text-amber-400">&ldquo;Register Track&rdquo;</strong> (Step 3) &rarr; click <strong className="text-amber-400">&ldquo;Manage Track&rdquo;</strong> (Step 4).
+                  </p>
+                  <p>
+                    <strong className="text-white">Series Workflow:</strong> Click <strong className="text-amber-400">&ldquo;Create Series&rdquo;</strong> (Step 1) to run events across multiple tracks with unified points and standings.
+                  </p>
+                  <p className="text-amber-400/80 text-[11px] pt-1 border-t border-amber-500/20">
+                    Follow the glowing numbered badges on buttons throughout the dashboard to guide your race setup. You can turn tips off in Help.
+                  </p>
+                </div>
               </TipBubble>
             </div>
             <div className="flex items-center space-x-2 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-xl w-fit">
@@ -175,7 +182,7 @@ export default async function DashboardPage() {
             </div>
           ) : (
             <div className={`grid grid-cols-1 gap-4 ${validMemberships.length > 1 ? "md:grid-cols-2" : ""}`}>
-              {validMemberships.map((membership) => {
+              {validMemberships.map((membership, idx) => {
                 const track = membership.tracks;
                 return (
                   <div
@@ -217,12 +224,14 @@ export default async function DashboardPage() {
                           <span>Spectator</span>
                           <ExternalLink className="w-3 h-3 text-slate-400" />
                         </Link>
-                        <Link
-                          href={`/dashboard/tracks/${track.id}`}
-                          className="text-sm font-bold px-4 py-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 transition"
-                        >
-                          Manage Track
-                        </Link>
+                        <TipHighlight step="4" label='"Manage track"' active={idx === 0}>
+                          <Link
+                            href={`/dashboard/tracks/${track.id}`}
+                            className="text-sm font-bold px-4 py-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 transition block text-center"
+                          >
+                            Manage Track
+                          </Link>
+                        </TipHighlight>
                       </div>
                     </div>
                   </div>
@@ -243,12 +252,14 @@ export default async function DashboardPage() {
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path></svg>
               <h2 className="text-lg font-bold text-white">Your Series</h2>
             </div>
-            <Link 
-              href="/dashboard/series/new"
-              className={`text-xs font-semibold px-3 py-2 rounded-lg transition flex items-center gap-1 ${(mySeries?.length ?? 0) > 0 ? "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700" : "bg-amber-500 hover:bg-amber-400 text-slate-950"}`}
-            >
-              <span>{(mySeries?.length ?? 0) > 0 ? "+ Create another series" : "Create Series"}</span>
-            </Link>
+            <TipHighlight step="1" label='"Create series"' active={(mySeries?.length ?? 0) === 0}>
+              <Link 
+                href="/dashboard/series/new"
+                className={`text-xs font-semibold px-3 py-2 rounded-lg transition flex items-center gap-1 ${(mySeries?.length ?? 0) > 0 ? "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700" : "bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold"}`}
+              >
+                <span>{(mySeries?.length ?? 0) > 0 ? "+ Create another series" : "Create Series"}</span>
+              </Link>
+            </TipHighlight>
           </div>
 
           {mySeries?.length === 0 || !mySeries ? (

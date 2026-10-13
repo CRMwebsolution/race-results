@@ -10,6 +10,8 @@ import type { Json } from "@/types/database";
 import { redirect, notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
+import { TipBubble, TipHighlight, GuidedStepBadge } from "@/components/tip-provider";
+import { PlacementRuleInputs } from "@/components/placement-points-form";
 type OwnerParams = { trackId?: string; seriesId?: string; seasonId?: string };
 function failCompetition(path: string, message: string): never {
   redirect(`${path}?error=${encodeURIComponent(message)}`);
@@ -56,6 +58,14 @@ export async function CompetitionManager({
   if (!seasonId)
     return (
       <main className="p-4 sm:p-8 max-w-5xl mx-auto space-y-6">
+        <div className="flex items-center space-x-2">
+          <Link
+            href={seriesId ? `/dashboard/series/${seriesId}` : `/dashboard/tracks/${trackId}`}
+            className="text-amber-400 hover:underline inline-flex items-center gap-1 font-semibold"
+          >
+            &larr; Back to {seriesId ? "Series Hub" : "Track Hub"}
+          </Link>
+        </div>
         <h1 className="text-2xl font-bold">
           {seriesId ? "Series seasons" : "Track series"}
         </h1>
@@ -64,24 +74,38 @@ export async function CompetitionManager({
           for a touring series, or the series name and year for a track series.
           Each season starts with fresh registrations and points.
         </p>
+        <TipBubble title={seriesId ? "Create Series Season · Step 8" : "Track Series Seasons"}>
+          <p className="text-xs text-amber-200/90 leading-relaxed">
+            <strong className="text-white">Step 8:</strong> Fill out the form below to create your series season (e.g., 2026 Season). Once created, click into the season to register contestants and set up points!
+          </p>
+        </TipBubble>
         <ActionFeedback error={p.error} message={p.message} />
         <div className="grid gap-3">
           {seasons.map((s) => (
-            <Link
+            <TipHighlight
               key={s.id}
-              href={`${base}/${s.id}`}
-              className="p-4 border rounded"
+              step="8"
+              label="Click season to add contestants"
+              active={true}
             >
-              <strong>{s.name}</strong>
-              <p>
-                {s.starts_on}
-                {s.ends_on ? ` – ${s.ends_on}` : ""}
-              </p>
-            </Link>
+              <Link
+                href={`${base}/${s.id}`}
+                className="p-4 border rounded block hover:border-amber-400 transition"
+              >
+                <strong className="text-amber-400">{s.name}</strong>
+                <p className="text-sm text-slate-400">
+                  {s.starts_on}
+                  {s.ends_on ? ` – ${s.ends_on}` : ""}
+                </p>
+              </Link>
+            </TipHighlight>
           ))}
         </div>
         <form action={createSeason} className="p-4 border rounded space-y-3">
-          <h2 className="text-xl font-bold">Create a series season</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold">Create a series season</h2>
+            <GuidedStepBadge step="Step 8" label="Create series season" />
+          </div>
           <label className="block min-w-0">
             Series / year
             <input
@@ -96,9 +120,11 @@ export async function CompetitionManager({
             Ends on (optional)
             <input type="date" name="ends_on" className={inputStyle} />
           </label>
-          <button className="p-3 rounded bg-amber-500 text-slate-950">
-            Create series season
-          </button>
+          <TipHighlight step="8" label='"Create series season"'>
+            <button className="p-3 rounded bg-amber-500 text-slate-950 font-bold">
+              Create series season
+            </button>
+          </TipHighlight>
         </form>
       </main>
     );
@@ -314,56 +340,36 @@ export async function CompetitionManager({
     revalidatePath("/r", "layout");
     redirect(`${path}?message=Standings published`);
   }
-  function ruleFields(r?: (typeof input.rules)[number]) {
-    return (
-      <>
-        <input type="hidden" name="id" value={r?.id || ""} />
-        <label className="block min-w-0">
-          First points position
-          <input
-            type="number"
-            min="1"
-            required
-            name="rank_start"
-            defaultValue={r?.rank_start || 1}
-            className={inputStyle}
-          />
-        </label>
-        <label className="block min-w-0">
-          Last points position
-          <input
-            type="number"
-            min="1"
-            required
-            name="rank_end"
-            defaultValue={r?.rank_end || 1}
-            className={inputStyle}
-          />
-        </label>
-        <label className="block min-w-0">
-          Points
-          <input
-            type="number"
-            min="0"
-            required
-            name="points"
-            defaultValue={r?.points ?? 10}
-            className={inputStyle}
-          />
-        </label>
-      </>
-    );
-  }
   return (
     <main className="p-4 sm:p-8 max-w-5xl mx-auto space-y-8">
-      <Link href={base} className="text-amber-400">
-        All series seasons
-      </Link>
+      <div className="flex items-center gap-4 flex-wrap">
+        <TipHighlight step="10" label='"<-" Back to Series Hub'>
+          <Link
+            href={seriesId ? `/dashboard/series/${seriesId}` : `/dashboard/tracks/${trackId}`}
+            className="text-amber-400 hover:underline inline-flex items-center gap-1 font-semibold"
+          >
+            &larr; Back to {seriesId ? "Series Hub" : "Track Hub"}
+          </Link>
+        </TipHighlight>
+        <span className="text-slate-600">|</span>
+        <Link href={base} className="text-slate-400 hover:text-white text-sm">
+          All {seriesId ? "series seasons" : "track series"}
+        </Link>
+      </div>
       <h1 className="text-2xl font-bold">{season.name}</h1>
+      <TipBubble title={seriesId ? "Season Contestants & Setup · Steps 9 & 10" : "Season Contestants & Setup"}>
+        <p className="text-xs text-amber-200/90 leading-relaxed">
+          <strong className="text-white">Step 9:</strong> Fill out the <strong className="text-white">&ldquo;Add contestant&rdquo;</strong> form below to register drivers for this season. <br/>
+          <strong className="text-white">Step 10:</strong> Once contestants are added, click <strong className="text-amber-400">&ldquo;&larr; Back to Series Hub&rdquo;</strong> above to return directly to the series dashboard in one click!
+        </p>
+      </TipBubble>
       <ActionFeedback error={p.error} message={p.message} />
       <details open className="p-4 border rounded-xl">
-        <summary className="font-bold text-xl">Add contestant</summary>
-        <form action={register} className="p-4 border rounded space-y-3">
+        <summary className="font-bold text-xl flex items-center justify-between cursor-pointer">
+          <span>Add contestant</span>
+          <GuidedStepBadge step="Step 9" label="Fill out add contestants form" />
+        </summary>
+        <form action={register} className="p-4 border rounded space-y-3 mt-3">
           <p>
             Register each vehicle and class separately for this series season.
             Contestants must also sign up individually at each race; their
@@ -388,15 +394,17 @@ export async function CompetitionManager({
             </select>
           </label>
           <TodayDate name="joined_on" label="Membership starts" />
-          <button
-            disabled={!input.classes.length}
-            className="p-3 bg-amber-500 text-slate-950 rounded"
-          >
-            Register entry
-          </button>
+          <TipHighlight step="9" label='"Register entry"'>
+            <button
+              disabled={!input.classes.length}
+              className="p-3 bg-amber-500 text-slate-950 font-bold rounded"
+            >
+              Register entry
+            </button>
+          </TipHighlight>
         </form>
         {!input.classes.length && (
-          <p>Add a series class below before registering contestants.</p>
+          <p className="mt-2 text-sm text-amber-400">Add a series class below before registering contestants.</p>
         )}
       </details>
       <details className="p-4 border rounded-xl space-y-3">
@@ -458,28 +466,53 @@ export async function CompetitionManager({
       </details>
       <details className="p-4 border rounded-xl space-y-4">
         <summary className="text-xl font-bold">Placement points</summary>
-        {input.rules.map((r) => (
-          <form
-            key={r.id}
-            action={rule}
-            className="p-4 border rounded grid sm:grid-cols-3 gap-3"
-          >
-            {ruleFields(r)}
-            <button className="p-3 border rounded">Save points rule</button>
-            <button
-              formAction={removeRule}
-              className="p-3 border rounded text-red-300"
+        <p className="text-xs text-slate-400">
+          Configure rank finishing points. Check &ldquo;Multi-rank&rdquo; for a finishing range or &ldquo;This rank and below&rdquo; for all remaining finishers.
+        </p>
+        <div className="space-y-3">
+          {input.rules.map((r) => (
+            <div
+              key={r.id}
+              className="p-4 bg-slate-900 border rounded-xl space-y-3"
             >
-              Remove points rule
-            </button>
-          </form>
-        ))}
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-amber-300">
+                  {r.rank_start === r.rank_end
+                    ? `Rank ${r.rank_start} · ${r.points} points`
+                    : r.rank_end >= 999
+                    ? `Rank ${r.rank_start} & below · ${r.points} points`
+                    : `Ranks ${r.rank_start}–${r.rank_end} · ${r.points} points`}
+                </span>
+                <form action={removeRule}>
+                  <input type="hidden" name="id" value={r.id} />
+                  <button className="text-xs text-red-300 hover:underline">
+                    Remove rule
+                  </button>
+                </form>
+              </div>
+              <details>
+                <summary className="cursor-pointer text-xs text-slate-400 hover:text-white">
+                  Edit rule
+                </summary>
+                <form action={rule} className="space-y-3 pt-2">
+                  <PlacementRuleInputs rule={r} />
+                  <button className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-lg text-sm border border-slate-700">
+                    Save points rule
+                  </button>
+                </form>
+              </details>
+            </div>
+          ))}
+        </div>
         <form
           action={rule}
-          className="p-4 border rounded grid sm:grid-cols-3 gap-3"
+          className="p-5 bg-slate-900 border border-slate-800 rounded-xl space-y-4"
         >
-          {ruleFields()}
-          <button className="p-3 border rounded">Add points rule</button>
+          <h3 className="font-bold text-white">Add placement rule</h3>
+          <PlacementRuleInputs />
+          <button className="w-full p-3 bg-amber-500 hover:bg-amber-400 font-bold rounded-xl text-slate-950 transition">
+            Add points rule
+          </button>
         </form>
       </details>
       <details className="p-4 border rounded-xl space-y-3">

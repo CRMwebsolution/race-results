@@ -1,6 +1,55 @@
 # Agent Updates Log
 
-## 2026-10-12 10:26 PM EDT — Antigravity
+## 2026-10-13 10:08 AM EDT — Antigravity
+
+### What it did
+1. **Account-Centric Billing & Credits Refactor**:
+   - Elevated billing ownership, tier subscriptions, and event credits from ephemeral organizations to **User Accounts (`public.profiles`)**.
+   - Defaulted new account registrations to **0 credits** and `'free'` tier (`handle_new_user`), allowing Cody to review signups via n8n and donate starter trial credits.
+   - Dropped the `notify_orgs_webhook` trigger on `public.organizations` so creating tracks or series no longer sends redundant/spurious organization alerts to n8n. Signups fire via `notify_profiles_webhook` with the account's UUID and email.
+   - Implemented `admin_grant_account_entitlement` RPC allowing platform admins to grant/donate tiers and credits directly to any user account ID.
+   - Maintained backward compatibility: `admin_grant_entitlement(org_id)` resolves the owning account and routes through the account grant, synchronizing both tables.
+   - Updated event quota check (`check_organization_event_quota`) to deduct credits atomically from the event owner's account profile (`profiles.event_quota`), keeping legacy organization rows synchronized.
+   - Added `account_billing_overview` RPC and updated `billing_private.apply_account_payment` / `apply_paid_account_entitlement` for direct user account credit purchases.
+
+2. **Admin Panel — Dual Visibility (Accounts & Organizations) & Account Creation**:
+   - Added dedicated `/admin/accounts` route in platform admin panel:
+     - Search and filter promoter accounts by email, name, or phone.
+     - View account IDs, plan tiers, credit balances, expirations, and all owned tracks & series.
+     - Inline credit grant/donation action for each promoter account.
+     - **Create Account by Admin**: Modal/form allowing platform admins to manually create accounts for promoters with starter credits and complimentary passes, supporting either email invite links or immediate temporary passwords.
+   - Preserved `/admin/organizations` for inspecting organizational entities, memberships, and linking back to the owner's account.
+   - Updated admin sidebar navigation with both **Accounts & Billing** and **Organizations** links.
+
+3. **Promoter Billing UI**:
+   - Refactored `src/app/dashboard/billing/page.tsx` to remove the gate requiring an organization/track. Promoters can view plans, see their account credit balance, and purchase Event Passes ($50), Standard Season Passes ($200), or Premium Season Passes ($250) immediately upon signup.
+   - Updated `/api/checkout` to support account-level checkouts where `orgId` is optional.
+
+### Database changes
+- Migration: `supabase/migrations/20261013140000_account_billing_and_credits.sql`
+  - Added columns to `public.profiles`: `active_tier`, `event_quota`, `subscription_end_date`, `limits_exempt`, `stripe_customer_id`, `stripe_subscription_id`.
+  - Backfilled existing profile entitlements from organizations.
+  - Added RLS policy `Platform admins can view all profiles` on `public.profiles`.
+  - Updated `public.handle_new_user()` trigger to initialize `active_tier = 'free'`, `event_quota = 0`.
+  - Dropped trigger `notify_orgs_webhook` on `public.organizations`.
+  - Created RPC `public.admin_grant_account_entitlement(uuid, text, integer, timestamptz, text, boolean)`.
+  - Updated wrapper `public.admin_grant_entitlement(uuid, text, integer, timestamptz, text, boolean)`.
+  - Created RPC `public.account_billing_overview()`.
+  - Updated trigger function `public.check_organization_event_quota()`.
+  - Altered `billing_private.payment_receipts.organization_id` to drop NOT NULL, added `user_id`.
+  - Created `billing_private.apply_account_payment` and `public.apply_paid_account_entitlement`.
+  - Updated `billing_private.apply_payment` to synchronize with owning profile.
+
+### Other relevant changes
+- Tests run:
+  - Vitest test suite: 21 files, 109 tests passed (`npm test`).
+  - TypeScript typecheck: clean (`npm run typecheck`).
+  - Postgres PGlite tests: `account_billing.sql`, `billing_credits.sql`, `billing_payments.sql`, `billing_permissions.sql` all passed.
+  - Production build: `npm run build` succeeded with all static/dynamic routes.
+- Known issues:
+  - None.
+
+
 
 ### What it did
 Implemented an end-to-end guided workflow feature linked with dashboard Tips bubbles and step-by-step visual highlights (`TipHighlight`, `GuidedStepBadge`), ensuring buttons and fields are blatantly obvious in the exact sequence requested by the user:

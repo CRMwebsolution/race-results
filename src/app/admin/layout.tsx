@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Settings, Users, Database, LayoutDashboard } from "lucide-react";
+import { Settings, Users, Building2, Database, LayoutDashboard } from "lucide-react";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -34,10 +34,17 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <span>Overview</span>
           </Link>
           <Link
-            href="/admin/organizations"
+            href="/admin/accounts"
             className="flex items-center space-x-3 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white rounded-lg transition"
           >
             <Users className="w-4 h-4" />
+            <span>Accounts & Billing</span>
+          </Link>
+          <Link
+            href="/admin/organizations"
+            className="flex items-center space-x-3 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white rounded-lg transition"
+          >
+            <Building2 className="w-4 h-4" />
             <span>Organizations</span>
           </Link>
         </nav>

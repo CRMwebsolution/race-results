@@ -1103,41 +1103,59 @@ export type Database = {
       }
       profiles: {
         Row: {
+          active_tier: string
           created_at: string
           display_name: string | null
           email: string
+          event_quota: number
           full_name: string | null
           home_track_id: string | null
           id: string
           is_premium: boolean
+          limits_exempt: boolean
           phone: string | null
           show_tips: boolean
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscription_end_date: string | null
           tier: string
           updated_at: string
         }
         Insert: {
+          active_tier?: string
           created_at?: string
           display_name?: string | null
           email: string
+          event_quota?: number
           full_name?: string | null
           home_track_id?: string | null
           id: string
           is_premium?: boolean
+          limits_exempt?: boolean
           phone?: string | null
           show_tips?: boolean
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_end_date?: string | null
           tier?: string
           updated_at?: string
         }
         Update: {
+          active_tier?: string
           created_at?: string
           display_name?: string | null
           email?: string
+          event_quota?: number
           full_name?: string | null
           home_track_id?: string | null
           id?: string
           is_premium?: boolean
+          limits_exempt?: boolean
           phone?: string | null
           show_tips?: boolean
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_end_date?: string | null
           tier?: string
           updated_at?: string
         }
@@ -1853,16 +1871,43 @@ export type Database = {
         }
         Returns: string
       }
+      account_billing_overview: {
+        Args: Record<string, never>
+        Returns: Json
+      }
+      admin_grant_account_entitlement: {
+        Args: {
+          p_end_date?: string | null
+          p_limits_exempt?: boolean
+          p_quota: number
+          p_reason?: string
+          p_tier: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       admin_grant_entitlement: {
         Args: {
-          p_end_date: string
+          p_end_date?: string | null
           p_limits_exempt?: boolean
           p_org_id: string
           p_quota: number
-          p_reason: string
+          p_reason?: string
           p_tier: string
         }
         Returns: undefined
+      }
+      apply_paid_account_entitlement: {
+        Args: {
+          p_amount: number
+          p_currency: string
+          p_notification: Json
+          p_session_id: string
+          p_stripe_event_id: string
+          p_tier: string
+          p_user_id: string
+        }
+        Returns: boolean
       }
       admin_reorder_categories: { Args: { p_slugs: string[] }; Returns: Json }
       admin_set_user_admin: {

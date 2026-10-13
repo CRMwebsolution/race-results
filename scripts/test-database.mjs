@@ -8,7 +8,7 @@ try {
   await db.exec(`
     create role anon; create role authenticated; create role service_role bypassrls;
     create schema auth;
-    create table auth.users(id uuid primary key, email text, email_confirmed_at timestamptz);
+    create table auth.users(id uuid primary key, email text, email_confirmed_at timestamptz, raw_user_meta_data jsonb default '{}'::jsonb);
     create function auth.uid() returns uuid language sql stable as $$
       select coalesce(nullif(current_setting('request.jwt.claim.sub',true),''),
         nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'sub')::uuid;
@@ -20,11 +20,17 @@ try {
     grant execute on function auth.uid(), auth.jwt() to anon,authenticated;
     alter default privileges in schema public grant select,insert,update,delete on tables to anon,authenticated,service_role;
     create publication supabase_realtime;
+    create schema if not exists net;
+    create or replace function net.http_post(url text, headers jsonb, body jsonb) returns bigint language sql as $$ select 1::bigint; $$;
   `);
   const directory = new URL("../supabase/migrations/", import.meta.url);
   const files = (await readdir(directory)).filter(f => f.endsWith(".sql")).sort();
   for (const file of files) {
-    try { await db.exec(await readFile(new URL(file, directory), "utf8")); }
+    try {
+      const sql = (await readFile(new URL(file, directory), "utf8"))
+        .replace(/create extension if not exists pg_net;/gi, "-- stub pg_net in pglite");
+      await db.exec(sql);
+    }
     catch (error) { throw new Error(`Migration ${file}: ${error.message} (position ${error.position ?? "unknown"})`); }
   }
   console.log(`PASS: replayed ${files.length} migrations into empty Postgres`);
